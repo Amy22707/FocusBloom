@@ -1,0 +1,10 @@
+.obsidian/
+personal docs/
+AGENTS.md
+
+# .NET / Visual Studio 构建产物
+.vs/
+bin/
+obj/
+*.user
+*.suo
