@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FocusBloom: build",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/dev.ps1", "build"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "FocusBloom: test",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/dev.ps1", "test"],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "FocusBloom: run",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/dev.ps1", "run"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "FocusBloom: publish extension",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/publish-extension.ps1"],
+      "problemMatcher": []
+    },
+    {
+      "label": "FocusBloom: publish",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/dev.ps1", "publish"],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

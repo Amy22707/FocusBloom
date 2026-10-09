@@ -1,0 +1,100 @@
+<UserControl x:Class="FocusBloom.Desktop.Views.FocusMediaSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:FocusBloom.Desktop.Views">
+    <UserControl.Resources>
+        <Style x:Key="LibraryCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource FieldBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="14" /><Setter Property="Padding" Value="14" /><Setter Property="Margin" Value="0,0,12,12" />
+            <Style.Triggers><DataTrigger Binding="{Binding Selected}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /></DataTrigger></Style.Triggers>
+        </Style>
+        <Style x:Key="LibraryToggle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Background" Value="{DynamicResource SubtleBrush}" /><Setter Property="Padding" Value="14,8" /><Setter Property="FontSize" Value="12" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" /></Border></ControlTemplate></Setter.Value></Setter>
+            <Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" /><Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" /></Trigger></Style.Triggers>
+        </Style>
+        <Style x:Key="LibraryExpander" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
+                <StackPanel>
+                    <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Content="{TemplateBinding Header}" HorizontalContentAlignment="Stretch">
+                        <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                            <Border Background="{DynamicResource SubtleBrush}" CornerRadius="12" Padding="16,12" Cursor="Hand">
+                                <DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" FontSize="18" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="16,0,0,0" /><ContentPresenter /></DockPanel>
+                            </Border>
+                            <ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="－" /></Trigger></ControlTemplate.Triggers>
+                        </ControlTemplate></ToggleButton.Template>
+                    </ToggleButton>
+                    <ContentPresenter x:Name="Details" Visibility="Collapsed" Margin="0,16,0,0" />
+                </StackPanel>
+                <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Details" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="专注图文与声音" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Text="点击背景、文字或声音展开素材卡片。专注中的图文保持固定，新选择在下一次采用。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,20" />
+        <Expander x:Name="BackgroundLibrary" IsExpanded="False" Style="{StaticResource LibraryExpander}">
+            <Expander.Header><StackPanel><TextBlock Text="背景" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="{Binding SelectedBackground.Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" /></StackPanel></Expander.Header>
+
+                <StackPanel>
+                    <WrapPanel Margin="0,0,0,12"><ToggleButton Content="每次随机" IsChecked="{Binding BackgroundRandom, Mode=OneWay}" Click="RandomBackground_Click" Style="{StaticResource LibraryToggle}" Margin="0,0,10,0" /><ToggleButton Content="纯色背景" IsChecked="{Binding BackgroundPlain, Mode=OneWay}" Click="PlainBackground_Click" Style="{StaticResource LibraryToggle}" /><CheckBox Content="随机时只选收藏" IsChecked="{Binding FavoritesOnly}" VerticalAlignment="Center" Margin="16,0,0,0" /></WrapPanel>
+                    <DockPanel Margin="0,0,0,12"><CheckBox DockPanel.Dock="Right" Content="只看收藏" IsChecked="{Binding ShowFavoriteImages}" VerticalAlignment="Center" /><WrapPanel><Button Content="添加图片" Click="ImportImages_Click" Padding="12,7" Margin="0,0,8,0" /><Button Content="添加文件夹" Click="ImportFolder_Click" Padding="12,7" Margin="0,0,8,0" /><Button Content="恢复默认" Click="RestoreImages_Click" Padding="12,7" /></WrapPanel></DockPanel>
+                    <ScrollViewer MaxHeight="500" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="BackgroundCards" ItemsSource="{Binding VisibleImages}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                            <Border Width="180" Style="{StaticResource LibraryCard}"><StackPanel>
+                                <Border Height="85" CornerRadius="8"><Border.Background><ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" /></Border.Background></Border>
+                                <TextBlock Text="{Binding Name}" FontSize="12" Margin="0,10,0,5" /><TextBlock Text="{Binding Credit}" FontSize="9" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                <WrapPanel Margin="0,12,0,0"><Button Content="使用" Click="UseImage_Click" Padding="10,5" FontSize="11" Margin="0,0,8,0" /><CheckBox Content="收藏" IsChecked="{Binding Favorite}" VerticalAlignment="Center" FontSize="11" /><Button Content="删除" Click="RemoveImage_Click" Padding="8,5" FontSize="11" Margin="4,0,0,0" /></WrapPanel>
+                                <CheckBox Content="不参与随机" IsChecked="{Binding Excluded}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,10,0,0" />
+                            </StackPanel></Border>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+            
+        </Expander>
+        <Expander x:Name="QuoteLibrary" IsExpanded="False" Style="{StaticResource LibraryExpander}">
+            <Expander.Header><StackPanel><TextBlock Text="文字" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="{Binding SelectedQuote.Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" /></StackPanel></Expander.Header>
+
+                <StackPanel>
+                    <WrapPanel Margin="0,0,0,12"><ToggleButton Content="每次随机" IsChecked="{Binding QuoteRandom, Mode=OneWay}" Click="RandomQuote_Click" Style="{StaticResource LibraryToggle}" /><CheckBox Content="随机时只选收藏" IsChecked="{Binding QuoteFavoritesOnly}" VerticalAlignment="Center" Margin="16,0,0,0" /></WrapPanel>
+                    <DockPanel Margin="0,0,0,12"><CheckBox DockPanel.Dock="Right" Content="只看收藏" IsChecked="{Binding ShowFavoriteQuotes}" VerticalAlignment="Center" /><WrapPanel><Button Content="导入文字列表" Click="ImportQuotes_Click" Padding="12,7" Margin="0,0,8,0" /><Button Content="恢复默认" Click="RestoreQuotes_Click" Padding="12,7" /></WrapPanel></DockPanel>
+                    <ScrollViewer MaxHeight="500" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="QuoteCards" ItemsSource="{Binding VisibleQuotes}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                            <Border Width="264" Style="{StaticResource LibraryCard}"><StackPanel>
+                                <TextBlock Text="{Binding Text}" FontFamily="{DynamicResource FocusQuoteFont}" FontSize="14" LineHeight="24" TextWrapping="Wrap" MaxHeight="144" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Credit}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" />
+                                <WrapPanel Margin="0,12,0,0"><Button Content="使用" Click="UseQuote_Click" Padding="10,5" FontSize="11" Margin="0,0,8,0" /><CheckBox Content="收藏" IsChecked="{Binding Favorite}" VerticalAlignment="Center" FontSize="11" /><Button Content="编辑" Click="EditQuote_Click" Padding="8,5" FontSize="11" Margin="4,0,0,0" Visibility="{Binding Custom, Converter={StaticResource BoolVisibility}}" /><Button Content="删除" Click="RemoveQuote_Click" Padding="8,5" FontSize="11" Margin="4,0,0,0" /></WrapPanel>
+                            </StackPanel></Border>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </ScrollViewer>
+                    <Expander x:Name="QuoteEditor" Header="添加文字或摘录" Margin="0,12,0,0">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="句子" Style="{StaticResource Caption}" /><TextBox Text="{Binding NewQuoteText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="65" />
+                            <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="作者（可选）" Style="{StaticResource Caption}" /><TextBox Text="{Binding NewQuoteAuthor, UpdateSourceTrigger=PropertyChanged}" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="作品（可选）" Style="{StaticResource Caption}" /><TextBox Text="{Binding NewQuoteWork, UpdateSourceTrigger=PropertyChanged}" /></StackPanel></Grid>
+                            <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="译者（可选）" Style="{StaticResource Caption}" /><TextBox Text="{Binding NewQuoteTranslator, UpdateSourceTrigger=PropertyChanged}" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="来源（可选）" Style="{StaticResource Caption}" /><TextBox Text="{Binding NewQuoteSource, UpdateSourceTrigger=PropertyChanged}" /></StackPanel></Grid>
+                            <WrapPanel Margin="0,14,0,0"><Button Content="保存文字" Command="{Binding SaveQuoteCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" /><Button Content="取消编辑" Command="{Binding CancelQuoteCommand}" /></WrapPanel>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            
+        </Expander>
+        <Expander x:Name="SoundLibrary" IsExpanded="False" Style="{StaticResource LibraryExpander}">
+            <Expander.Header><StackPanel><TextBlock Text="声音" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="{Binding SelectedSound.Name}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" /></StackPanel></Expander.Header>
+
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12"><CheckBox DockPanel.Dock="Right" Content="只看收藏" IsChecked="{Binding ShowFavoriteSounds}" VerticalAlignment="Center" /><WrapPanel><ToggleButton Content="不播放" IsChecked="{Binding NoSound, Mode=OneWay}" Click="NoSound_Click" Style="{StaticResource LibraryToggle}" Margin="0,0,8,0" /><Button Content="导入音频" Click="ImportSound_Click" Padding="12,7" Margin="0,0,8,0" /><Button Content="恢复默认" Click="RestoreSounds_Click" Padding="12,7" /></WrapPanel></DockPanel>
+                    <views:FocusAudioControls ShowLibrary="False" Margin="0,0,0,16" />
+                    <ScrollViewer MaxHeight="500" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="SoundCards" ItemsSource="{Binding VisibleSounds}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+                            <Border Width="264" Style="{StaticResource LibraryCard}"><StackPanel><TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Medium" /><TextBlock Text="{Binding Credit}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" />
+                                <WrapPanel Margin="0,12,0,0"><Button Content="使用" Click="UseSound_Click" Padding="10,5" FontSize="11" Margin="0,0,8,0" /><CheckBox Content="收藏" IsChecked="{Binding Favorite}" VerticalAlignment="Center" FontSize="11" /><Button Content="删除" Click="RemoveSound_Click" Padding="8,5" FontSize="11" Margin="4,0,0,0" /><Button Content="来源" Click="SoundSource_Click" Padding="8,5" FontSize="11" /></WrapPanel>
+                            </StackPanel></Border>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </ScrollViewer>
+                    <CheckBox Content="专注或休息结束时播放提示音" IsChecked="{Binding ReminderSounds}" Margin="0,16,0,0" />
+                </StackPanel>
+            
+        </Expander>
+        <TextBlock Text="删除仅从素材库移除，本地文件不受影响。默认素材可恢复。" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,16,0,0" />
+    </StackPanel>
+</UserControl>

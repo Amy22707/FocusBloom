@@ -1,0 +1,17 @@
+{
+  "images": [
+    { "id":"lake", "name":"湖光与山影", "file":"Backgrounds/lake.jpg", "author":"James Wheeler", "source":"https://www.pexels.com/photo/lake-and-mountain-417074/", "license":"Pexels License" },
+    { "id":"forest", "name":"林间薄雾", "file":"Backgrounds/forest.jpg", "author":"Johannes Plenio", "source":"https://www.pexels.com/photo/forest-surrounded-by-fog-1776273/", "license":"Pexels License" },
+    { "id":"coast", "name":"海岸的绿意", "file":"Backgrounds/coast.jpg", "author":"Pixabay", "source":"https://www.pexels.com/photo/green-hill-near-body-of-water-462162/", "license":"CC0 / Pexels" },
+    { "id":"waterfall", "name":"暮色瀑布", "file":"Backgrounds/waterfall.jpg", "author":"Pixabay", "source":"https://www.pexels.com/photo/time-lapse-photography-of-waterfalls-during-sunset-210186/", "license":"Pexels License" },
+    { "id":"mist", "name":"静静的森林", "file":"Backgrounds/mist.jpg", "author":"David Music", "source":"https://www.pexels.com/photo/forest-in-mist-6017051/", "license":"Pexels License" },
+    { "id":"ocean", "name":"远山与海", "file":"Backgrounds/ocean.jpg", "author":"Artem Zhukov", "source":"https://www.pexels.com/photo/ocean-near-shore-in-mountains-landscape-14354558/", "license":"Pexels License" }
+  ],
+  "sounds": [
+    { "id":"rain", "name":"轻雨 · 环境录音", "file":"Audio/rain.mp3", "author":"Ylmir", "source":"https://opengameart.org/content/rain-loopable", "license":"CC0" },
+    { "id":"fire", "name":"壁炉 · 环境录音", "file":"Audio/fire.wav", "author":"PagDev", "source":"https://opengameart.org/content/fireplace-sound-loop", "license":"CC0" },
+    { "id":"white", "name":"白噪音 · 合成", "file":"Audio/white.wav", "author":"FocusBloom", "source":"", "license":"原创合成音源" },
+    { "id":"pink", "name":"粉红噪音 · 合成", "file":"Audio/pink.wav", "author":"FocusBloom", "source":"", "license":"原创合成音源" },
+    { "id":"brown", "name":"棕噪音 · 合成", "file":"Audio/brown.wav", "author":"FocusBloom", "source":"", "license":"原创合成音源" }
+  ]
+}

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>FocusBloom</AssemblyName>
+    <ApplicationIcon>Resources/Branding/FocusBloom.ico</ApplicationIcon>
+    <IncludePackageReferencesDuringMarkupCompilation>false</IncludePackageReferencesDuringMarkupCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Resources/Branding/FocusBloom.png" />
+    <Resource Include="Resources/Branding/FocusBloom.ico" />
+    <Content Include="Resources/Focus/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <ProjectReference Include="../FocusBloom.Core/FocusBloom.Core.csproj" />
+    <ProjectReference Include="../FocusBloom.Infrastructure/FocusBloom.Infrastructure.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+</Project>

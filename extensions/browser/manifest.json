@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "一刻专注 · FocusBloom",
+  "version": "0.2.0",
+  "description": "独立专注计时与网站黑白名单。无需安装或连接桌面软件。",
+  "minimum_chrome_version": "120",
+  "permissions": ["alarms", "tabs", "storage", "declarativeNetRequest"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "一刻专注" },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "web_accessible_resources": [{ "resources": ["blocked.html", "page.js", "page.css", "icons/128.png"], "matches": ["http://*/*", "https://*/*"] }]
+}

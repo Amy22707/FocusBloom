@@ -1,0 +1,17 @@
+<Window x:Class="FocusBloom.Desktop.Windows.LoadingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="一刻专注" Icon="{StaticResource BrandLogo}" Style="{StaticResource {x:Type Window}}"
+        Width="460" Height="450" WindowStyle="None" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False" AllowsTransparency="True" Background="Transparent">
+    <Border Margin="12" CornerRadius="26" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="3" Opacity="0.15" /></Border.Effect>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32">
+            <Image x:Name="LoadingLogo" Source="{StaticResource BrandLogo}" Width="160" Height="160" Margin="0,0,0,30" RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.Clip><RectangleGeometry Rect="0,0,160,160" RadiusX="28" RadiusY="28" /></Image.Clip>
+            </Image>
+            <TextBlock Text="一刻专注" FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+            <TextBlock Text="把时间留给喜欢的事。" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+        </StackPanel>
+    </Border>
+</Window>

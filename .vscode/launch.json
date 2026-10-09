@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FocusBloom（本地 SDK）",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "FocusBloom: build",
+      "program": "${workspaceFolder}/.tools/dotnet/dotnet.exe",
+      "args": ["${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows/FocusBloom.dll"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "FocusBloom（系统 SDK）",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "FocusBloom: build",
+      "program": "${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows/FocusBloom.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    }
+  ]
+}
