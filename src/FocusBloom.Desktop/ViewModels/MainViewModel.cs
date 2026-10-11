@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Storage;
@@ -15,11 +16,13 @@ public sealed record RecordRow(string Project, string Started, string Ended, str
 
 public sealed class MainViewModel : ObservableObject
 {
+    private sealed record ProjectSelection(string Folder, Guid? ProjectId);
     private readonly IFocusStore _store;
     private readonly FocusTimer _timer;
     private Guid? _savedRecordId;
     private Guid? _attemptedRecordId;
     private FocusProject? _selectedProject;
+    private Guid? _activeProjectId;
     private string _durationMinutes = "25";
     private string _pauseMinutes;
     private string _restMinutes;
@@ -72,7 +75,14 @@ public sealed class MainViewModel : ObservableObject
         _selectedAppearanceMode = Appearance.Modes.FirstOrDefault(m => m.Mode.ToString() == store.GetSetting("appearance.mode")) ?? Appearance.Modes[0];
         Appearance.Apply(_selectedPalette, _selectedAppearanceMode.Mode);
         Typography = new FocusTypographyViewModel(store, message => StatusMessage = message);
-        SelectedFolder = Folders.FirstOrDefault(f => f.Projects.Count > 0) ?? Folders.FirstOrDefault();
+        var selectionJson = store.GetSetting("focus.selection");
+        var selection = selectionJson is null ? null : JsonSerializer.Deserialize<ProjectSelection>(selectionJson);
+        var selectedId = selection?.ProjectId ?? (selection is null ? store.GetRecords().FirstOrDefault()?.ProjectId : null);
+        var selectedProject = Projects.FirstOrDefault(project => project.Id == selectedId);
+        _selectedFolder = Folders.FirstOrDefault(folder => folder.Name == (selectedProject?.Category ?? selection?.Folder))
+            ?? Folders.FirstOrDefault(folder => folder.Projects.Count > 0) ?? Folders.FirstOrDefault();
+        if (_selectedFolder is not null) foreach (var project in _selectedFolder.Projects) FolderProjects.Add(project);
+        _selectedProject = selectedProject ?? FolderProjects.FirstOrDefault();
         StartCommand = new RelayCommand(Start, () => CanConfigure && !HasUnsavedRecord);
         PauseCommand = new RelayCommand(() => { _timer.Pause(); Refresh(); }, () => _timer.State == FocusState.Focusing);
         ResumeCommand = new RelayCommand(() => { _timer.Resume(); Refresh(); }, () => _timer.State == FocusState.Paused);
@@ -83,6 +93,7 @@ public sealed class MainViewModel : ObservableObject
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RetrySaveCommand = new RelayCommand(() => { PersistRecord(); Refresh(); }, () => HasUnsavedRecord);
         LoadRecords();
+        SaveProjectSelection();
     }
 
     public ObservableCollection<FocusProject> Projects { get; }
@@ -171,6 +182,7 @@ public sealed class MainViewModel : ObservableObject
             Notify();
             Notify(nameof(ProjectPath));
             Notify(nameof(FocusHeading));
+            SaveProjectSelection();
         }
     }
     public ProjectFolder? SelectedFolder
@@ -188,6 +200,14 @@ public sealed class MainViewModel : ObservableObject
             Notify(nameof(FolderSummary));
             Notify(nameof(IsFolderEmpty));
         }
+    }
+    private void SaveProjectSelection()
+    {
+        if (_selectedFolder is null) return;
+        if (_selectedProject is null && _selectedFolder.Projects.Count > 0) return;
+        if (_selectedProject is not null && !_selectedFolder.Projects.Any(project => project.Id == _selectedProject.Id)) return;
+        try { _store.SaveSetting("focus.selection", JsonSerializer.Serialize(new ProjectSelection(_selectedFolder.Name, _selectedProject?.Id))); }
+        catch (Exception ex) { StatusMessage = $"项目选择保存失败：{ex.Message}"; }
     }
     public string DurationMinutes { get => _durationMinutes; set { _durationMinutes = value; Notify(); } }
     public string PauseMinutes { get => _pauseMinutes; set { _pauseMinutes = value; Notify(); } }
@@ -278,6 +298,7 @@ public sealed class MainViewModel : ObservableObject
         SessionApplicationMode = Whitelist.ApplicationMode.Mode;
         SessionWebsiteMode = Whitelist.WebsiteMode.Mode;
         ActiveProjectName = SelectedProject.Name;
+        _activeProjectId = SelectedProject.Id;
         StatusMessage = $"{SelectedRestrictionMode.Name} · 可以随时结束";
         Media.BeginSession();
         Refresh();
@@ -287,7 +308,10 @@ public sealed class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(NewProjectName)) { StatusMessage = "请填写项目名称。"; return; }
         if (SelectedFolder is null) { StatusMessage = "请先选择或新建一个文件夹。"; return; }
-        var project = new FocusProject(Guid.NewGuid(), NewProjectName.Trim(), SelectedFolder.Name, "#9683BE");
+        var name = NewProjectName.Trim();
+        if (SelectedFolder.Projects.Any(project => string.Equals(project.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return; }
+        var project = new FocusProject(Guid.NewGuid(), name, SelectedFolder.Name, "#9683BE");
         try
         {
             _store.SaveProject(project);
@@ -307,11 +331,10 @@ public sealed class MainViewModel : ObservableObject
     {
         var name = NewFolderName.Trim();
         if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return; }
-        var existing = Folders.FirstOrDefault(f => f.Name == name);
+        var existing = Folders.FirstOrDefault(f => string.Equals(f.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
         {
-            SelectedFolder = existing;
-            StatusMessage = "已打开同名文件夹。";
+            StatusMessage = "已有同名文件夹，请使用其他名称。";
             return;
         }
         try
@@ -324,6 +347,93 @@ public sealed class MainViewModel : ObservableObject
             StatusMessage = "文件夹已创建，可以添加项目。";
         }
         catch (Exception ex) { StatusMessage = $"文件夹保存失败：{ex.Message}"; }
+    }
+
+    public bool RenameFolder(ProjectFolder folder, string name)
+    {
+        name = name.Trim();
+        if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return false; }
+        if (name == folder.Name) return true;
+        if (Folders.Any(item => item != folder && string.Equals(item.Name.Trim(), name, StringComparison.OrdinalIgnoreCase))) { StatusMessage = "已有同名文件夹，请使用其他名称。"; return false; }
+        try
+        {
+            var selectedId = SelectedProject?.Id;
+            _store.RenameFolder(folder.Name, name);
+            ReloadProjects(name, selectedId);
+            StatusMessage = "文件夹名称已保存。";
+            return true;
+        }
+        catch (Exception ex) { StatusMessage = $"文件夹修改失败：{ex.Message}"; return false; }
+    }
+
+    public bool UpdateProject(FocusProject project, string name, ProjectFolder? folder)
+    {
+        name = name.Trim();
+        if (name.Length == 0) { StatusMessage = "请填写项目名称。"; return false; }
+        if (folder is null) { StatusMessage = "请选择文件夹。"; return false; }
+        if (folder.Projects.Any(item => item.Id != project.Id && string.Equals(item.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return false; }
+        try
+        {
+            if (project.Category != folder.Name) _store.SaveFolder(project.Category);
+            _store.SaveProject(project with { Name = name, Category = folder.Name });
+            ReloadProjects(folder.Name, project.Id);
+            if (_activeProjectId == project.Id)
+            {
+                ActiveProjectName = name;
+                Notify(nameof(ActiveProjectName)); Notify(nameof(FocusHeading));
+            }
+            StatusMessage = "项目已修改并保存。";
+            return true;
+        }
+        catch (Exception ex) { StatusMessage = $"项目修改失败：{ex.Message}"; return false; }
+    }
+
+    public bool CanDeleteProject(FocusProject project) => !(_timer.IsActive && _activeProjectId == project.Id)
+        && !(HasUnsavedRecord && _timer.LastRecord!.ProjectId == project.Id);
+    public bool CanDeleteFolder(ProjectFolder folder) => folder.Projects.All(CanDeleteProject);
+
+    public bool DeleteProject(FocusProject project)
+    {
+        if (!CanDeleteProject(project)) { StatusMessage = "请先结束该项目的专注并保存记录，再删除。"; return false; }
+        try
+        {
+            _store.DeleteProject(project.Id);
+            ReloadProjects(SelectedFolder?.Name, SelectedProject?.Id);
+            StatusMessage = "项目已删除，历史专注记录保留。";
+            return true;
+        }
+        catch (Exception ex) { StatusMessage = $"项目删除失败：{ex.Message}"; return false; }
+    }
+
+    public bool DeleteFolder(ProjectFolder folder)
+    {
+        if (!CanDeleteFolder(folder)) { StatusMessage = "文件夹中有正在专注或记录未保存的项目，请先处理后再删除。"; return false; }
+        try
+        {
+            _store.DeleteFolder(folder.Name);
+            ReloadProjects(SelectedFolder?.Name, SelectedProject?.Id);
+            StatusMessage = "文件夹及其中的项目已删除，历史专注记录保留。";
+            return true;
+        }
+        catch (Exception ex) { StatusMessage = $"文件夹删除失败：{ex.Message}"; return false; }
+    }
+
+    private void ReloadProjects(string? folderName, Guid? projectId)
+    {
+        SelectedFolder = null;
+        Projects.Clear(); Folders.Clear();
+        foreach (var project in _store.GetProjects()) Projects.Add(project);
+        foreach (var name in _store.GetFolders())
+        {
+            var folder = new ProjectFolder(name);
+            foreach (var project in Projects.Where(project => project.Category == name)) folder.Add(project);
+            Folders.Add(folder);
+        }
+        SelectedFolder = Folders.FirstOrDefault(folder => folder.Name == folderName)
+            ?? Folders.FirstOrDefault(folder => folder.Projects.Count > 0) ?? Folders.FirstOrDefault();
+        SelectedProject = FolderProjects.FirstOrDefault(project => project.Id == projectId) ?? FolderProjects.FirstOrDefault();
+        LoadRecords();
     }
 
     private void SaveSettings()
@@ -375,7 +485,7 @@ public sealed class MainViewModel : ObservableObject
     private void LoadRecords()
     {
         Records.Clear();
-        var projects = Projects.ToDictionary(p => p.Id, p => p.Name);
+        var projects = _store.GetProjects(includeDeleted: true).ToDictionary(p => p.Id, p => p.Name);
         foreach (var record in _store.GetRecords())
             Records.Add(new RecordRow(projects.GetValueOrDefault(record.ProjectId, "未分类"),
                 record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),

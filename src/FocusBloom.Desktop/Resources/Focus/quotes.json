@@ -1,27 +1,252 @@
 [
-  "且视他人之疑目如盏盏鬼火，大胆地去走你的夜路。",
-  "人的天职在于勇于探索真理。",
-  "What's past is prologue.",
-  "This too shall pass.",
-  "愿乘长风破万里浪。",
-  "No need to hurry. No need to sparkle. No need to be anybody but oneself.",
-  "我们一生不过是清醒地穿过梦境，每个人只不过是岁月的一个幽灵。",
-  "执着于理想，纯粹于当下。",
-  "少年春怀似酒浓，插花走马醉千钟。",
-  "无论风暴将我带到什么样的岸边，我都将以主人的身份上岸。",
-  "所有的星星终将毁灭，可它们无畏地燃烧着。",
-  "所谓无底深渊，下去，也是前程万里。",
-  "虽然辛苦，我还是会选择那种滚烫的人生。",
-  "休对故人思故国，且将新火试新茶。诗酒趁年华。",
-  "我当然不会试图摘月，我要月亮奔我而来。",
-  "人独自行过生命，蒙受沾污，承担罪过，痛饮苦酒，寻觅出路。",
-  "我们可以做很多白日梦，可以失败，可以哭泣，可以光芒万丈。",
-  "攀登山顶的拼搏本身足以充实一颗人心。应当想像西西弗是幸福的。",
-  "你要到达自由的高处，你的灵魂渴慕星空。",
-  "请让我独自行事，自由做梦，任凭明天对我裁决。",
-  "自由一生，是我全部的野心。",
-  "而世上鲜花会盛开，壮丽不朽的事物会接踵而来。",
-  "我身体里的火车从来不会错轨\n 所以允许大雪，风暴，泥石流和荒谬",
-  "目击众神死亡的草原上野花一片\n远在远方的风比远方更远",
-  "我们所过的每个平凡的日常，也许就是连续发生的奇迹。"
+  {
+    "id": "default-0",
+    "text": "且视他人之疑目如盏盏鬼火，大胆地去走你的夜路。",
+    "author": "史铁生",
+    "work": "《病隙碎笔》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-1",
+    "text": "人的天职在于勇于探索真理。",
+    "author": "哥白尼",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-2",
+    "text": "What's past is prologue.",
+    "author": "William Shakespeare",
+    "work": "The Tempest",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-3",
+    "text": "This too shall pass.",
+    "author": "波斯谚语",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-4",
+    "text": "愿乘长风破万里浪。",
+    "author": "宗悫",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-5",
+    "text": "No need to hurry. No need to sparkle. No need to be anybody but oneself.",
+    "author": "Virginia Woolf",
+    "work": "The Diary of Virginia Woolf",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-6",
+    "text": "我们一生不过是清醒地穿过梦境，每个人只不过是岁月的一个幽灵。",
+    "author": "弗兰兹·卡夫卡",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-7",
+    "text": "我的肩上是风\r\n风上是闪烁的星群",
+    "author": "北岛",
+    "work": "《结局或开始——献给遇罗克》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-8",
+    "text": "少日春怀似酒浓，插花走马醉千钟。",
+    "author": "辛弃疾",
+    "work": "《定风波·暮春漫兴》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-9",
+    "text": "无论风暴将我带到什么样的岸边，我都将以主人的身份上岸。",
+    "author": "昆图斯·贺拉斯·弗拉库斯",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-10",
+    "text": "所有的星星终将毁灭，可它们无畏地燃烧着。",
+    "author": "埃迪特·索德格朗",
+    "work": "《存在的凯旋》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-11",
+    "text": "所谓无底深渊，下去，也是前程万里。",
+    "author": "木心",
+    "work": "《素履之往》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-12",
+    "text": "虽然辛苦，我还是会选择那种滚烫的人生。",
+    "author": "北野武",
+    "work": "《北野武的小酒馆》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-13",
+    "text": "休对故人思故国，且将新火试新茶。诗酒趁年华。",
+    "author": "苏轼",
+    "work": "《望江南·超然台作》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-14",
+    "text": "我当然不会试图摘月，我要月亮奔我而来。",
+    "author": "萨布丽娜（奥黛丽·赫本饰）",
+    "work": "《龙凤配》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-15",
+    "text": "人独自行过生命，蒙受玷污，承担罪过，痛饮苦酒，寻觅出路。",
+    "author": "赫尔曼·黑塞",
+    "work": "《悉达多》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-16",
+    "text": "以心灵的秩序对抗世界的复杂性。",
+    "author": "伊塔洛·卡尔维诺",
+    "work": "《为什么读经典》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-18",
+    "text": "你要到达自由的高处，你的灵魂渴慕星空。",
+    "author": "弗里德里希·尼采",
+    "work": "《查拉图斯特拉如是说》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-19",
+    "text": "请让我独自行事，自由做梦，任凭明天对我裁决。",
+    "author": "纪伯伦",
+    "work": "《泪与笑·致非难者》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-20",
+    "text": "自由一生，是我全部的野心。",
+    "author": "西班牙谚语",
+    "work": "",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-21",
+    "text": "而世上鲜花会盛开，壮丽不朽的事物会接踵而来。",
+    "author": "约翰·济慈",
+    "work": "《厌于世人的迷信而作》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-22",
+    "text": "我身体里的火车从来不会错轨\n 所以允许大雪，风暴，泥石流和荒谬",
+    "author": "余秀华",
+    "work": "《我身体里也有一列火车》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-23",
+    "text": "目击众神死亡的草原上野花一片\n远在远方的风比远方更远",
+    "author": "海子",
+    "work": "《九月》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "default-24",
+    "text": "我们所过的每个平凡的日常，也许就是连续发生的奇迹。",
+    "author": "新井圭一",
+    "work": "《日常》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  },
+  {
+    "id": "52fe0a3e-bc6a-4388-8dca-ecee5ea9bbf7",
+    "text": "对未来的真正慷慨，是把一切献给现在。",
+    "author": "阿尔贝·加缪",
+    "work": "《反抗者》",
+    "translator": "",
+    "source": "",
+    "note": "",
+    "custom": false
+  }
 ]

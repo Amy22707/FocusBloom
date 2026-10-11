@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -17,6 +18,10 @@ public sealed class ApplicationRestrictionService : IDisposable
     private readonly IntPtr _hook;
     private ApplicationBlockedWindow? _blockedWindow;
     private IntPtr _lastAllowedWindow;
+    private readonly Dictionary<IntPtr, PriorWindow> _priorWindows = [];
+    private IntPtr _blockedTarget;
+    private uint _blockedProcess;
+    private sealed record PriorWindow(uint ProcessId, bool Visible, bool Minimized);
 
     public ApplicationRestrictionService(MainViewModel viewModel, Action returnToFocus)
     {
@@ -26,6 +31,7 @@ public sealed class ApplicationRestrictionService : IDisposable
         _hook = SetWinEventHook(3, 3, IntPtr.Zero, _callback, 0, 0, 2);
         if (_hook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(), "无法监测前台应用。");
         _viewModel.RestrictionsChanged += OnRestrictionsChanged;
+        if (_viewModel.RestrictionsActive) CapturePriorWindows();
     }
 
     public void CheckForeground() => CheckWindow(GetForegroundWindow());
@@ -53,6 +59,8 @@ public sealed class ApplicationRestrictionService : IDisposable
         var target = GetAncestor(window, 3);
         _lastAllowedWindow = IntPtr.Zero;
         if (target == IntPtr.Zero) target = window;
+        _blockedTarget = target;
+        GetWindowThreadProcessId(target, out _blockedProcess);
         _blockedWindow ??= CreateBlockedWindow();
         _blockedWindow.SetApplication(app.Name);
         var screen = System.Windows.Forms.Screen.FromHandle(target);
@@ -94,15 +102,35 @@ public sealed class ApplicationRestrictionService : IDisposable
 
     private void ReturnToFocus()
     {
+        var target = _blockedTarget;
+        var process = _blockedProcess;
+        _blockedTarget = IntPtr.Zero;
         _returnToFocus();
+        GetWindowThreadProcessId(target, out var currentProcess);
+        if (target != IntPtr.Zero && currentProcess == process)
+        {
+            if (_priorWindows.TryGetValue(target, out var prior) && prior.ProcessId == process)
+                ShowWindow(target, prior.Visible ? 6 : 0);
+            else PostMessage(target, 0x0010, IntPtr.Zero, IntPtr.Zero);
+        }
         _blockedWindow?.Hide();
     }
 
     private void OnRestrictionsChanged(object? sender, EventArgs e)
     {
         _lastAllowedWindow = IntPtr.Zero;
-        if (_viewModel.RestrictionsActive) CheckForeground();
-        else _blockedWindow?.Hide();
+        if (_viewModel.RestrictionsActive) { CapturePriorWindows(); CheckForeground(); }
+        else { _blockedTarget = IntPtr.Zero; _priorWindows.Clear(); _blockedWindow?.Hide(); }
+    }
+    private void CapturePriorWindows()
+    {
+        _priorWindows.Clear();
+        EnumWindows((window, _) =>
+        {
+            GetWindowThreadProcessId(window, out var process);
+            if (process != Environment.ProcessId) _priorWindows[window] = new PriorWindow(process, IsWindowVisible(window), IsIconic(window));
+            return true;
+        }, IntPtr.Zero);
     }
 
     public void Dispose()
@@ -125,4 +153,10 @@ public sealed class ApplicationRestrictionService : IDisposable
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint thread, uint otherThread, bool attach);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
+    private delegate bool EnumWindowCallback(IntPtr window, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowCallback callback, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 }

@@ -1,6 +1,7 @@
 using System.IO;
 using System.ComponentModel;
 using System.Runtime.ExceptionServices;
+using System.Text;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
@@ -107,6 +108,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal("英语阅读", viewModel.SelectedProject!.Name);
                 content.UpdateLayout();
                 SavePreview(content, window.Background, "projects-page.png");
+                VerifyProjectCardLayout(window, viewModel, content);
 
                 tabs.SelectedIndex = 0;
                 content.UpdateLayout();
@@ -132,6 +134,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("WorkspaceView")).Visibility);
                 Assert.Equal(Visibility.Collapsed, ((FrameworkElement)window.FindName("FullscreenView")).Visibility);
                 enterFullscreen.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                viewModel.Media.SelectedBackground = viewModel.Media.Images.First(image => !image.IsVideo).Asset;
                 start.Command.Execute(null);
                 var sessionImage = viewModel.Media.Background;
                 var sessionQuote = viewModel.Media.QuoteText;
@@ -212,6 +215,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal(Color.FromRgb(25, 29, 37), ((SolidColorBrush)window.Background).Color);
                 Assert.All(TextElements(palettes), text => Assert.Equal(Color.FromRgb(229, 233, 240), ((SolidColorBrush)text.Foreground).Color));
                 SavePreview(content, window.Background, "appearance-dark.png");
+                VerifyDarkThemeSurfaces(window, viewModel, content);
                 tabs.SelectedIndex = 0;
                 content.UpdateLayout();
                 FlushBindings();
@@ -251,6 +255,7 @@ public sealed class DesktopFlowTests
                 content.UpdateLayout();
                 FlushBindings();
                 SavePreview(content, window.Background, "records-page.png");
+                VerifyRecordGridTheme(window, viewModel, content);
                 tabs.SelectedIndex = 0;
                 content.Measure(new Size(1000, 630));
                 content.Arrange(new Rect(0, 0, 1000, 630));
@@ -299,6 +304,15 @@ public sealed class DesktopFlowTests
                 Assert.True(viewModel.PrepareExit());
                 Assert.False(viewModel.RestrictionsActive);
                 Assert.True(store.GetRecords().First().Strict);
+                VerifyProjectManagement(window, viewModel, store, clock);
+                VerifyProjectNamesAndLastDeletion(window, viewModel, store, clock, directory);
+                VerifyProjectSelectionPreference(viewModel, directory);
+                RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "background-animation.gif"));
+                RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "alto-minho-waterfall.gif"));
+                RunWithDispatcher(() => VerifyThumbnailLoadingAsync(viewModel, directory));
+                RunWithDispatcher(() => VerifyVideoBackgroundAsync(window, viewModel, store, clock, directory, "loop-background.mp4"));
+                RunWithDispatcher(() => VerifyVideoBackgroundAsync(window, viewModel, store, clock, directory, "loop-background.wmv"));
+                RunWithDispatcher(() => VerifyDefaultVideoAsync(window, viewModel));
                 RunWithDispatcher(() => VerifyWindowRestrictionAsync(window, viewModel, directory));
                 RunWithDispatcher(() => VerifyBrowserAsync(window, viewModel, directory));
                 VerifyTimerPreferences(window, viewModel, store, clock);
@@ -339,6 +353,136 @@ public sealed class DesktopFlowTests
 
     private static void FlushBindings() => Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
+    private static void VerifyProjectCardLayout(MainWindow window, MainViewModel viewModel, FrameworkElement content)
+    {
+        var projects = viewModel.FolderProjects.ToArray();
+        var selected = viewModel.SelectedProject;
+        var projectList = (ListBox)window.FindName("ProjectList");
+        try
+        {
+            var samples = projects.Concat(Enumerable.Range(0, 5).Select(index => new FocusBloom.Core.Projects.FocusProject(Guid.NewGuid(), $"测试 {index + 3}", "学习", "#9683BE"))).ToArray();
+            foreach (var size in new[] { new Size(1000, 630), new Size(1240, 750) })
+            {
+                Size? singleCardSize = null;
+                foreach (var count in new[] { 1, 3, 7 })
+                {
+                    viewModel.FolderProjects.Clear();
+                    foreach (var project in samples.Take(count)) viewModel.FolderProjects.Add(project);
+                    content.Measure(size); content.Arrange(new Rect(new Point(), size)); content.UpdateLayout(); FlushBindings();
+                    var item = (ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(0);
+                    Assert.Equal(120, item.ActualHeight, 3);
+                    if (singleCardSize is null) singleCardSize = item.RenderSize;
+                    else
+                    {
+                        Assert.Equal(singleCardSize.Value.Width, item.ActualWidth, 3);
+                        Assert.Equal(singleCardSize.Value.Height, item.ActualHeight, 3);
+                    }
+                    Assert.All(Enumerable.Range(0, count), index => Assert.Equal(120, ((ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(index)).ActualHeight, 3));
+                    if (size.Width == 1240 && count == 1) SavePreview(content, window.Background, "project-single-compact.png");
+                }
+                content.Measure(size); content.Arrange(new Rect(new Point(), size)); content.UpdateLayout(); FlushBindings();
+                Assert.InRange(((FrameworkElement)window.FindName("NewProjectArea")).ActualHeight, 0, 40);
+                var first = (ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(0);
+                var third = (ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(2);
+                var fourth = (ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(3);
+                Assert.Equal(first.TransformToAncestor(projectList).Transform(new Point()).Y, third.TransformToAncestor(projectList).Transform(new Point()).Y, 3);
+                Assert.True(fourth.TransformToAncestor(projectList).Transform(new Point()).Y > first.TransformToAncestor(projectList).Transform(new Point()).Y);
+                var scroll = (ScrollViewer)projectList.Template.FindName("PART_ScrollViewer", projectList);
+                scroll.ScrollToBottom(); content.UpdateLayout(); FlushBindings();
+                var final = (ListBoxItem)projectList.ItemContainerGenerator.ContainerFromIndex(6);
+                var finalBounds = final.TransformToAncestor(scroll).TransformBounds(new Rect(final.RenderSize));
+                Assert.True(finalBounds.Bottom <= scroll.ViewportHeight + 1, "最后一行项目应可完整滚入列表。");
+                scroll.ScrollToTop(); content.UpdateLayout(); FlushBindings();
+            }
+            projectList.SelectedIndex = 2; FlushBindings(); Assert.Same(viewModel.FolderProjects[2], viewModel.SelectedProject);
+            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+            content.UpdateLayout(); FlushBindings(); SavePreview(content, window.Background, "projects-three-columns.png");
+        }
+        finally
+        {
+            viewModel.FolderProjects.Clear(); foreach (var project in projects) viewModel.FolderProjects.Add(project);
+            viewModel.SelectedProject = selected;
+            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
+        }
+    }
+
+    private static void VerifyRecordGridTheme(MainWindow window, MainViewModel viewModel, FrameworkElement content)
+    {
+        var grid = (DataGrid)window.FindName("RecordsGrid");
+        var records = viewModel.Records.ToArray();
+        try
+        {
+            for (var index = 0; index < 5; index++) viewModel.Records.Add(records[0] with { Project = $"记录 {index + 2}" });
+            foreach (var mode in new[] { AppearanceMode.Dark, AppearanceMode.Light, AppearanceMode.Dark })
+            {
+                viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == mode);
+                grid.UnselectAll(); content.UpdateLayout(); FlushBindings();
+                for (var index = 0; index < 6; index++)
+                {
+                    var row = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(index);
+                    Assert.NotNull(row);
+                    var expected = (SolidColorBrush)Application.Current.FindResource(row.IsMouseOver ? "HoverBrush" : index % 2 == 0 ? "CardBrush" : "FieldBrush");
+                    Assert.Equal(expected.Color, ((SolidColorBrush)row.Background).Color);
+                    Assert.All(Descendants<DataGridCell>(row), cell => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)cell.Foreground).Color));
+                }
+                grid.SelectedIndex = 1; grid.Focus(); content.UpdateLayout(); FlushBindings();
+                var selectedRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
+                Assert.Equal(((SolidColorBrush)Application.Current.FindResource("SelectedBrush")).Color, ((SolidColorBrush)selectedRow.Background).Color);
+                grid.UnselectAll(); content.UpdateLayout(); FlushBindings();
+                SavePreview(content, window.Background, mode == AppearanceMode.Dark ? "records-dark.png" : "records-light.png");
+            }
+        }
+        finally
+        {
+            viewModel.Records.Clear(); foreach (var record in records) viewModel.Records.Add(record);
+            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
+        }
+    }
+
+    private static void VerifyDarkThemeSurfaces(MainWindow window, MainViewModel viewModel, FrameworkElement content)
+    {
+        Assert.True(Appearance.IsDark); Assert.True(WindowAppearance.Apply(window));
+
+
+        var apps = (ListBox)window.FindName("RestrictionApplicationList");
+        var sites = (ListBox)window.FindName("RestrictionWebsiteList");
+        var savedApps = viewModel.Whitelist.Applications.ToArray();
+        var savedSites = viewModel.Whitelist.Websites.ToArray();
+        viewModel.Whitelist.Applications.Add(new AllowedApplication("设置", @"C:\Windows\ImmersiveControlPanel\SystemSettings.exe"));
+        viewModel.Whitelist.Applications.Add(new AllowedApplication("Google Chrome", @"C:\Program Files\Google\Chrome\Application\chrome.exe"));
+        viewModel.Whitelist.Websites.Add(new WebsiteRule("amy22707.github.io", true));
+        viewModel.Whitelist.Websites.Add(new WebsiteRule("chatgpt.com", true));
+        apps.SelectedIndex = 1;
+        foreach (var list in new[] { apps, sites })
+        {
+            list.Measure(new Size(820, 180)); list.Arrange(new Rect(0, 0, 820, 180)); list.UpdateLayout(); FlushBindings();
+            var surface = (Border)list.Template.FindName("ListSurface", list);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)surface.Background).Color);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)((ScrollViewer)list.Template.FindName("PART_ScrollViewer", list)).Background).Color);
+            Assert.All(TextElements(list).Where(element => !element.Text.Contains(@"C:\")), element => Assert.Equal(Color.FromRgb(229, 233, 240), ((SolidColorBrush)element.Foreground).Color));
+        }
+        SavePreview(apps, (Brush)Application.Current.FindResource("CardBrush"), "application-list-dark.png", 820, 180);
+        SavePreview(sites, (Brush)Application.Current.FindResource("CardBrush"), "website-list-dark.png", 820, 180);
+        var picker = new ApplicationPickerWindow();
+        try
+        {
+        new WindowInteropHelper(picker).EnsureHandle();
+        Assert.True(WindowAppearance.Apply(picker));
+        viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Light);
+        Assert.False(Appearance.IsDark); Assert.True(WindowAppearance.Apply(window));
+
+        Assert.True(WindowAppearance.Apply(picker));
+        viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Dark);
+        viewModel.RefreshSystemTheme();
+        Assert.True(Appearance.IsDark); Assert.True(WindowAppearance.Apply(window));
+        }
+        finally { picker.Close(); }
+        viewModel.Whitelist.Applications.Clear(); foreach (var app in savedApps) viewModel.Whitelist.Applications.Add(app);
+        viewModel.Whitelist.Websites.Clear(); foreach (var site in savedSites) viewModel.Whitelist.Websites.Add(site);
+        content.UpdateLayout(); FlushBindings();
+    }
+
+
     private static void VerifyFocusFonts(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, FrameworkElement content)
     {
         var typography = viewModel.Typography;
@@ -347,6 +491,18 @@ public sealed class DesktopFlowTests
         content.UpdateLayout(); FlushBindings();
         var settings = (FocusFontSettingsView)((Border)window.FindName("FocusFontSettingsCard")).Child;
         Assert.Same(typography, settings.DataContext);
+        var preferencesScroll = (ScrollViewer)window.FindName("PreferencesScrollViewer");
+        preferencesScroll.ScrollToVerticalOffset(preferencesScroll.ScrollableHeight / 2);
+        FlushBindings();
+        var offsetBeforeWheel = preferencesScroll.VerticalOffset;
+        var fontSample = TextElements((ListBox)settings.FindName("ChineseFontSelector")).First(text => text.Text == typography.ChineseFonts[0].Preview);
+        fontSample.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+        FlushBindings();
+        Assert.True(preferencesScroll.VerticalOffset > offsetBeforeWheel, "滚轮位于字体卡片时应继续向下滚动设置页面。");
+        var offsetAfterWheel = preferencesScroll.VerticalOffset;
+        fontSample.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+        FlushBindings();
+        Assert.True(preferencesScroll.VerticalOffset < offsetAfterWheel, "字体卡片上的滚轮也应支持向上滚动。");
         ((ListBox)settings.FindName("ChineseFontSelector")).SelectedItem = typography.ChineseFonts.Single(font => font.Family == "SimSun");
         ((ListBox)settings.FindName("EnglishFontSelector")).SelectedItem = typography.EnglishFonts.Single(font => font.Family == "Georgia");
         var mechanical = typography.TimerFonts.FirstOrDefault(font => font.Family == "OCR A Extended") ?? typography.TimerFonts.Single(font => font.Family == "Bahnschrift");
@@ -372,18 +528,439 @@ public sealed class DesktopFlowTests
         Assert.Equal("Segoe UI", ((TextBlock)window.FindName("TimerDisplay")).FontFamily.Source);
     }
 
+    private static async Task VerifyGifBackgroundAsync(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock, string directory, string fixture)
+    {
+        var media = model.Media;
+        var previousBackground = media.SelectedBackground;
+        var gifPath = Path.Combine(directory, "动态背景-" + fixture);
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture), gifPath);
+        media.ImportImages([gifPath]);
+        var card = media.Images.Single(image => image.Asset.File == gifPath);
+        Assert.True(card.IsGif); Assert.NotNull(card.Thumbnail); Assert.Equal("自定义", card.Origin);
+        card.Favorite = true;
+        media.SelectedBackground = card.Asset;
+        using (var restored = new FocusMediaViewModel(store, _ => { }))
+        {
+            Assert.Equal(card.Asset.Id, restored.SelectedBackground.Id);
+            Assert.Equal(gifPath, restored.BackgroundGifUri!.LocalPath);
+            Assert.True(restored.Images.Single(image => image.Asset.Id == card.Asset.Id).Favorite);
+        }
+        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedIndex = 0;
+        model.SelectedTimerMode = model.TimerModes[0]; model.SelectedRestrictionMode = model.RestrictionModes[0]; model.RestMinutes = "0";
+        model.StartCommand.Execute(null); window.UpdateLayout(); FlushBindings();
+        var normal = (FocusBackgroundView)window.FindName("FocusBackground");
+        var normalImage = (Image)normal.FindName("GifImage");
+        string? animationError = null;
+        normalImage.AddHandler(XamlAnimatedGif.AnimationBehavior.ErrorEvent, new XamlAnimatedGif.AnimationErrorEventHandler((_, args) => animationError = args.Exception.ToString()), true);
+        await WaitForAsync(() => XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage) is not null);
+        await WaitForAsync(() => normalImage.Source is BitmapSource && Pixel(normalImage).Any(value => value != 0));
+        var first = Pixel(normalImage);
+        await WaitForAsync(() => !Pixel(normalImage).SequenceEqual(first));
+        if (fixture == "background-animation.gif") await WaitForAsync(() => Pixel(normalImage).SequenceEqual(first));
+        await Task.Delay(fixture == "background-animation.gif" ? 850 : 1500);
+        var later = Pixel(normalImage);
+        await WaitForAsync(() => !Pixel(normalImage).SequenceEqual(later));
+        Assert.Equal(card.Asset.Id, media.CurrentBackgroundId);
+        if (fixture == "alto-minho-waterfall.gif")
+        {
+            Assert.Equal(972, ((BitmapSource)normalImage.Source).PixelWidth);
+            Assert.Equal(728, ((BitmapSource)normalImage.Source).PixelHeight);
+            SavePreview((FrameworkElement)window.Content, window.Background, "gif-waterfall-focus.png");
+        }
+        model.PauseCommand.Execute(null);
+        later = Pixel(normalImage);
+        await WaitForAsync(() => !Pixel(normalImage).SequenceEqual(later));
+        model.ResumeCommand.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(3)); model.Tick();
+        ((Button)window.FindName("EnterFullscreenButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var fullscreen = (FullscreenFocusView)window.FindName("FullscreenView");
+        var fullBackground = (FocusBackgroundView)fullscreen.FindName("FullscreenBackground");
+        var fullImage = (Image)fullBackground.FindName("GifImage");
+        await WaitForAsync(() => XamlAnimatedGif.AnimationBehavior.GetAnimator(fullImage) is not null);
+        await WaitForAsync(() => fullImage.Source is BitmapSource && Pixel(fullImage).Any(value => value != 0));
+        Assert.Null(XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage));
+        Assert.Equal(media.BackgroundGifUri, fullBackground.AnimatedUri);
+        later = Pixel(fullImage); await WaitForAsync(() => !Pixel(fullImage).SequenceEqual(later));
+        Assert.Equal(card.Asset.Id, media.CurrentBackgroundId); Assert.Equal("00:00:03", model.TimerText);
+        if (fixture == "alto-minho-waterfall.gif") SavePreview((FrameworkElement)window.Content, window.Background, "gif-waterfall-fullscreen.png");
+        ((Button)fullscreen.FindName("ReturnToWindowButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await WaitForAsync(() => XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage) is not null);
+        Assert.Null(XamlAnimatedGif.AnimationBehavior.GetAnimator(fullImage));
+        tabs.SelectedIndex = 1; FlushBindings();
+        Assert.Null(XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage));
+        tabs.SelectedIndex = 0; window.UpdateLayout(); FlushBindings();
+        await WaitForAsync(() => XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage) is not null);
+        window.Hide(); FlushBindings(); Assert.Null(XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage));
+        window.Show(); window.UpdateLayout(); FlushBindings();
+        await WaitForAsync(() => XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage) is not null);
+        media.SelectedBackground = media.BackgroundChoices.Single(asset => asset.Id == "theme");
+        Assert.Equal(gifPath, media.BackgroundGifUri!.LocalPath);
+        model.EndCommand.Execute(null);
+        model.StartCommand.Execute(null); FlushBindings();
+        Assert.Null(media.BackgroundGifUri); Assert.Null(XamlAnimatedGif.AnimationBehavior.GetAnimator(normalImage));
+        model.EndCommand.Execute(null); media.RemoveImage(card); media.SelectedBackground = previousBackground;
+        File.Delete(gifPath);
+
+        byte[] Pixel(Image image)
+        {
+            Assert.True(image.Source is BitmapSource, animationError ?? $"GIF 背景未显示图像：{fixture}；{model.StatusMessage}");
+            var bitmap = (BitmapSource)image.Source;
+            var width = Math.Min(32, bitmap.PixelWidth); var height = Math.Min(32, bitmap.PixelHeight);
+            var pixel = new byte[width * height * 4];
+            bitmap.CopyPixels(new Int32Rect((bitmap.PixelWidth - width) / 2, (bitmap.PixelHeight - height) * 3 / 4, width, height), pixel, width * 4, 0);
+            return pixel;
+        }
+    }
+
+    private static void VerifyProjectManagement(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock)
+    {
+        var previousProject = model.SelectedProject!;
+        model.NewFolderName = "待整理"; model.AddFolderCommand.Execute(null);
+        model.NewProjectName = "草稿"; model.AddProjectCommand.Execute(null);
+        var project = model.SelectedProject!;
+        model.NewProjectName = "保留项目"; model.AddProjectCommand.Execute(null);
+        var sibling = model.SelectedProject!;
+        var source = model.SelectedFolder!;
+        model.NewFolderName = "归档位置"; model.AddFolderCommand.Execute(null);
+        var destination = model.SelectedFolder!;
+        model.SelectedFolder = source;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1;
+        window.UpdateLayout(); FlushBindings();
+        Assert.Contains(FindButtons((ListBox)window.FindName("FolderList")), button => button.ToolTip?.ToString() == "修改或删除文件夹");
+        Assert.Contains(FindButtons((ListBox)window.FindName("ProjectList")), button => button.ToolTip?.ToString() == "修改或删除项目");
+        Assert.False(model.RenameFolder(source, ""));
+        Assert.False(model.RenameFolder(source, destination.Name));
+        var folderEditor = new ProjectEditorWindow(model, source) { Owner = window };
+        Assert.Equal(Visibility.Collapsed, ((FrameworkElement)folderEditor.FindName("FolderField")).Visibility);
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((TextBox)folderEditor.FindName("NameInput")).Text = "课程草稿";
+            ((Button)folderEditor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(folderEditor.ShowDialog());
+        source = model.SelectedFolder!;
+        Assert.Equal("课程草稿", source.Name); Assert.Equal(2, source.Projects.Count);
+        Assert.All(source.Projects, item => Assert.Equal(source.Name, item.Category));
+        project = model.Projects.Single(item => item.Id == project.Id);
+        model.SelectedProject = project;
+        model.SelectedTimerMode = model.TimerModes[0]; model.SelectedRestrictionMode = model.RestrictionModes[0]; model.RestMinutes = "0";
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(30)); model.Tick();
+        Assert.False(model.CanDeleteProject(project)); Assert.False(model.DeleteProject(project));
+        Assert.False(model.CanDeleteFolder(source)); Assert.False(model.DeleteFolder(source));
+        var projectEditor = new ProjectEditorWindow(model, project) { Owner = window };
+        Assert.True(((Button)projectEditor.FindName("DeleteButton")).IsEnabled);
+        model.SelectedAppearanceMode = model.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((TextBox)projectEditor.FindName("NameInput")).Text = "整理后的项目";
+            ((ComboBox)projectEditor.FindName("FolderSelector")).SelectedItem = model.Folders.Single(folder => folder.Name == destination.Name);
+            projectEditor.UpdateLayout();
+            var editorContent = (FrameworkElement)projectEditor.Content;
+            SavePreview(editorContent, projectEditor.Background, "project-editor-dark.png", (int)projectEditor.ActualWidth, (int)projectEditor.ActualHeight);
+            ((Button)projectEditor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(projectEditor.ShowDialog());
+        Assert.Equal(project.Id, model.SelectedProject!.Id); Assert.Equal(destination.Name, model.SelectedFolder!.Name);
+        Assert.Equal("整理后的项目", model.ActiveProjectName); Assert.Equal("00:00:30", model.TimerText);
+        Assert.Single(model.Folders.Single(folder => folder.Name == source.Name).Projects);
+        destination = model.SelectedFolder;
+        Assert.False(model.DeleteFolder(destination));
+        clock.Advance(TimeSpan.FromSeconds(30)); model.EndCommand.Execute(null);
+        project = model.SelectedProject;
+        Assert.True(model.DeleteProject(project)); Assert.Empty(model.FolderProjects);
+        Assert.True(model.DeleteFolder(model.Folders.Single(folder => folder.Name == source.Name)));
+        Assert.True(model.DeleteFolder(model.Folders.Single(folder => folder.Name == destination.Name)));
+        Assert.DoesNotContain(model.Projects, item => item.Id == project.Id || item.Id == sibling.Id);
+        Assert.Contains(model.Records, row => row.Project == "整理后的项目" && row.Duration == "00:01:00");
+        Assert.Equal(project.Id, store.GetRecords().First(record => record.ProjectId == project.Id).ProjectId);
+        model.SelectedFolder = model.Folders.Single(folder => folder.Name == previousProject.Category);
+        model.SelectedProject = model.Projects.Single(item => item.Id == previousProject.Id);
+        model.SelectedAppearanceMode = model.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
+    }
+
+    private static void VerifyProjectNamesAndLastDeletion(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock, string directory)
+    {
+        var previous = model.SelectedProject!;
+        model.NewFolderName = "Reports"; model.AddFolderCommand.Execute(null);
+        model.NewProjectName = "Report"; model.AddProjectCommand.Execute(null);
+        var project = model.SelectedProject!;
+        var folderCount = model.Folders.Count; var projectCount = model.Projects.Count;
+        model.NewFolderName = " reports "; model.AddFolderCommand.Execute(null);
+        Assert.Equal(folderCount, model.Folders.Count); Assert.Contains("同名", model.StatusMessage);
+        model.NewProjectName = " report "; model.AddProjectCommand.Execute(null);
+        Assert.Equal(projectCount, model.Projects.Count); Assert.Contains("同名", model.StatusMessage);
+        model.NewProjectName = "Notes"; model.AddProjectCommand.Execute(null);
+        var notes = model.SelectedProject!;
+        Assert.False(model.UpdateProject(notes, " report ", model.SelectedFolder));
+        Assert.Equal("Notes", model.Projects.Single(item => item.Id == notes.Id).Name);
+        Assert.True(model.DeleteProject(notes));
+        model.NewFolderName = "Archive"; model.AddFolderCommand.Execute(null);
+        model.NewProjectName = "Report"; model.AddProjectCommand.Execute(null);
+        var other = model.SelectedProject!;
+        Assert.NotEqual(project.Id, other.Id);
+        Assert.False(model.RenameFolder(model.SelectedFolder!, " reports "));
+        Assert.False(model.UpdateProject(project, "Report", model.SelectedFolder));
+        Assert.Equal("Reports", model.Projects.Single(item => item.Id == project.Id).Category);
+        Assert.True(model.UpdateProject(project, "Moved", model.SelectedFolder));
+        Assert.True(model.UpdateProject(model.SelectedProject!, "Report", model.Folders.Single(folder => folder.Name == "Reports")));
+        project = model.SelectedProject!;
+        Assert.Single(model.FolderProjects);
+        model.SelectedTimerMode = model.TimerModes[0]; model.SelectedRestrictionMode = model.RestrictionModes[0]; model.RestMinutes = "0";
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(12)); model.PauseCommand.Execute(null);
+        FlushBindings();
+        Assert.Equal(Visibility.Visible, ((TextBlock)window.FindName("FocusConfigurationHint")).Visibility);
+        Assert.Equal(Visibility.Visible, ((TextBlock)window.FindName("RestrictionEditHint")).Visibility);
+        void DeleteFromEditor(ProjectEditorWindow editor, bool allowed, bool confirm)
+        {
+            editor.Owner = window;
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+            {
+                Assert.True(((Button)editor.FindName("DeleteButton")).IsEnabled);
+                Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                {
+                    var dialog = Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single();
+                    Assert.Equal(allowed ? Visibility.Visible : Visibility.Collapsed, ((Button)dialog.FindName("ConfirmDeletionButton")).Visibility);
+                    Assert.Equal(allowed ? Visibility.Collapsed : Visibility.Visible, ((Button)dialog.FindName("NoticeButton")).Visibility);
+                    if (!allowed) Assert.Contains("先结束", ((TextBlock)dialog.FindName("DeletionMessage")).Text);
+                    if (allowed && confirm) ((Button)dialog.FindName("ConfirmDeletionButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    else dialog.DialogResult = false;
+                }));
+                ((Button)editor.FindName("DeleteButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (!allowed || !confirm) editor.DialogResult = false;
+            }));
+            Assert.Equal(allowed && confirm, editor.ShowDialog());
+        }
+        DeleteFromEditor(new ProjectEditorWindow(model, project), false, false);
+        DeleteFromEditor(new ProjectEditorWindow(model, model.SelectedFolder!), false, false);
+        Assert.True(model.IsFocusActive); Assert.Single(model.FolderProjects);
+        model.EndCommand.Execute(null);
+        FlushBindings();
+        Assert.Equal(Visibility.Collapsed, ((TextBlock)window.FindName("FocusConfigurationHint")).Visibility);
+        Assert.Equal(Visibility.Collapsed, ((TextBlock)window.FindName("RestrictionEditHint")).Visibility);
+        DeleteFromEditor(new ProjectEditorWindow(model, project), true, false);
+        Assert.Single(model.FolderProjects);
+        DeleteFromEditor(new ProjectEditorWindow(model, project), true, true);
+        Assert.Empty(model.FolderProjects); Assert.Null(model.SelectedProject); Assert.True(model.IsFolderEmpty);
+        Assert.Contains(model.Folders, folder => folder.Name == "Reports");
+        Assert.Contains(model.Records, record => record.Project == "Report" && record.Duration == "00:00:12");
+        var reopened = new MainViewModel(new SqliteFocusStore(Path.Combine(directory, "test.db")));
+        Assert.Empty(reopened.Folders.Single(folder => folder.Name == "Reports").Projects);
+        reopened.Media.Dispose();
+        DeleteFromEditor(new ProjectEditorWindow(model, model.Folders.Single(folder => folder.Name == "Archive")), true, true);
+        Assert.DoesNotContain(model.Projects, item => item.Id == other.Id);
+        Assert.True(model.DeleteFolder(model.Folders.Single(folder => folder.Name == "Reports")));
+        model.SelectedFolder = model.Folders.Single(folder => folder.Name == previous.Category);
+        model.SelectedProject = model.Projects.Single(item => item.Id == previous.Id);
+        model.NewProjectName = ""; model.NewFolderName = "";
+
+    }
+
+    private static void VerifyProjectSelectionPreference(MainViewModel original, string directory)
+    {
+        var path = Path.Combine(directory, "selection.db");
+        var store = new SqliteFocusStore(path);
+        var model = new MainViewModel(store);
+        model.NewFolderName = "上次选择"; model.AddFolderCommand.Execute(null);
+        model.NewProjectName = "第一项"; model.AddProjectCommand.Execute(null);
+        var first = model.SelectedProject!;
+        model.NewProjectName = "第二项"; model.AddProjectCommand.Execute(null);
+        var second = model.SelectedProject!;
+        model.SelectedProject = first; model.SelectedProject = second;
+        var restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal("上次选择", restored.SelectedFolder!.Name); Assert.Equal(second.Id, restored.SelectedProject!.Id);
+        var restoredWindow = new MainWindow(restored, store, Path.Combine(directory, "selection-browser"));
+        new WindowInteropHelper(restoredWindow).EnsureHandle();
+        var content = (FrameworkElement)restoredWindow.Content;
+        content.Measure(new Size(1240, 750)); content.Arrange(new Rect(0, 0, 1240, 750)); content.UpdateLayout(); FlushBindings();
+        Assert.Same(restored.SelectedFolder, ((ComboBox)restoredWindow.FindName("FocusFolderSelector")).SelectedItem);
+        Assert.Same(restored.SelectedProject, ((ComboBox)restoredWindow.FindName("ProjectSelector")).SelectedItem);
+        restoredWindow.Close(); restored.Media.Dispose();
+        Assert.True(model.RenameFolder(model.SelectedFolder!, "改名后"));
+        model.NewFolderName = "移动目标"; model.AddFolderCommand.Execute(null);
+        Assert.True(model.UpdateProject(model.Projects.Single(project => project.Id == second.Id), "第二项新版", model.SelectedFolder));
+        restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal(second.Id, restored.SelectedProject!.Id); Assert.Equal("第二项新版", restored.SelectedProject.Name);
+        Assert.Equal("移动目标", restored.SelectedFolder!.Name); restored.Media.Dispose();
+        store.DeleteProject(second.Id);
+        restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal("移动目标", restored.SelectedFolder!.Name); Assert.Null(restored.SelectedProject); restored.Media.Dispose();
+        store.DeleteFolder("移动目标");
+        restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal("改名后", restored.SelectedFolder!.Name); Assert.Equal(first.Id, restored.SelectedProject!.Id);
+        restored.NewFolderName = "留空"; restored.AddFolderCommand.Execute(null); restored.Media.Dispose();
+        restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal("留空", restored.SelectedFolder!.Name); Assert.Null(restored.SelectedProject); restored.Media.Dispose();
+        model.Media.Dispose();
+
+        var historyStore = new SqliteFocusStore(Path.Combine(directory, "selection-history.db"));
+        historyStore.SaveFolder("之前的专注");
+        var historyProject = new FocusBloom.Core.Projects.FocusProject(Guid.NewGuid(), "最近使用", "之前的专注", "#7B97A6");
+        historyStore.SaveProject(historyProject);
+        var clock = new ManualClock(); var timer = new FocusTimer(clock);
+        timer.Start(new FocusOptions(historyProject.Id, TimerMode.CountUp, TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.Zero));
+        clock.Advance(TimeSpan.FromSeconds(5)); timer.End(); historyStore.SaveRecord(timer.LastRecord!);
+        restored = new MainViewModel(historyStore);
+        Assert.Equal(historyProject.Id, restored.SelectedProject!.Id); Assert.Equal(historyProject.Category, restored.SelectedFolder!.Name);
+        restored.Media.Dispose(); original.RefreshSystemTheme();
+    }
+
+    private static async Task VerifyVideoBackgroundAsync(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock, string directory, string fixture)
+    {
+        var media = model.Media;
+        var previous = media.SelectedBackground;
+        var folder = Path.Combine(directory, fixture + "-folder"); Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "视频背景" + Path.GetExtension(fixture));
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture), path);
+        media.ImportFolder(folder);
+        var card = media.Images.Single(image => image.Asset.File == path);
+        Assert.True(card.IsVideo); Assert.Equal("视频循环", card.FormatLabel); Assert.Equal("自定义", card.Origin);
+        Assert.Null(card.Thumbnail); Assert.True(card.LoadThumbnailAsync().IsCompleted);
+        card.Favorite = true;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0;
+        window.UpdateLayout(); FlushBindings();
+        var normal = (FocusBackgroundView)window.FindName("FocusBackground");
+        var player = (MediaElement)normal.FindName("VideoPlayer");
+        var loops = 0; Exception? error = null;
+        RoutedEventHandler ended = (_, _) => loops++;
+        EventHandler<ExceptionRoutedEventArgs> failed = (_, args) => error = args.ErrorException;
+        player.MediaEnded += ended; player.MediaFailed += failed;
+        media.SelectedBackground = card.Asset;
+        model.SelectedTimerMode = model.TimerModes[0]; model.SelectedRestrictionMode = model.RestrictionModes[0]; model.RestMinutes = "0";
+        model.StartCommand.Execute(null); window.UpdateLayout(); FlushBindings();
+        await WaitForAsync(() => player.NaturalVideoWidth > 0 || error is not null);
+        Assert.Null(error); Assert.True(media.HasBackground); Assert.Null(media.BackgroundGifUri);
+        Assert.Equal(path, media.BackgroundVideoUri!.LocalPath);
+        Assert.True(player.IsMuted); Assert.Equal(0, player.Volume); Assert.True(player.HasVideo); Assert.True(player.HasAudio);
+        Assert.Equal(fixture.EndsWith(".mp4") ? 1920 : 640, player.NaturalVideoWidth);
+        await WaitForAsync(() => loops >= 2 || error is not null); Assert.Null(error);
+        model.PauseCommand.Execute(null);
+        var beforePause = loops; await WaitForAsync(() => loops > beforePause); model.ResumeCommand.Execute(null);
+        using (var restored = new FocusMediaViewModel(store, _ => { }))
+        {
+            Assert.Equal(card.Asset.Id, restored.SelectedBackground.Id);
+            Assert.Equal(path, restored.BackgroundVideoUri!.LocalPath);
+            Assert.True(restored.Images.Single(image => image.Asset.Id == card.Asset.Id).Favorite);
+        }
+        clock.Advance(TimeSpan.FromSeconds(2)); model.Tick();
+        ((Button)window.FindName("EnterFullscreenButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var fullscreen = (FullscreenFocusView)window.FindName("FullscreenView");
+        var full = (FocusBackgroundView)fullscreen.FindName("FullscreenBackground");
+        var fullPlayer = (MediaElement)full.FindName("VideoPlayer");
+        await WaitForAsync(() => fullPlayer.NaturalVideoWidth > 0);
+        Assert.Null(player.Source); Assert.Equal(media.BackgroundVideoUri, full.VideoUri);
+        Assert.True(fullPlayer.IsMuted); Assert.Equal(0, fullPlayer.Volume);
+        Assert.Equal("00:00:02", model.TimerText);
+        ((Button)fullscreen.FindName("ReturnToWindowButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await WaitForAsync(() => player.Source is not null && player.NaturalVideoWidth > 0);
+        Assert.Null(fullPlayer.Source);
+        window.Hide(); FlushBindings(); Assert.Null(player.Source);
+        window.Show(); window.UpdateLayout(); FlushBindings(); await WaitForAsync(() => player.Source is not null && player.NaturalVideoWidth > 0);
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1; FlushBindings(); Assert.Null(player.Source);
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0; window.UpdateLayout(); FlushBindings();
+        await WaitForAsync(() => player.Source is not null && player.NaturalVideoWidth > 0);
+        media.SelectedBackground = media.BackgroundChoices.Single(asset => asset.Id == "theme"); Assert.Equal(path, media.BackgroundVideoUri!.LocalPath);
+        model.EndCommand.Execute(null); model.StartCommand.Execute(null); FlushBindings();
+        Assert.Null(media.BackgroundVideoUri); Assert.Null(player.Source);
+        model.EndCommand.Execute(null); media.RemoveImage(card); media.SelectedBackground = previous;
+        player.MediaEnded -= ended; player.MediaFailed -= failed;
+    }
+
+    private static async Task VerifyDefaultVideoAsync(MainWindow window, MainViewModel model)
+    {
+        var media = model.Media; var previous = media.SelectedBackground;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0;
+        var player = (MediaElement)((FocusBackgroundView)window.FindName("FocusBackground")).FindName("VideoPlayer");
+        var loops = 0; Exception? error = null;
+        RoutedEventHandler ended = (_, _) => loops++;
+        EventHandler<ExceptionRoutedEventArgs> failed = (_, args) => error = args.ErrorException;
+        player.MediaEnded += ended; player.MediaFailed += failed;
+        try
+        {
+            media.SelectedBackground = media.Images.Single(image => image.Asset.Id == "clackamas-river").Asset;
+            model.StartCommand.Execute(null); window.UpdateLayout(); FlushBindings();
+            await WaitForAsync(() => player.NaturalVideoWidth > 0 || error is not null);
+            Assert.Null(error); Assert.Equal(1920, player.NaturalVideoWidth); Assert.Equal(1080, player.NaturalVideoHeight);
+            Assert.False(player.HasAudio); Assert.True(player.IsMuted);
+            SavePreview((FrameworkElement)window.Content, window.Background, "default-video-focus.png");
+            await WaitForAsync(() => loops > 0 || error is not null); Assert.Null(error);
+        }
+        finally
+        {
+            model.EndCommand.Execute(null); media.SelectedBackground = previous;
+            player.MediaEnded -= ended; player.MediaFailed -= failed;
+        }
+    }
+
+    private static async Task VerifyThumbnailLoadingAsync(MainViewModel model, string directory)
+    {
+        var card = new FocusImage(model.Media.Images.First(image => !image.IsVideo).Asset, () => { });
+        var uiThread = Environment.CurrentManagedThreadId;
+        var notified = false;
+        card.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(FocusImage.Thumbnail)) return;
+            Assert.Equal(uiThread, Environment.CurrentManagedThreadId);
+            notified = true;
+        };
+        Assert.Null(card.Thumbnail);
+        Assert.Equal("加载图片…", card.ThumbnailStatus);
+        var loading = card.LoadThumbnailAsync();
+        Assert.False(loading.IsCompleted);
+        Assert.Same(loading, card.LoadThumbnailAsync());
+        var responded = false;
+        await Dispatcher.CurrentDispatcher.InvokeAsync(() => responded = true, DispatcherPriority.Input);
+        Assert.True(responded);
+        await loading;
+        Assert.True(notified); Assert.NotNull(card.Thumbnail); Assert.True(card.Thumbnail.IsFrozen);
+        Assert.Equal("", card.ThumbnailStatus);
+        var cached = card.Thumbnail;
+        await card.LoadThumbnailAsync(); Assert.Same(cached, card.Thumbnail);
+        var missing = new FocusImage(new FocusBloom.Desktop.ViewModels.FocusAsset("missing", "不可用图片", Path.Combine(directory, "missing.jpg")), () => { });
+        await missing.LoadThumbnailAsync(); Assert.Null(missing.Thumbnail); Assert.Equal("图片不可用", missing.ThumbnailStatus);
+        await Task.WhenAll(model.Media.Images.Select(image => image.LoadThumbnailAsync()));
+    }
+
     private static void VerifyFocusMedia(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, ManualClock clock, string directory)
     {
         var media = viewModel.Media;
-        Assert.Equal(6, media.Images.Count);
+        Assert.Equal(7, media.Images.Count);
+        var defaultVideo = media.Images.Single(image => image.Asset.Id == "clackamas-river");
+        Assert.Equal("默认", defaultVideo.Origin); Assert.True(defaultVideo.IsVideo);
+        Assert.Equal("BLM Oregon & Washington", defaultVideo.Asset.Author); Assert.Equal("CC BY 2.0", defaultVideo.Asset.License);
+        Assert.True(File.Exists(defaultVideo.Asset.File));
+        var promotedId = "52fe0a3e-bc6a-4388-8dca-ecee5ea9bbf7";
+        var existingPreferences = new SqliteFocusStore(Path.Combine(directory, "existing-media.db"));
+        existingPreferences.SaveSetting("focus.media", JsonSerializer.Serialize(new
+        {
+            CustomQuotes = new[] { new { Id = promotedId, Text = "对未来的真正慷慨，是把一切献给现在。", Custom = true } },
+            EditedDefaultQuotes = new[] { new { Id = "default-0", Text = "旧版修改", Custom = false } },
+            RemovedQuoteIds = media.Quotes.Select(card => card.Quote.Id).ToArray(),
+            RemovedImageIds = new[] { "lake" }, RemovedSoundIds = new[] { "rain" }
+        }));
+        using (var upgraded = new FocusMediaViewModel(existingPreferences, _ => { }))
+        {
+            Assert.Equal(25, upgraded.Quotes.Count); Assert.Empty(upgraded.CustomQuotes);
+            Assert.Single(upgraded.Quotes, card => card.Quote.Id == promotedId);
+            Assert.All(upgraded.Quotes, card => Assert.False(card.Custom));
+            Assert.Equal(media.Quotes[0].Quote.Text, upgraded.Quotes[0].Quote.Text);
+            Assert.Contains(upgraded.Images, image => image.Asset.Id == "lake");
+            Assert.Contains(upgraded.Sounds, sound => sound.Asset.Id == "rain");
+        }
         Assert.Equal(6, media.SoundChoices.Count);
-        Assert.All(media.Images, image => Assert.NotNull(image.Thumbnail));
+        Assert.Equal(25, media.Quotes.Count);
+        Assert.All(media.Images, image => Assert.Equal("默认", image.Origin));
+        Assert.All(media.Sounds, sound => Assert.Equal("默认", sound.Origin));
+        Assert.All(media.Quotes, quote => { Assert.Equal("默认", quote.Origin); Assert.NotEmpty(quote.Credit); });
+        Assert.Equal("William Shakespeare", media.QuoteChoices.Single(quote => quote.Id == "default-2").Author);
+        Assert.Equal("北岛", media.QuoteChoices.Single(quote => quote.Id == "default-7").Author);
+        Assert.All(media.Images.Where(image => !image.IsVideo), image => Assert.NotNull(image.Thumbnail));
         Assert.All(media.SoundChoices.Where(sound => sound.File.Length > 0), sound => Assert.True(File.Exists(sound.File)));
         var localFolder = Path.Combine(directory, "pictures");
         Directory.CreateDirectory(localFolder);
         var importedPath = Path.Combine(localFolder, "my-background.jpg");
         File.Copy(media.Images[0].Asset.File, importedPath);
         media.ImportFolder(localFolder);
+        Assert.Equal("自定义", media.Images.Single(image => image.Asset.File == importedPath).Origin);
         var invalidPath = Path.Combine(directory, "invalid.png");
         File.WriteAllText(invalidPath, "not an image");
         media.ImportImages([invalidPath]);
@@ -407,6 +984,7 @@ public sealed class DesktopFlowTests
         media.NewQuoteText = "读完这一页，再走下一步。"; media.NewQuoteAuthor = "我的摘录"; media.NewQuoteWork = "学习手记";
         media.NewQuoteTranslator = "译者"; media.NewQuoteSource = "个人记录"; media.SaveQuoteCommand.Execute(null);
         var quote = Assert.Single(media.CustomQuotes);
+        Assert.Equal("自定义", media.Quotes.Single(card => card.Quote.Id == quote.Id).Origin);
         backgroundLibrary.IsExpanded = false; quoteLibrary.IsExpanded = true; content.UpdateLayout(); FlushBindings();
         FindButtons((ItemsControl)settings.FindName("QuoteCards")).Single(button => button.Content?.ToString() == "使用" && button.DataContext is FocusQuoteCard card && card.Quote.Id == quote.Id).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         media.Images[0].Favorite = true;
@@ -429,6 +1007,7 @@ public sealed class DesktopFlowTests
             Assert.Equal(23, restored.Volume); Assert.True(restored.Muted);
             Assert.True(restored.Images[0].Favorite); Assert.True(restored.Images[1].Excluded);
         }
+        VerifyMediaScrollAndTheme(window, viewModel, settings, content);
 
         ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0;
         viewModel.SelectedTimerMode = viewModel.TimerModes[0]; viewModel.RestMinutes = "0";
@@ -447,6 +1026,7 @@ public sealed class DesktopFlowTests
         ((System.Windows.Controls.Primitives.ToggleButton)window.FindName("FocusSoundPanelButton")).IsChecked = true;
         FlushBindings();
         Assert.Same(media, ((FocusAudioControls)((Border)((System.Windows.Controls.Primitives.Popup)window.FindName("FocusSoundPopup")).Child).Child).DataContext);
+        VerifySoundScrolling((FocusAudioControls)((Border)((System.Windows.Controls.Primitives.Popup)window.FindName("FocusSoundPopup")).Child).Child, media, "sound-selector-window.png");
         ((System.Windows.Controls.Primitives.ToggleButton)window.FindName("FocusSoundPanelButton")).IsChecked = false;
         var hasAudioDevice = NAudio.Wave.WaveOut.DeviceCount > 0;
         if (hasAudioDevice) { media.ToggleAudioCommand.Execute(null); Assert.True(media.IsPlaying); }
@@ -466,6 +1046,7 @@ public sealed class DesktopFlowTests
         ((System.Windows.Controls.Primitives.ToggleButton)fullscreen.FindName("SoundPanelButton")).IsChecked = true;
         FlushBindings();
         Assert.Same(media, ((FocusAudioControls)((Border)((System.Windows.Controls.Primitives.Popup)fullscreen.FindName("SoundPopup")).Child).Child).DataContext);
+        VerifySoundScrolling((FocusAudioControls)((Border)((System.Windows.Controls.Primitives.Popup)fullscreen.FindName("SoundPopup")).Child).Child, media, "sound-selector-fullscreen.png");
         ((System.Windows.Controls.Primitives.ToggleButton)fullscreen.FindName("SoundPanelButton")).IsChecked = false;
         ((Button)fullscreen.FindName("ReturnToWindowButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         viewModel.EndCommand.Execute(null);
@@ -476,6 +1057,22 @@ public sealed class DesktopFlowTests
         media.RemoveQuote(media.CustomQuotes.Single());
         var quoteFile = Path.Combine(directory, "quotes.txt"); File.WriteAllLines(quoteFile, ["第一句", "第二句"]);
         media.ImportQuotes(quoteFile); Assert.Equal(2, media.CustomQuotes.Count());
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var legacyQuoteFile = Path.Combine(directory, "legacy-quotes.txt");
+        File.WriteAllBytes(legacyQuoteFile, Encoding.GetEncoding("GB18030").GetBytes("山重水复疑无路\r\n柳暗花明又一村"));
+        media.ImportQuotes(legacyQuoteFile);
+        Assert.Contains(media.CustomQuotes, quote => quote.Text == "山重水复疑无路");
+        Assert.Contains(media.CustomQuotes, quote => quote.Text == "柳暗花明又一村");
+        var bomQuoteFile = Path.Combine(directory, "bom-quotes.txt"); File.WriteAllText(bomQuoteFile, "带标记的句子", new UTF8Encoding(true));
+        media.ImportQuotes(bomQuoteFile); Assert.Contains(media.CustomQuotes, quote => quote.Text == "带标记的句子");
+        var lockedQuoteFile = Path.Combine(directory, "locked-quotes.txt"); File.WriteAllText(lockedQuoteFile, "无法读取的句子");
+        using (new FileStream(lockedQuoteFile, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var beforeLocked = media.CustomQuotes.Count();
+            media.ImportQuotes(lockedQuoteFile);
+            Assert.Equal(beforeLocked, media.CustomQuotes.Count());
+            Assert.Contains("无法读取文字列表", viewModel.StatusMessage);
+        }
         media.SelectedBackground = media.BackgroundChoices[0]; media.FavoritesOnly = false;
         media.SelectedQuote = media.QuoteChoices[0];
         viewModel.StartCommand.Execute(null);
@@ -496,12 +1093,16 @@ public sealed class DesktopFlowTests
         var removedSound = media.Sounds.Single(sound => sound.Asset.Id == "rain");
         removedSound.Favorite = true;
         media.ShowFavoriteSounds = true; Assert.Single(media.VisibleSounds);
-        media.RemoveSound(removedSound); Assert.False(media.IsPlaying); Assert.True(media.NoSound);
+        media.RemoveSound(removedSound); Assert.Contains(removedSound, media.Sounds);
+        var customSoundPath = Path.Combine(directory, "my-rain.mp3"); File.Copy(removedSound.Asset.File, customSoundPath);
+        media.ImportSound(customSoundPath); var customSound = media.Sounds.Single(card => card.Asset.File == customSoundPath);
+        media.RemoveSound(customSound); Assert.False(media.IsPlaying); Assert.True(media.NoSound);
         var favoriteQuote = media.Quotes.First(card => !card.Custom);
         favoriteQuote.Favorite = true; media.ShowFavoriteQuotes = true; Assert.Single(media.VisibleQuotes);
         media.QuoteFavoritesOnly = true; media.SelectedQuote = media.QuoteChoices[0];
         viewModel.StartCommand.Execute(null); Assert.Equal(favoriteQuote.Text, media.QuoteText);
-        media.RemoveQuote(favoriteQuote.Quote); Assert.Equal(favoriteQuote.Text, media.QuoteText);
+        media.RemoveQuote(favoriteQuote.Quote); Assert.Contains(favoriteQuote, media.Quotes);
+        favoriteQuote.Excluded = true; Assert.Equal(favoriteQuote.Text, media.QuoteText);
         viewModel.EndCommand.Execute(null); viewModel.StartCommand.Execute(null);
         Assert.True(viewModel.IsFocusActive); Assert.Equal("", media.QuoteText); viewModel.EndCommand.Execute(null);
         var removedImage = media.Images.Single(image => image.Asset.File == importedPath);
@@ -512,17 +1113,58 @@ public sealed class DesktopFlowTests
         using (var restored = new FocusMediaViewModel(store, _ => { }))
         {
             Assert.DoesNotContain(restored.Images, image => image.Asset.File == importedPath);
-            Assert.DoesNotContain(restored.Sounds, sound => sound.Asset.Id == "rain");
-            Assert.DoesNotContain(restored.Quotes, card => card.Quote.Id == favoriteQuote.Quote.Id);
+            Assert.Contains(restored.Sounds, sound => sound.Asset.Id == "rain");
+            Assert.DoesNotContain(restored.Sounds, sound => sound.Asset.File == customSoundPath);
+            Assert.True(restored.Quotes.Single(card => card.Quote.Id == favoriteQuote.Quote.Id).Excluded);
             Assert.True(restored.Quotes.Single(card => card.Quote.Id == savedFavoriteQuote.Quote.Id).Favorite);
             Assert.True(restored.Sounds.Single(sound => sound.Asset.Id == "brown").Favorite);
         }
         media.RestoreSounds(); media.RestoreQuotes(); media.RestoreImages();
         Assert.Equal(5, media.Sounds.Count); Assert.Equal(25, media.Quotes.Count(card => !card.Custom));
-        foreach (var card in media.Quotes.ToArray()) media.RemoveQuote(card.Quote);
+        foreach (var card in media.Quotes.ToArray()) { if (card.Custom) media.RemoveQuote(card.Quote); else card.Excluded = true; }
         viewModel.StartCommand.Execute(null); Assert.Equal("", media.QuoteText); viewModel.EndCommand.Execute(null);
-        media.RestoreQuotes(); media.QuoteFavoritesOnly = false;
-        media.ShowFavoriteQuotes = false; media.ShowFavoriteSounds = false;
+        foreach (var card in media.Quotes) card.Excluded = false;
+        media.QuoteFavoritesOnly = false; media.ShowFavoriteQuotes = false; media.ShowFavoriteSounds = false;
+        var originalQuote = media.QuoteChoices.Single(item => item.Id == "default-2");
+        media.EditQuote(originalQuote); Assert.Equal("", media.NewQuoteText);
+        media.RemoveQuote(originalQuote); Assert.Contains(originalQuote, media.QuoteChoices);
+        media.RemoveImage(media.Images[0]); Assert.Equal(7, media.Images.Count);
+        media.RemoveSound(media.Sounds[0]); Assert.Equal(5, media.Sounds.Count);
+        quoteLibrary.IsExpanded = true; backgroundLibrary.IsExpanded = false; soundLibrary.IsExpanded = false;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        content.UpdateLayout(); FlushBindings();
+        Assert.All(FindButtons((ItemsControl)settings.FindName("QuoteCards")).Where(button => button.Content?.ToString() is "编辑" or "删除" && button.DataContext is FocusQuoteCard { Custom: false }), button => Assert.Equal(Visibility.Collapsed, button.Visibility));
+        var styled = new QuoteAttributionText { Quote = originalQuote };
+        Assert.Equal(FontStyles.Italic, styled.Inlines.OfType<System.Windows.Documents.Run>().Single(run => run.Text == "The Tempest").FontStyle);
+        var numbered = new QuoteAttributionText { Quote = new FocusQuote("check-numbered", "文本", "George Orwell", "1984") };
+        Assert.Equal(FontStyles.Italic, numbered.Inlines.OfType<System.Windows.Documents.Run>().Single(run => run.Text == "1984").FontStyle);
+        var chinese = new QuoteAttributionText { Quote = media.QuoteChoices.Single(item => item.Id == "default-0") };
+        Assert.Equal(FontStyles.Normal, chinese.Inlines.OfType<System.Windows.Documents.Run>().Single(run => run.Text == "《病隙碎笔》").FontStyle);
+        media.NewQuoteText = "可以编辑的个人句子"; media.NewQuoteAuthor = "我的署名"; media.NewQuoteWork = "My Notebook";
+        media.SaveQuoteCommand.Execute(null);
+        var personal = media.CustomQuotes.Single();
+        content.UpdateLayout(); FlushBindings();
+        var page = (ScrollViewer)window.FindName("PreferencesScrollViewer");
+        var cardObject = media.Quotes.Single(card => card.Quote.Id == personal.Id);
+        var personalItem = (FrameworkElement)((ItemsControl)settings.FindName("QuoteCards")).ItemContainerGenerator.ContainerFromItem(cardObject);
+        personalItem.BringIntoView(); content.UpdateLayout(); FlushBindings();
+        var priorOffset = page.VerticalOffset;
+        FindButtons((ItemsControl)settings.FindName("QuoteCards")).Single(button => button.Content?.ToString() == "编辑" && button.DataContext == cardObject).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        FlushBindings();
+        media.NewQuoteText = "修改后的个人句子"; media.SaveQuoteCommand.Execute(null); content.UpdateLayout(); FlushBindings();
+        Assert.InRange(Math.Abs(page.VerticalOffset - priorOffset), 0, 2);
+        using (var restored = new FocusMediaViewModel(store, _ => { })) Assert.Equal("修改后的个人句子", restored.CustomQuotes.Single().Text);
+        void AnswerDeletion(bool approve) => Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            var dialog = Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single();
+            if (approve) ((Button)dialog.FindName("ConfirmDeletionButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            else dialog.DialogResult = false;
+        }));
+        AnswerDeletion(false); Assert.False(ConfirmDeletionWindow.Ask(window, "取消删除验证"));
+        content.UpdateLayout(); FlushBindings();
+        var delete = FindButtons((ItemsControl)settings.FindName("QuoteCards")).Single(button => button.Content?.ToString() == "删除" && button.DataContext is FocusQuoteCard card && card.Quote.Id == personal.Id);
+        AnswerDeletion(false); delete.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Assert.Single(media.CustomQuotes);
+        AnswerDeletion(true); delete.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Assert.Empty(media.CustomQuotes);
         media.Dispose();
     }
 
@@ -531,6 +1173,54 @@ public sealed class DesktopFlowTests
         if (root is Button button) yield return button;
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
             foreach (var child in FindButtons(VisualTreeHelper.GetChild(root, index))) yield return child;
+    }
+
+    private static void VerifyMediaScrollAndTheme(MainWindow window, MainViewModel viewModel, FocusMediaSettingsView settings, FrameworkElement content)
+    {
+        var page = (ScrollViewer)window.FindName("PreferencesScrollViewer");
+        viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+        var galleries = new[] { ("BackgroundLibrary", "BackgroundCards"), ("QuoteLibrary", "QuoteCards"), ("SoundLibrary", "SoundCards") };
+        foreach (var (sectionName, cardsName) in galleries)
+        {
+            foreach (var (name, _) in galleries) ((Expander)settings.FindName(name)).IsExpanded = name == sectionName;
+            page.ScrollToTop(); content.UpdateLayout(); FlushBindings();
+            var cards = (ItemsControl)settings.FindName(cardsName);
+            Assert.Empty(Descendants<ScrollViewer>(cards));
+            var favoriteControls = Descendants<CheckBox>(settings).Where(box => box.IsVisible && box.Content?.ToString()?.Contains("收藏") == true).ToArray();
+            Assert.NotEmpty(favoriteControls);
+            Assert.All(favoriteControls, box => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)box.Foreground).Color));
+            var firstCard = (FrameworkElement)cards.ItemContainerGenerator.ContainerFromIndex(0);
+            var finalCard = (FrameworkElement)cards.ItemContainerGenerator.ContainerFromIndex(cards.Items.Count - 1);
+            if (cardsName != "BackgroundCards")
+            {
+                var secondCard = (FrameworkElement)cards.ItemContainerGenerator.ContainerFromIndex(1);
+                var thirdCard = (FrameworkElement)cards.ItemContainerGenerator.ContainerFromIndex(2);
+                var nextRow = (FrameworkElement)cards.ItemContainerGenerator.ContainerFromIndex(3);
+                Assert.Equal(firstCard.TransformToAncestor(cards).Transform(new Point()).Y, thirdCard.TransformToAncestor(cards).Transform(new Point()).Y, 3);
+                Assert.True(secondCard.TransformToAncestor(cards).Transform(new Point()).X > firstCard.TransformToAncestor(cards).Transform(new Point()).X);
+                Assert.True(nextRow.TransformToAncestor(cards).Transform(new Point()).Y > firstCard.TransformToAncestor(cards).Transform(new Point()).Y);
+            }
+            finalCard.BringIntoView(); content.UpdateLayout(); FlushBindings();
+            var finalBounds = finalCard.TransformToAncestor(page).TransformBounds(new Rect(finalCard.RenderSize));
+            Assert.True(finalBounds.Bottom <= page.ViewportHeight + 1, "素材最后一行应能完整滚入页面。");
+            var before = page.VerticalOffset;
+            finalCard.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+            FlushBindings(); Assert.True(page.VerticalOffset < before);
+            var afterUp = page.VerticalOffset;
+            finalCard.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+            FlushBindings(); Assert.True(page.VerticalOffset > afterUp);
+            page.ScrollToTop(); content.UpdateLayout(); FlushBindings();
+            SavePreview(content, window.Background, cardsName + "-dark.png");
+        }
+        foreach (var (name, _) in galleries) ((Expander)settings.FindName(name)).IsExpanded = false;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1;
+        content.UpdateLayout(); FlushBindings();
+        Assert.InRange(((FrameworkElement)window.FindName("NewFolderArea")).ActualHeight, 0, 40);
+        SavePreview(content, window.Background, "projects-compact-dark.png");
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
+        Assert.All(favoriteCheckBoxes(settings), box => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)box.Foreground).Color));
+        static IEnumerable<CheckBox> favoriteCheckBoxes(DependencyObject root) => Descendants<CheckBox>(root).Where(box => box.Content?.ToString()?.Contains("收藏") == true);
     }
 
     private static void VerifyKeepAwake(MainViewModel viewModel, ManualClock clock, SqliteFocusStore store)
@@ -667,98 +1357,87 @@ public sealed class DesktopFlowTests
     {
         Assert.False(viewModel.RestrictionsActive);
         using var monitor = new ApplicationRestrictionService(viewModel, window.ReturnToFocus);
-        using var source = new HwndSource(new HwndSourceParameters("FocusBloom window verification")
+        var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
+        var fixtureScript = Path.Combine(directory, "restricted-window.ps1");
+        File.WriteAllText(fixtureScript, """
+            Add-Type -AssemblyName System.Windows.Forms
+            $form = New-Object System.Windows.Forms.Form
+            $form.Text = 'FocusBloom restriction test'
+            $form.StartPosition = 'Manual'
+            $form.Location = New-Object System.Drawing.Point(40,40)
+            $form.Size = New-Object System.Drawing.Size(160,100)
+            [Console]::WriteLine($form.Handle.ToInt64())
+            [System.Windows.Forms.Application]::Run($form)
+            """, System.Text.Encoding.ASCII);
+        async Task<(Process Process, IntPtr Window)> CreateFixture()
         {
-            Width = 120, Height = 80, PositionX = -10000, PositionY = -10000,
-            WindowStyle = 0x10CF0000, ExtendedWindowStyle = 0x08000080
-        });
-        using var blockingSource = new HwndSource(new HwndSourceParameters("FocusBloom blocking interface verification")
-        {
-            Width = 120, Height = 80, PositionX = -10000, PositionY = -10000,
-            WindowStyle = 0x10CF0000, ExtendedWindowStyle = 0x80
-        });
-        var pulses = 0;
-        using var heartbeat = new System.Threading.Timer(_ => Interlocked.Increment(ref pulses), null, 0, 20);
-        GetWindowRect(source.Handle, out var originalBounds);
-        var previousForeground = GetForegroundWindow();
-        try
-        {
-            Assert.True(ApplicationRestrictionService.ActivateForegroundWindow(blockingSource.Handle));
-            await WaitForAsync(() => GetForegroundWindow() == blockingSource.Handle);
-            Assert.False(IsIconic(source.Handle));
-            GetWindowRect(source.Handle, out var bounds);
-            Assert.Equal(originalBounds, bounds);
-            var before = Volatile.Read(ref pulses);
-            await Task.Delay(120);
-            Assert.True(Volatile.Read(ref pulses) > before);
-            var fixtureScript = Path.Combine(directory, "restricted-window.ps1");
-            File.WriteAllText(fixtureScript, """
-                Add-Type -AssemblyName System.Windows.Forms
-                $form = New-Object System.Windows.Forms.Form
-                $form.Text = 'FocusBloom restriction test'
-                $form.StartPosition = 'Manual'
-                $form.Location = New-Object System.Drawing.Point(-10000,-10000)
-                $form.Size = New-Object System.Drawing.Size(160,100)
-                [Console]::WriteLine($form.Handle.ToInt64())
-                [System.Windows.Forms.Application]::Run($form)
-                """, System.Text.Encoding.ASCII);
-            var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-            using var fixture = Process.Start(new ProcessStartInfo
+            var process = Process.Start(new ProcessStartInfo
             {
-                FileName = powershell,
-                ArgumentList = { "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", fixtureScript },
+                FileName = powershell, ArgumentList = { "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", fixtureScript },
                 RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true
             })!;
-            var previousMode = viewModel.Whitelist.ApplicationMode;
-            try
+            var handle = new IntPtr(long.Parse((await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(15)))!));
+            await WaitForAsync(() => IsWindowVisible(handle));
+            return (process, handle);
+        }
+        var previousMode = viewModel.Whitelist.ApplicationMode;
+        viewModel.Whitelist.ApplicationMode = viewModel.Whitelist.ListModes.Single(choice => choice.Mode == AccessListMode.Blacklist);
+        viewModel.Whitelist.AddApplication(new AllowedApplication("测试窗口", powershell));
+        viewModel.SelectedTimerMode = viewModel.TimerModes[0]; viewModel.RestMinutes = "0";
+        try
+        {
+            foreach (var originalState in new[] { 9, 6, 0 })
             {
-                var handleLine = await fixture.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(15));
-                var fixtureWindow = new IntPtr(long.Parse(handleLine!));
-                await WaitForAsync(() => IsWindowVisible(fixtureWindow));
-                GetWindowRect(fixtureWindow, out var fixtureBounds);
-                viewModel.Whitelist.ApplicationMode = viewModel.Whitelist.ListModes.Single(choice => choice.Mode == AccessListMode.Blacklist);
-                viewModel.Whitelist.AddApplication(new AllowedApplication("测试窗口", powershell));
-                viewModel.SelectedTimerMode = viewModel.TimerModes[0];
-                viewModel.SelectedRestrictionMode = viewModel.RestrictionModes.Single(choice => choice.Strict);
-                viewModel.RestMinutes = "0";
-                viewModel.StartCommand.Execute(null);
-                ApplicationRestrictionService.ActivateForegroundWindow(fixtureWindow);
-                monitor.CheckForeground();
-                await WaitForAsync(() => typeof(ApplicationRestrictionService).GetField("_blockedWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor) is ApplicationBlockedWindow { IsVisible: true });
-                var blocked = (ApplicationBlockedWindow)typeof(ApplicationRestrictionService).GetField("_blockedWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor)!;
-                Assert.True(blocked.IsVisible);
-                ((Button)blocked.FindName("ReturnToFocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                await WaitForAsync(() => GetForegroundWindow() == new WindowInteropHelper(window).Handle);
-                Assert.False(blocked.IsVisible);
-                var queuedEvent = (Delegate)typeof(ApplicationRestrictionService).GetField("_callback", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor)!;
-                queuedEvent.DynamicInvoke(IntPtr.Zero, (uint)3, fixtureWindow, 0, 0, (uint)0, (uint)0);
-                monitor.CheckForeground();
-                FlushBindings();
-                Assert.False(blocked.IsVisible);
-                Assert.True(viewModel.RestrictionsActive);
-                Assert.Equal(0, ((TabControl)window.FindName("MainTabs")).SelectedIndex);
-                ApplicationRestrictionService.ActivateForegroundWindow(fixtureWindow);
-                monitor.CheckForeground();
-                await WaitForAsync(() => blocked.IsVisible);
-                Assert.False(IsIconic(fixtureWindow));
-                GetWindowRect(fixtureWindow, out var afterReturnBounds);
-                Assert.Equal(fixtureBounds, afterReturnBounds);
-                ((Button)blocked.FindName("ReturnToFocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                viewModel.EndCommand.Execute(null);
-                Assert.False(blocked.IsVisible);
+                var fixture = await CreateFixture();
+                using var process = fixture.Process;
+                try
+                {
+                    ShowWindow(fixture.Window, originalState);
+                    await WaitForAsync(() => originalState == 0 ? !IsWindowVisible(fixture.Window) : originalState != 6 || IsIconic(fixture.Window));
+                    viewModel.SelectedRestrictionMode = viewModel.RestrictionModes.Single(choice => choice.Strict);
+                    viewModel.StartCommand.Execute(null);
+                    ShowWindow(fixture.Window, 9);
+                    typeof(ApplicationRestrictionService).GetMethod("CheckWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(monitor, [fixture.Window]);
+                    var blocked = (ApplicationBlockedWindow)typeof(ApplicationRestrictionService).GetField("_blockedWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor)!;
+                    Assert.True(blocked.IsVisible); Assert.False(IsIconic(fixture.Window));
+                    ((Button)blocked.FindName("ReturnToFocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitForAsync(() => originalState == 0 ? !IsWindowVisible(fixture.Window) : IsIconic(fixture.Window));
+                    Assert.False(blocked.IsVisible); Assert.False(process.HasExited);
+                    if (originalState != 0)
+                    {
+                        window.WindowState = WindowState.Minimized; FlushBindings();
+                        Assert.NotEqual(fixture.Window, GetForegroundWindow());
+                        window.WindowState = WindowState.Normal;
+                    }
+                    viewModel.EndCommand.Execute(null);
+                }
+                finally { if (!process.HasExited) process.Kill(); await process.WaitForExitAsync(); }
             }
-            finally
+            viewModel.SelectedRestrictionMode = viewModel.RestrictionModes.Single(choice => choice.Strict);
+            viewModel.StartCommand.Execute(null);
+            var created = await CreateFixture();
+            using (var process = created.Process)
             {
-                if (viewModel.IsFocusActive) viewModel.EndCommand.Execute(null);
-                viewModel.Whitelist.ApplicationMode = previousMode;
-                viewModel.SelectedRestrictionMode = viewModel.RestrictionModes[0];
-                if (!fixture.HasExited) fixture.Kill();
-                await fixture.WaitForExitAsync();
+                try
+                {
+                    typeof(ApplicationRestrictionService).GetMethod("CheckWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(monitor, [created.Window]);
+                    var blocked = (ApplicationBlockedWindow)typeof(ApplicationRestrictionService).GetField("_blockedWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor)!;
+                    ((Button)blocked.FindName("ReturnToFocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitForAsync(() => process.HasExited);
+                    Assert.False(blocked.IsVisible); viewModel.EndCommand.Execute(null);
+                }
+                finally { if (!process.HasExited) process.Kill(); await process.WaitForExitAsync(); }
             }
         }
-        finally { if (previousForeground != IntPtr.Zero) ApplicationRestrictionService.ActivateForegroundWindow(previousForeground); }
+        finally
+        {
+            if (viewModel.IsFocusActive) viewModel.EndCommand.Execute(null);
+            viewModel.Whitelist.ApplicationMode = previousMode;
+            viewModel.SelectedRestrictionMode = viewModel.RestrictionModes[0];
+        }
     }
 
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -858,6 +1537,32 @@ public sealed class DesktopFlowTests
     {
         var bounds = element.TransformToAncestor(content).TransformBounds(new Rect(element.RenderSize));
         Assert.True(bounds.Bottom <= content.ActualHeight, "开始按钮须在支持的窗口尺寸中保持可见。");
+    }
+
+    private static void VerifySoundScrolling(FocusAudioControls controls, FocusMediaViewModel media, string preview)
+    {
+        controls.UpdateLayout(); FlushBindings();
+        var list = (ListBox)controls.FindName("SoundSelector");
+        var scroll = (ScrollViewer)list.Template.FindName("PART_ScrollViewer", list);
+        Assert.False(scroll.CanContentScroll);
+        Assert.Equal(media.QuickSounds.Count(), list.Items.Count);
+        Assert.All(list.Items.Cast<FocusAsset>(), sound => Assert.False(string.IsNullOrWhiteSpace(sound.Name)));
+        var first = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+        scroll.ScrollToTop(); FlushBindings();
+        var offset = scroll.VerticalOffset;
+        scroll.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, -120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+        FlushBindings();
+        Assert.True(scroll.VerticalOffset > offset);
+        Assert.True(scroll.VerticalOffset - offset < first.ActualHeight * 2);
+        scroll.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, 120) { RoutedEvent = System.Windows.Input.Mouse.MouseWheelEvent });
+        FlushBindings(); Assert.Equal(0, scroll.VerticalOffset);
+        scroll.ScrollToEnd(); FlushBindings(); controls.UpdateLayout();
+        var last = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(list.Items.Count - 1);
+        var bounds = last.TransformToAncestor(scroll).TransformBounds(new Rect(last.RenderSize));
+        Assert.InRange(bounds.Bottom, scroll.ViewportHeight - 1, scroll.ViewportHeight + 1);
+        Assert.True(bounds.Top >= 0);
+        SavePreview(controls, (Brush)Application.Current.FindResource("CardBrush"), preview, (int)Math.Ceiling(controls.ActualWidth), (int)Math.Ceiling(controls.ActualHeight));
+        scroll.ScrollToTop(); FlushBindings();
     }
 
     private static void SavePreview(FrameworkElement content, Brush background, string filename, int width = 1240, int height = 750)

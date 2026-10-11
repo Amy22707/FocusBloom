@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null)
     {
         InitializeComponent();
+        WindowAppearance.Attach(this);
         _viewModel = viewModel;
         _studyBrowser = browserUserDataFolder is null ? new StudyBrowserView() : new StudyBrowserView(browserUserDataFolder);
         BrowserTab.Content = _studyBrowser;
@@ -68,6 +70,24 @@ public partial class MainWindow : Window
     }
 
     public event EventHandler? ExitRequested;
+    private void RemoveApplication_Click(object sender, RoutedEventArgs args)
+    {
+        if (_viewModel.Whitelist.SelectedApplication is { } app && ConfirmDeletionWindow.Ask(this, $"从应用列表移除‘{app.Name}’？")) _viewModel.Whitelist.RemoveApplicationCommand.Execute(null);
+    }
+    private void RemoveWebsite_Click(object sender, RoutedEventArgs args)
+    {
+        if (_viewModel.Whitelist.SelectedWebsite is { } website && ConfirmDeletionWindow.Ask(this, $"从网站列表删除‘{website.Domain}’？")) _viewModel.Whitelist.RemoveWebsiteCommand.Execute(null);
+    }
+    private void EditFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = (ProjectFolder)((Button)sender).DataContext;
+        new ProjectEditorWindow(_viewModel, folder) { Owner = this }.ShowDialog();
+    }
+    private void EditProject_Click(object sender, RoutedEventArgs e)
+    {
+        var project = (FocusBloom.Core.Projects.FocusProject)((Button)sender).DataContext;
+        new ProjectEditorWindow(_viewModel, project) { Owner = this }.ShowDialog();
+    }
     public void ReturnToFocus()
     {
         _browserFullscreen = false;
@@ -220,6 +240,7 @@ public partial class MainWindow : Window
             _browserFullscreen = false;
             UpdateFullscreenContent();
             _lastWindowState = _previousState;
+            WindowAppearance.Apply(this);
         }
     }
 }

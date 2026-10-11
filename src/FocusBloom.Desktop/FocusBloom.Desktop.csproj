@@ -13,9 +13,11 @@
     <Resource Include="Resources/Branding/FocusBloom.png" />
     <Resource Include="Resources/Branding/FocusBloom.ico" />
     <Content Include="Resources/Focus/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Resources/ThirdParty/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../FocusBloom.Core/FocusBloom.Core.csproj" />
     <ProjectReference Include="../FocusBloom.Infrastructure/FocusBloom.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="XamlAnimatedGif" Version="2.3.2" />
   </ItemGroup>
 </Project>

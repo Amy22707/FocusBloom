@@ -8,6 +8,7 @@ public partial class ApplicationPickerWindow : Window
     public ApplicationPickerWindow()
     {
         InitializeComponent();
+        WindowAppearance.Attach(this);
         ApplicationList.ItemsSource = ForegroundApplications.GetRunningApplications();
     }
     public AllowedApplication? SelectedApplication => ApplicationList.SelectedItem as AllowedApplication;

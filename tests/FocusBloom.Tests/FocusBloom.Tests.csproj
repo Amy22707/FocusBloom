@@ -6,6 +6,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
     <ProjectReference Include="../../src/FocusBloom.Core/FocusBloom.Core.csproj" />
     <ProjectReference Include="../../src/FocusBloom.Infrastructure/FocusBloom.Infrastructure.csproj" />

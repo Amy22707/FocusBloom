@@ -23,7 +23,8 @@ public sealed class SqliteFocusStore : IFocusStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS projects (
-                id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, color TEXT NOT NULL
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, color TEXT NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
@@ -37,7 +38,7 @@ public sealed class SqliteFocusStore : IFocusStore
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS project_folders (name TEXT PRIMARY KEY);
-            INSERT OR IGNORE INTO projects VALUES ($id, '未分类', '未分类', '#7B97A6');
+            INSERT OR IGNORE INTO projects (id, name, category, color) VALUES ($id, '未分类', '未分类', '#7B97A6');
             """;
         command.Parameters.AddWithValue("$id", DefaultProjectId.ToString());
         command.ExecuteNonQuery();
@@ -51,13 +52,23 @@ public sealed class SqliteFocusStore : IFocusStore
             columns.CommandText = "ALTER TABLE sessions ADD COLUMN strict INTEGER NOT NULL DEFAULT 0";
             columns.ExecuteNonQuery();
         }
+        columns.CommandText = "PRAGMA table_info(projects)";
+        var hasDeleted = false;
+        using (var reader = columns.ExecuteReader())
+            while (reader.Read()) if (reader.GetString(1) == "deleted") hasDeleted = true;
+        if (!hasDeleted)
+        {
+            columns.CommandText = "ALTER TABLE projects ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0";
+            columns.ExecuteNonQuery();
+        }
     }
 
-    public IReadOnlyList<FocusProject> GetProjects()
+    public IReadOnlyList<FocusProject> GetProjects(bool includeDeleted = false)
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, name, category, color FROM projects ORDER BY rowid";
+        command.CommandText = "SELECT id, name, category, color FROM projects WHERE deleted=0 OR $all=1 ORDER BY rowid";
+        command.Parameters.AddWithValue("$all", includeDeleted ? 1 : 0);
         using var reader = command.ExecuteReader();
         List<FocusProject> projects = [];
         while (reader.Read()) projects.Add(new FocusProject(Guid.Parse(reader.GetString(0)),
@@ -70,7 +81,7 @@ public sealed class SqliteFocusStore : IFocusStore
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO projects VALUES ($id, $name, $category, $color)
+            INSERT INTO projects (id, name, category, color) VALUES ($id, $name, $category, $color)
             ON CONFLICT(id) DO UPDATE SET name=$name, category=$category, color=$color
             """;
         command.Parameters.AddWithValue("$id", project.Id.ToString());
@@ -84,7 +95,7 @@ public sealed class SqliteFocusStore : IFocusStore
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT name FROM project_folders UNION SELECT category FROM projects ORDER BY name";
+        command.CommandText = "SELECT name FROM project_folders UNION SELECT category FROM projects WHERE deleted=0 ORDER BY name";
         using var reader = command.ExecuteReader();
         List<string> folders = [];
         while (reader.Read()) folders.Add(reader.GetString(0));
@@ -98,6 +109,53 @@ public sealed class SqliteFocusStore : IFocusStore
         command.CommandText = "INSERT OR IGNORE INTO project_folders VALUES ($name)";
         command.Parameters.AddWithValue("$name", name);
         command.ExecuteNonQuery();
+    }
+
+    public void RenameFolder(string name, string newName)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO project_folders (name) VALUES ($newName);
+            UPDATE projects SET category=$newName WHERE category=$name AND deleted=0;
+            DELETE FROM project_folders WHERE name=$name;
+            """;
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$newName", newName);
+        command.ExecuteNonQuery();
+        transaction.Commit();
+    }
+
+    public void DeleteFolder(string name)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            UPDATE projects SET deleted=1 WHERE category=$name;
+            DELETE FROM project_folders WHERE name=$name;
+            """;
+        command.Parameters.AddWithValue("$name", name);
+        command.ExecuteNonQuery();
+        transaction.Commit();
+    }
+
+    public void DeleteProject(Guid id)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT OR IGNORE INTO project_folders (name) SELECT category FROM projects WHERE id=$id AND deleted=0;
+            UPDATE projects SET deleted=1 WHERE id=$id;
+            """;
+        command.Parameters.AddWithValue("$id", id.ToString());
+        command.ExecuteNonQuery();
+        transaction.Commit();
     }
 
     public void SaveRecord(FocusRecord record)

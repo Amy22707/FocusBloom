@@ -4,31 +4,63 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using FocusBloom.Core.Storage;
 using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
-public sealed record FocusAsset(string Id, string Name, string File, string Author = "", string Source = "", string License = "", bool Custom = false);
-public sealed record FocusQuote(string Id, string Text, string Author = "", string Work = "", string Translator = "", string Source = "", bool Custom = false)
+public sealed record FocusAsset(string Id, string Name, string File, string Author = "", string Source = "", string License = "", bool Custom = false)
+{
+    public bool IsVideo => Path.GetExtension(File).ToLowerInvariant() is ".mp4" or ".wmv";
+}
+public sealed record FocusQuote(string Id, string Text, string Author = "", string Work = "", string Translator = "", string Source = "", bool Custom = false, string Note = "")
 {
     public string Name => Text.Length > 28 ? Text[..28] + "…" : Text;
     public string Attribution => string.Join(" · ", new[] { Author, Work, Translator.Length > 0 ? $"译者：{Translator}" : "" }.Where(part => part.Length > 0));
+    public string SourceInfo => string.Join("\n", new[] { Note, Source }.Where(part => part.Length > 0));
 }
 
-public sealed class FocusImage(FocusAsset asset, Action changed) : ObservableObject
+public sealed class FocusImage(FocusAsset asset, Action changed, ImageSource? thumbnail = null) : ObservableObject
 {
+    private static readonly SemaphoreSlim ThumbnailSlots = new(2);
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private bool _favorite;
     private bool _excluded;
-    private ImageSource? _thumbnail;
+    private ImageSource? _thumbnail = thumbnail;
+    private bool _thumbnailLoaded = thumbnail is not null;
+    private Task? _thumbnailTask = thumbnail is not null ? Task.CompletedTask : null;
     private bool _selected;
     public FocusAsset Asset { get; } = asset;
     public string Name => Asset.Name;
     public string Credit => $"{Asset.Author} · {Asset.License}";
-    public ImageSource? Thumbnail => _thumbnail ??= FocusMediaViewModel.LoadImage(Asset.File, 320);
+    public bool Custom => Asset.Custom;
+    public string Origin => Custom ? "自定义" : "默认";
+    public bool IsGif => Path.GetExtension(Asset.File).Equals(".gif", StringComparison.OrdinalIgnoreCase);
+    public bool IsVideo => Asset.IsVideo;
+    public bool IsDynamic => IsGif || IsVideo;
+    public string FormatLabel => IsVideo ? "视频循环" : IsGif ? "GIF 动态" : "";
+    public ImageSource? Thumbnail { get { _ = LoadThumbnailAsync(); return _thumbnail; } }
+    public string ThumbnailStatus => IsVideo ? "视频背景" : _thumbnail is not null ? "" : _thumbnailLoaded ? "图片不可用" : "加载图片…";
+    public Task LoadThumbnailAsync() => IsVideo ? Task.CompletedTask : _thumbnailTask ??= DecodeThumbnailAsync();
+    private async Task DecodeThumbnailAsync()
+    {
+        ImageSource? bitmap;
+        await ThumbnailSlots.WaitAsync().ConfigureAwait(false);
+        try { bitmap = await Task.Run(() => FocusMediaViewModel.LoadImage(Asset.File, 320)).ConfigureAwait(false); }
+        finally { ThumbnailSlots.Release(); }
+        await _dispatcher.InvokeAsync(() =>
+        {
+            _thumbnail = bitmap; _thumbnailLoaded = true;
+            Notify(nameof(Thumbnail)); Notify(nameof(ThumbnailStatus));
+        });
+    }
     public bool Favorite { get => _favorite; set { if (_favorite == value) return; _favorite = value; Notify(); changed(); } }
     public bool Excluded { get => _excluded; set { if (_excluded == value) return; _excluded = value; Notify(); changed(); } }
     public bool Selected { get => _selected; internal set { _selected = value; Notify(); } }
@@ -37,12 +69,18 @@ public sealed class FocusImage(FocusAsset asset, Action changed) : ObservableObj
 public sealed class FocusQuoteCard(FocusQuote quote, bool favorite, Action changed) : ObservableObject
 {
     private bool _favorite = favorite;
+    private bool _excluded;
     private bool _selected;
     public FocusQuote Quote { get; } = quote;
     public string Text => Quote.Text;
     public string Credit => Quote.Attribution;
     public bool Custom => Quote.Custom;
+    public string Origin => Custom ? "自定义" : "默认";
+    public string SourceInfo => Quote.SourceInfo;
+    public bool HasSourceLink => Uri.TryCreate(Quote.Source, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http";
+    public string SourceDescription => Quote.Note.Length > 0 ? Quote.Note : HasSourceLink ? "" : Quote.Source;
     public bool Favorite { get => _favorite; set { if (_favorite == value) return; _favorite = value; Notify(); changed(); } }
+    public bool Excluded { get => _excluded; set { if (_excluded == value) return; _excluded = value; Notify(); changed(); } }
     public bool Selected { get => _selected; internal set { _selected = value; Notify(); } }
 }
 
@@ -53,6 +91,8 @@ public sealed class FocusSoundCard(FocusAsset asset, bool favorite, Action chang
     public FocusAsset Asset { get; } = asset;
     public string Name => Asset.Name;
     public string Credit => $"{Asset.Author} · {Asset.License}";
+    public bool Custom => Asset.Custom;
+    public string Origin => Custom ? "自定义" : "默认";
     public bool Favorite { get => _favorite; set { if (_favorite == value) return; _favorite = value; Notify(); changed(); } }
     public bool Selected { get => _selected; internal set { _selected = value; Notify(); } }
 }
@@ -74,15 +114,24 @@ public sealed class MediaPreferences
     public List<string> RemovedSoundIds { get; set; } = [];
     public List<string> FavoriteIds { get; set; } = [];
     public List<string> ExcludedIds { get; set; } = [];
+    public List<string> ExcludedQuoteIds { get; set; } = [];
     public List<string> ImageFolders { get; set; } = [];
     public List<FocusAsset> CustomImages { get; set; } = [];
     public List<FocusAsset> CustomSounds { get; set; } = [];
     public List<FocusQuote> CustomQuotes { get; set; } = [];
+    public List<FocusQuote> EditedDefaultQuotes { get; set; } = [];
 }
 
 public sealed class FocusMediaViewModel : ObservableObject, IDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private static readonly Encoding LegacyChinese = CreateLegacyChinese();
+    private static Encoding CreateLegacyChinese()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding("GB18030");
+    }
     private readonly IFocusStore _store;
     private readonly Action<string> _report;
     private readonly MediaPreferences _preferences;
@@ -102,6 +151,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     private string _quoteWork = "";
     private string _quoteTranslator = "";
     private string _quoteSource = "";
+    private string _quoteNote = "";
     private MediaPlayer? _cue;
     private readonly FocusAsset[] _defaultImages;
     private readonly FocusQuote[] _defaultQuotes;
@@ -128,14 +178,13 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         BackgroundChoices.Add(new FocusAsset("", "每次专注随机", ""));
         BackgroundChoices.Add(new FocusAsset("theme", "纯色主题背景", ""));
         _defaultImages = catalog.Images.Select(asset => asset with { File = Path.Combine(root, asset.File) }).ToArray();
-        foreach (var asset in _defaultImages.Concat(_preferences.CustomImages).Where(asset => !_preferences.RemovedImageIds.Contains(asset.Id))) AddImage(asset);
+        foreach (var asset in _defaultImages.Concat(_preferences.CustomImages).Where(asset => !asset.Custom || !_preferences.RemovedImageIds.Contains(asset.Id))) AddImage(asset);
         QuoteChoices.Add(new FocusQuote("", "每次专注随机"));
-        var phrases = JsonSerializer.Deserialize<string[]>(File.ReadAllText(Path.Combine(root, "quotes.json")), Json)!;
-        _defaultQuotes = phrases.Select((text, index) => new FocusQuote($"default-{index}", text)).ToArray();
-        foreach (var quote in _defaultQuotes.Concat(_preferences.CustomQuotes).Where(quote => !_preferences.RemovedQuoteIds.Contains(quote.Id))) AddQuote(quote);
+        _defaultQuotes = JsonSerializer.Deserialize<FocusQuote[]>(File.ReadAllText(Path.Combine(root, "quotes.json")), Json)!;
+        foreach (var quote in _defaultQuotes.Concat(_preferences.CustomQuotes.Where(quote => !_defaultQuotes.Any(original => original.Id == quote.Id))).Where(quote => !quote.Custom || !_preferences.RemovedQuoteIds.Contains(quote.Id))) AddQuote(quote);
         SoundChoices.Add(new FocusAsset("", "不播放", ""));
         _defaultSounds = catalog.Sounds.Select(asset => asset with { File = Path.Combine(root, asset.File) }).ToArray();
-        foreach (var asset in _defaultSounds.Concat(_preferences.CustomSounds).Where(asset => !_preferences.RemovedSoundIds.Contains(asset.Id))) AddSound(asset);
+        foreach (var asset in _defaultSounds.Concat(_preferences.CustomSounds).Where(asset => !asset.Custom || !_preferences.RemovedSoundIds.Contains(asset.Id))) AddSound(asset);
         RefreshFolders();
         _selectedBackground = BackgroundChoices.FirstOrDefault(asset => asset.Id == _preferences.BackgroundId) ?? BackgroundChoices[0];
         _selectedQuote = QuoteChoices.FirstOrDefault(quote => quote.Id == _preferences.QuoteId) ?? QuoteChoices[0];
@@ -166,13 +215,18 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     public RelayCommand CancelQuoteCommand { get; }
     public RelayCommand OpenImageSourceCommand { get; }
     public RelayCommand OpenSoundSourceCommand { get; }
+    public event Action<string?>? QuoteEditorCompleted;
     public ImageSource? Background => _background;
-    public bool HasBackground => _background is not null;
+    public bool HasBackground => _background is not null || BackgroundVideoUri is not null;
+    public Uri? BackgroundVideoUri => _currentImage is { IsVideo: true } video && File.Exists(video.File) ? new Uri(video.File, UriKind.Absolute) : null;
+    public Uri? BackgroundGifUri => HasBackground && _currentImage is { } image && Path.GetExtension(image.File).Equals(".gif", StringComparison.OrdinalIgnoreCase)
+        ? new Uri(image.File, UriKind.Absolute) : null;
     public string CurrentBackgroundId => _currentImage?.Id ?? "theme";
     public string CurrentQuoteId => _currentQuote?.Id ?? "";
     public string QuoteText => _currentQuote?.Text ?? "";
     public string QuoteCredit => _currentQuote?.Attribution ?? "";
-    public string QuoteSource => _currentQuote?.Source ?? "";
+    public FocusQuote? CurrentQuote => _currentQuote;
+    public string QuoteSource => _currentQuote?.SourceInfo ?? "";
     public string ImageCredit => _currentImage is null ? "纯色主题背景" : $"{_currentImage.Name} · {_currentImage.Author}";
     public string ImageSourceInfo => _currentImage is null ? "跟随当前配色" : $"{_currentImage.Author} · {_currentImage.License}\n{_currentImage.Source}";
     public string SoundCredit => SelectedSound.Id.Length == 0 ? "选一段声音，陪你专注。" : $"{SelectedSound.Author} · {SelectedSound.License}";
@@ -212,6 +266,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     public string NewQuoteWork { get => _quoteWork; set { _quoteWork = value; Notify(); } }
     public string NewQuoteTranslator { get => _quoteTranslator; set { _quoteTranslator = value; Notify(); } }
     public string NewQuoteSource { get => _quoteSource; set { _quoteSource = value; Notify(); } }
+    public string NewQuoteNote { get => _quoteNote; set { _quoteNote = value; Notify(); } }
 
     public void BeginSession()
     {
@@ -219,7 +274,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         RefreshFolders();
         var available = AvailableImages().ToArray();
         var image = SelectedBackground.Id == "theme" ? null : SelectedBackground.Id.Length > 0
-            ? Images.FirstOrDefault(item => item.Asset.Id == SelectedBackground.Id && !item.Excluded && File.Exists(item.Asset.File))?.Asset
+            ? Images.FirstOrDefault(item => item.Asset.Id == SelectedBackground.Id && File.Exists(item.Asset.File))?.Asset
             : Pick(available, _currentImage?.Id, asset => asset.Id);
         var quote = SelectedQuote.Id.Length > 0 ? SelectedQuote : Pick(AvailableQuotes().ToArray(), _currentQuote?.Id, item => item.Id);
         SetScene(image, quote);
@@ -228,7 +283,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
 
     public void ReleaseSession() => _sessionFixed = false;
     private IEnumerable<FocusAsset> AvailableImages() => Images.Where(image => !image.Excluded && (!FavoritesOnly || image.Favorite) && File.Exists(image.Asset.File)).Select(image => image.Asset);
-    private IEnumerable<FocusQuote> AvailableQuotes() => Quotes.Where(quote => !QuoteFavoritesOnly || quote.Favorite).Select(quote => quote.Quote);
+    private IEnumerable<FocusQuote> AvailableQuotes() => Quotes.Where(quote => !quote.Excluded && (!QuoteFavoritesOnly || quote.Favorite)).Select(quote => quote.Quote);
     private static T? Pick<T>(T[] items, string? previous, Func<T, string> id) where T : class
     {
         var choices = items.Length > 1 ? items.Where(item => id(item) != previous).ToArray() : items;
@@ -238,15 +293,22 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     {
         if (_loading || _sessionFixed) return;
         var image = SelectedBackground.Id == "theme" ? null : SelectedBackground.Id.Length > 0
-            ? Images.FirstOrDefault(item => item.Asset.Id == SelectedBackground.Id && !item.Excluded)?.Asset : AvailableImages().FirstOrDefault();
+            ? Images.FirstOrDefault(item => item.Asset.Id == SelectedBackground.Id)?.Asset : AvailableImages().FirstOrDefault();
         SetScene(image, SelectedQuote.Id.Length > 0 ? SelectedQuote : AvailableQuotes().FirstOrDefault());
     }
     private void SetScene(FocusAsset? image, FocusQuote? quote)
     {
         _currentImage = image; _currentQuote = quote;
-        _background = image is null ? null : LoadImage(image.File, 1920);
-        if (image is not null && _background is null) _report("背景文件不可用，当前使用主题背景。可在图文设置中重新选择。");
-        foreach (var property in new[] { nameof(Background), nameof(HasBackground), nameof(QuoteText), nameof(QuoteCredit), nameof(QuoteSource), nameof(ImageCredit), nameof(ImageSourceInfo), nameof(CurrentBackgroundId), nameof(CurrentQuoteId) }) Notify(property);
+        _background = image is null || image.IsVideo ? null : LoadImage(image.File, 1920);
+        if (image is not null && !HasBackground) _report("背景文件不可用，当前使用主题背景。可在图文设置中重新选择。");
+        foreach (var property in new[] { nameof(Background), nameof(HasBackground), nameof(BackgroundGifUri), nameof(BackgroundVideoUri), nameof(QuoteText), nameof(QuoteCredit), nameof(CurrentQuote), nameof(QuoteSource), nameof(ImageCredit), nameof(ImageSourceInfo), nameof(CurrentBackgroundId), nameof(CurrentQuoteId) }) Notify(property);
+    }
+
+    public void ReportGifPlaybackError() => _report("GIF 暂时无法播放，已显示静态背景。可在图文设置中重新选择。");
+    public void ReportVideoPlaybackError()
+    {
+        SetScene(null, _currentQuote);
+        _report("视频无法播放，已使用主题背景。请尝试 H.264 编码的 MP4 或 WMV 文件。");
     }
 
     public static ImageSource? LoadImage(string path, int width)
@@ -258,18 +320,20 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         }
         catch (Exception error) when (error is IOException or NotSupportedException or ArgumentException) { return null; }
     }
-    private void AddImage(FocusAsset asset)
+    private void AddImage(FocusAsset asset, ImageSource? thumbnail = null)
     {
         if (Images.Any(image => image.Asset.File.Equals(asset.File, StringComparison.OrdinalIgnoreCase))) return;
-        if (_preferences.RemovedImageIds.Contains(asset.Id)) return;
-        var image = new FocusImage(asset, LibraryChanged);
+        if (asset.Custom && _preferences.RemovedImageIds.Contains(asset.Id)) return;
+        var image = new FocusImage(asset, LibraryChanged, thumbnail);
         Images.Add(image); BackgroundChoices.Add(asset);
         image.Favorite = _preferences.FavoriteIds.Contains(asset.Id); image.Excluded = _preferences.ExcludedIds.Contains(asset.Id);
     }
     private void AddQuote(FocusQuote quote)
     {
         QuoteChoices.Add(quote);
-        Quotes.Add(new FocusQuoteCard(quote, _preferences.FavoriteQuoteIds.Contains(quote.Id), LibraryChanged));
+        var card = new FocusQuoteCard(quote, _preferences.FavoriteQuoteIds.Contains(quote.Id), LibraryChanged);
+        card.Excluded = _preferences.ExcludedQuoteIds.Contains(quote.Id);
+        Quotes.Add(card);
     }
     private void AddSound(FocusAsset asset)
     {
@@ -296,19 +360,27 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         {
             if (Images.Any(image => image.Asset.File.Equals(path, StringComparison.OrdinalIgnoreCase))) continue;
             _preferences.RemovedImageIds.Remove("local:" + path);
-            if (LoadImage(path, 320) is null) { _report($"无法读取图片：{Path.GetFileName(path)}"); continue; }
-            AddImage(new FocusAsset("local:" + path, Path.GetFileNameWithoutExtension(path), path, "本地图片", "", "个人素材", true)); added++;
+            var asset = new FocusAsset("local:" + path, Path.GetFileNameWithoutExtension(path), path, "本地图片", "", "个人素材", true);
+            if (asset.IsVideo)
+            {
+                if (!File.Exists(path)) { _report($"无法读取视频：{Path.GetFileName(path)}"); continue; }
+                AddImage(asset with { Author = "本地视频" }); added++; continue;
+            }
+            var thumbnail = LoadImage(path, 320);
+            if (thumbnail is null) { _report($"无法读取图片：{Path.GetFileName(path)}"); continue; }
+            AddImage(asset, thumbnail); added++;
         }
         LibraryChanged();
-        if (added > 0) _report($"已加入 {added} 张图片，新专注采用更新后的选择。");
+        if (added > 0) _report($"已加入 {added} 个背景，新专注采用更新后的选择。");
     }
     public void ImportFolder(string folder)
     {
         if (!_preferences.ImageFolders.Contains(folder)) _preferences.ImageFolders.Add(folder);
-        ImportImages(FolderImages(folder));
+        try { ImportImages(FolderImages(folder)); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { LibraryChanged(); _report($"无法读取文件夹：{folder}"); }
     }
     private static IEnumerable<string> FolderImages(string folder) => Directory.Exists(folder)
-        ? Directory.EnumerateFiles(folder).Where(path => new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff" }.Contains(Path.GetExtension(path).ToLowerInvariant())) : [];
+        ? Directory.EnumerateFiles(folder).Where(path => new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".mp4", ".wmv" }.Contains(Path.GetExtension(path).ToLowerInvariant())) : [];
     private void RefreshFolders()
     {
         foreach (var folder in _preferences.ImageFolders.ToArray())
@@ -319,6 +391,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void RemoveImage(FocusImage image)
     {
+        if (!image.Custom) { _report("默认背景不能删除，可设置不参与随机。"); return; }
         _preferences.RemovedImageIds.Add(image.Asset.Id);
         Images.Remove(image); BackgroundChoices.Remove(image.Asset);
         if (SelectedBackground.Id == image.Asset.Id) SelectedBackground = BackgroundChoices[0];
@@ -332,7 +405,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void RemoveSound(FocusSoundCard sound)
     {
-        if (!sound.Asset.Custom) _preferences.RemovedSoundIds.Add(sound.Asset.Id);
+        if (!sound.Custom) { _report("默认声音不能删除，可选择不播放。"); return; }
         Sounds.Remove(sound); SoundChoices.Remove(sound.Asset);
         if (SelectedSound.Id == sound.Asset.Id) SelectedSound = SoundChoices[0];
         LibraryChanged();
@@ -344,7 +417,20 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void RestoreQuotes()
     {
-        foreach (var quote in _defaultQuotes) { _preferences.RemovedQuoteIds.Remove(quote.Id); if (!Quotes.Any(card => card.Quote.Id == quote.Id)) AddQuote(quote); }
+        foreach (var quote in _defaultQuotes)
+        {
+            _preferences.RemovedQuoteIds.Remove(quote.Id);
+            var card = Quotes.FirstOrDefault(card => card.Quote.Id == quote.Id);
+            if (card is null) AddQuote(quote);
+            else
+            {
+                QuoteChoices[QuoteChoices.IndexOf(card.Quote)] = quote;
+                var restored = new FocusQuoteCard(quote, card.Favorite, LibraryChanged);
+                restored.Excluded = card.Excluded;
+                Quotes[Quotes.IndexOf(card)] = restored;
+                if (SelectedQuote.Id == quote.Id) SelectedQuote = quote;
+            }
+        }
         LibraryChanged();
     }
     public void RestoreSounds()
@@ -369,19 +455,22 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void EditQuote(FocusQuote quote)
     {
-        if (!quote.Custom) return;
-        _editingQuote = quote.Id; NewQuoteText = quote.Text; NewQuoteAuthor = quote.Author; NewQuoteWork = quote.Work; NewQuoteTranslator = quote.Translator; NewQuoteSource = quote.Source;
+        if (!quote.Custom) { _report("默认句子不能修改，可设置不参与随机。"); return; }
+        _editingQuote = quote.Id; NewQuoteText = quote.Text; NewQuoteAuthor = quote.Author; NewQuoteWork = quote.Work; NewQuoteTranslator = quote.Translator; NewQuoteSource = quote.Source; NewQuoteNote = quote.Note;
     }
     private void SaveQuote()
     {
         if (string.IsNullOrWhiteSpace(NewQuoteText)) { _report("请填写一句文字。"); return; }
-        var quote = new FocusQuote(_editingQuote ?? Guid.NewGuid().ToString(), NewQuoteText.Trim(), NewQuoteAuthor.Trim(), NewQuoteWork.Trim(), NewQuoteTranslator.Trim(), NewQuoteSource.Trim(), true);
-        var previous = QuoteChoices.FirstOrDefault(item => item.Id == quote.Id);
+        var previous = QuoteChoices.FirstOrDefault(item => item.Id == _editingQuote);
+        if (previous is { Custom: false }) { _report("默认句子不能修改。"); return; }
+        var quote = new FocusQuote(_editingQuote ?? Guid.NewGuid().ToString(), NewQuoteText.Trim(), NewQuoteAuthor.Trim(), NewQuoteWork.Trim(), NewQuoteTranslator.Trim(), NewQuoteSource.Trim(), previous?.Custom ?? true, NewQuoteNote.Trim());
         if (previous is not null)
         {
             var card = Quotes.Single(item => item.Quote.Id == quote.Id);
             QuoteChoices[QuoteChoices.IndexOf(previous)] = quote;
-            Quotes[Quotes.IndexOf(card)] = new FocusQuoteCard(quote, card.Favorite, LibraryChanged);
+            var updated = new FocusQuoteCard(quote, card.Favorite, LibraryChanged);
+            updated.Excluded = card.Excluded;
+            Quotes[Quotes.IndexOf(card)] = updated;
             if (SelectedQuote.Id == quote.Id) SelectedQuote = quote;
         }
         else AddQuote(quote);
@@ -389,7 +478,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void RemoveQuote(FocusQuote quote)
     {
-        if (!quote.Custom) _preferences.RemovedQuoteIds.Add(quote.Id);
+        if (!quote.Custom) { _report("默认句子不能删除，可设置不参与随机。"); return; }
         QuoteChoices.Remove(quote); if (SelectedQuote.Id == quote.Id) SelectedQuote = QuoteChoices[0];
         var card = Quotes.FirstOrDefault(item => item.Quote.Id == quote.Id);
         if (card is not null) Quotes.Remove(card);
@@ -398,12 +487,28 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
     }
     public void ImportQuotes(string path)
     {
-        foreach (var line in File.ReadLines(path).Where(line => !string.IsNullOrWhiteSpace(line))) AddQuote(new FocusQuote(Guid.NewGuid().ToString(), line.Trim(), Custom: true));
+        string[] lines;
+        try { lines = ReadQuoteLines(path); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { _report($"无法读取文字列表：{error.Message}"); return; }
+        foreach (var line in lines.Where(line => !string.IsNullOrWhiteSpace(line))) AddQuote(new FocusQuote(Guid.NewGuid().ToString(), line.Trim(), Custom: true));
         LibraryChanged(); Notify(nameof(CustomQuotes)); _report("文字列表已导入，可在列表中补充出处。");
     }
+    private static string[] ReadQuoteLines(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) return SplitLines(Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2));
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) return SplitLines(Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2));
+        var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+        try { return SplitLines(StrictUtf8.GetString(bytes, offset, bytes.Length - offset)); }
+        catch (DecoderFallbackException) { return SplitLines(LegacyChinese.GetString(bytes)); }
+    }
+    private static string[] SplitLines(string text) => text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     private void CancelQuoteEdit()
     {
-        _editingQuote = null; NewQuoteText = ""; NewQuoteAuthor = ""; NewQuoteWork = ""; NewQuoteTranslator = ""; NewQuoteSource = "";
+        var edited = _editingQuote;
+        _editingQuote = null; NewQuoteText = ""; NewQuoteAuthor = ""; NewQuoteWork = ""; NewQuoteTranslator = ""; NewQuoteSource = ""; NewQuoteNote = "";
+        QuoteEditorCompleted?.Invoke(edited);
     }
     private void Save()
     {
@@ -411,8 +516,10 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         _preferences.CustomImages = Images.Where(image => image.Asset.Custom).Select(image => image.Asset).ToList();
         _preferences.CustomSounds = SoundChoices.Where(sound => sound.Custom).ToList();
         _preferences.CustomQuotes = CustomQuotes.ToList();
+        _preferences.EditedDefaultQuotes = QuoteChoices.Where(quote => _defaultQuotes.Any(original => original.Id == quote.Id && original != quote)).ToList();
         _preferences.FavoriteIds = Images.Where(image => image.Favorite).Select(image => image.Asset.Id).ToList();
         _preferences.ExcludedIds = Images.Where(image => image.Excluded).Select(image => image.Asset.Id).ToList();
+        _preferences.ExcludedQuoteIds = Quotes.Where(quote => quote.Excluded).Select(quote => quote.Quote.Id).ToList();
         _preferences.FavoriteQuoteIds = Quotes.Where(quote => quote.Favorite).Select(quote => quote.Quote.Id).ToList();
         _preferences.FavoriteSoundIds = Sounds.Where(sound => sound.Favorite).Select(sound => sound.Asset.Id).ToList();
         try { _store.SaveSetting("focus.media", JsonSerializer.Serialize(_preferences, Json)); }
@@ -424,6 +531,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
     }
     public void OpenSoundSource(FocusAsset asset) => OpenSource(asset.Source);
+    public void OpenQuoteSource(FocusQuote quote) => OpenSource(quote.Source);
     public void PlayReminder(bool restEnded)
     {
         if (!ReminderSounds || Muted) return;

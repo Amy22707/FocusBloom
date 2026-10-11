@@ -40,6 +40,25 @@
     <Style TargetType="TextBlock">
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+            <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border x:Name="CheckSurface" Width="15" Height="15" CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource MutedBrush}" Background="{DynamicResource FieldBrush}" VerticalAlignment="Center">
+                    <TextBlock x:Name="CheckMark" Text="✓" FontFamily="Segoe UI" FontSize="12" FontWeight="Bold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryTextBrush}" Visibility="Collapsed" />
+                </Border>
+                <ContentPresenter Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" />
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckSurface" Property="Background" Value="{DynamicResource AccentBrush}" /><Setter TargetName="CheckSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter TargetName="CheckMark" Property="Visibility" Value="Visible" /></Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="CheckSurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="Caption" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         <Setter Property="FontSize" Value="12" />
@@ -202,6 +221,22 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template"><Setter.Value>
+            <ControlTemplate TargetType="ListBox">
+                <Border x:Name="ListSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                    <ScrollViewer x:Name="PART_ScrollViewer" Background="Transparent" Focusable="False" CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate>
+        </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="FlowCardList" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBox">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"><ItemsPresenter /></Border>
+        </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ScrollBar">
         <Setter Property="Width" Value="10" />
@@ -261,7 +296,7 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="Background" Value="{DynamicResource CardBrush}" />
-        <Setter Property="AlternatingRowBackground" Value="{DynamicResource FieldBrush}" />
+        <Setter Property="AlternationCount" Value="2" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
     </Style>
     <Style TargetType="DataGridColumnHeader">
@@ -271,9 +306,21 @@
         <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style TargetType="DataGridCell">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="DataGridCell"><Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}"><ContentPresenter VerticalAlignment="Center" /></Border></ControlTemplate></Setter.Value></Setter>
+        <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger></Style.Triggers>
+    </Style>
+    <Style TargetType="DataGridRow">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Style.Triggers>
+            <Trigger Property="AlternationIndex" Value="1"><Setter Property="Background" Value="{DynamicResource FieldBrush}" /></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="SceneButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="FontFamily" Value="{DynamicResource FocusTextFont}" />

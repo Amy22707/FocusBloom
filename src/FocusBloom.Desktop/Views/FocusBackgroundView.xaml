@@ -1,0 +1,11 @@
+<UserControl x:Class="FocusBloom.Desktop.Views.FocusBackgroundView"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False" ClipToBounds="True">
+    <Grid>
+        <Image Source="{Binding BackgroundImage, ElementName=Root}" Stretch="UniformToFill" />
+        <Image x:Name="GifImage" Stretch="UniformToFill" />
+        <MediaElement x:Name="VideoPlayer" LoadedBehavior="Manual" UnloadedBehavior="Close" IsMuted="True" Volume="0" Stretch="UniformToFill" MediaEnded="VideoEnded" MediaFailed="VideoFailed" />
+    </Grid>
+</UserControl>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
+using FocusBloom.Desktop.Windows;
 
 namespace FocusBloom.Desktop.Presentation;
 
@@ -12,6 +13,7 @@ public sealed record ThemePalette(string Id, string Name, string Swatch, string 
 
 public static class Appearance
 {
+    public static bool IsDark { get; private set; }
     public static IReadOnlyList<ThemePalette> Palettes { get; } = new[]
     {
         new ThemePalette("fog-blue", "莫兰迪 · 雾蓝", "#9DAFBB", "#627F90", "#9CAFBF"),
@@ -33,6 +35,7 @@ public static class Appearance
     {
         if (Application.Current is null) return;
         var dark = mode == AppearanceMode.Dark || (mode == AppearanceMode.System && IsSystemDark());
+        IsDark = dark;
         var accent = Parse(dark ? palette.DarkAccent : palette.LightAccent);
         var card = Parse(dark ? "#242832" : "#FFFFFF");
         var background = dark ? Parse("#191D25") : Mix(card, accent, 0.06);
@@ -57,6 +60,7 @@ public static class Appearance
         resources["HeroStartColor"] = Mix(card, accent, dark ? 0.16 : 0.18);
         resources["HeroMiddleColor"] = Mix(card, accent, dark ? 0.08 : 0.11);
         resources["HeroEndColor"] = Mix(card, accent, dark ? 0.04 : 0.05);
+        foreach (Window window in Application.Current.Windows) WindowAppearance.Apply(window);
     }
 
     private static bool IsSystemDark()

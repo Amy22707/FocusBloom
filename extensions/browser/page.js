@@ -77,7 +77,7 @@ function render(view) {
       const edit = document.createElement('button'); edit.textContent = '编辑'; edit.className = 'quiet'; edit.disabled = !state.canEditRules;
       edit.onclick = () => { originalDomain = rule.domain; byId('domain').value = rule.domain; byId('subdomains').checked = rule.includeSubdomains; };
       const remove = document.createElement('button'); remove.textContent = '删除'; remove.className = 'quiet'; remove.disabled = !state.canEditRules;
-      remove.onclick = () => message({ type:'deleteWebsite', fields:{ domain:rule.domain } });
+      remove.onclick = () => { if (window.confirm(`删除网站“${rule.domain}”？`)) message({ type:'deleteWebsite', fields:{ domain:rule.domain } }); };
       actions.append(edit, remove); row.append(title, actions); return row;
     }));
   }
