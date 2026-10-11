@@ -10,10 +10,10 @@ public partial class ConfirmDeletionWindow : Window
         DeletionMessage.Text = message;
     }
     public static bool Ask(Window owner, string message) => new ConfirmDeletionWindow(message) { Owner = owner }.ShowDialog() == true;
-    public static void ShowNotice(Window owner, string message)
+    public static void ShowNotice(Window owner, string message, string heading = "暂时不能删除")
     {
         var window = new ConfirmDeletionWindow(message) { Owner = owner, Title = "提示" };
-        window.DeletionHeading.Text = "暂时不能删除";
+        window.DeletionHeading.Text = heading;
         window.CancelDeletionButton.Visibility = window.ConfirmDeletionButton.Visibility = Visibility.Collapsed;
         window.CancelDeletionButton.IsDefault = false;
         window.NoticeButton.Visibility = Visibility.Visible;

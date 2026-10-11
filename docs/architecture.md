@@ -89,7 +89,9 @@ SQLite 表为 `project_folders`、`projects`、`sessions`、`intervals`、`setti
 
 普通与全屏页的 `FocusBackgroundView` 共用本次背景和 GIF URI，静态图片保留原解码与填充方式，GIF 由 XamlAnimatedGif 2.3.2 循环解码并显示。动画启动通过界面调度器执行，控件仅可见时加载，隐藏或卸载时清空动画 URI、释放解码器；播放失败时保留静态背景。素材卡片采用静态缩略图和 GIF 标记。库使用 Apache-2.0，许可证随 `Resources/ThirdParty` 发布。[库与使用文档](https://github.com/XamlAnimatedGif/XamlAnimatedGif)
 
-视频背景沿用素材标识、收藏、删除、随机与偏好存储，MP4／WMV 由 WPF `MediaElement` 使用 Windows 媒体解码器播放，背景视频始终静音。结束事件重置位置并继续播放，实现循环；控件不可见或卸载时关闭媒体并清空来源，播放错误通过素材视图模型切回主题背景。视频卡片仅显示播放标识，不开启多个视频预览。[MediaElement 控制](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/graphics-multimedia/how-to-control-a-mediaelement-play-pause-stop-volume-and-speed)
+视频背景沿用素材标识、收藏、删除、随机与偏好存储，MP4／WMV 由 WPF `MediaElement` 使用 Windows 媒体解码器播放，背景视频始终静音。结束事件重置位置并继续播放，实现循环；控件不可见或卸载时关闭媒体并清空来源，播放错误通过素材视图模型切回主题背景。视频卡片使用 `IShellItemImageFactory.GetImage` 的仅缩略图模式在后台取一帧，冻结后通知界面更新，沿用双任务限流与缓存，原生位图和COM对象在提取后释放；列表展示静态画面和播放标记。[MediaElement 控制](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/graphics-multimedia/how-to-control-a-mediaelement-play-pause-stop-volume-and-speed) · [系统缩略图接口](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishellitemimagefactory-getimage)
+
+桌面会话保存前检查 `FocusDuration`，不足10秒时标记为已处理并发出短专注事件，不写入记录；后续刷新不重复提示。应用在会话结束后显示说明窗口，退出期间跳过弹窗。记录列表及统计使用实际已保存的会话。
 
 全屏采用覆盖当前显示器完整边界的无边框窗口，内容按状态区分：专注／暂停显示计时视图，休息／未计时显示软件工作区，浏览器明确请求全屏时显示浏览器视图。计时状态切换更新当前全屏内容。浏览器从计时界面进入，同一控件在普通页面与全屏容器间移动，沿用标签页、WebView2 实例及当前网页。离开全屏恢复窗口位置、大小、窗口状态、最小尺寸及置顶偏好。
 

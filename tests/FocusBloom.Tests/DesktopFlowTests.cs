@@ -262,13 +262,13 @@ public sealed class DesktopFlowTests
                 content.UpdateLayout();
                 AssertVisibleInViewport(start, content);
                 mode.SelectedIndex = 1;
-                viewModel.DurationMinutes = "0.1";
+                viewModel.DurationMinutes = "0.2";
                 viewModel.RestMinutes = "1";
                 FlushBindings();
                 start.Command.Execute(null);
                 enterFullscreen.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(Visibility.Visible, fullscreen.Visibility);
-                clock.Advance(TimeSpan.FromSeconds(10));
+                clock.Advance(TimeSpan.FromSeconds(15));
                 viewModel.Tick();
                 Assert.True(viewModel.ShowSkipRest);
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("WorkspaceView")).Visibility);
@@ -279,7 +279,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal(2, store.GetRecords().Count);
                 var countdown = store.GetRecords().First();
                 Assert.Equal(TimerMode.Countdown, countdown.Mode);
-                Assert.Equal(TimeSpan.FromSeconds(6), countdown.FocusDuration);
+                Assert.Equal(TimeSpan.FromSeconds(12), countdown.FocusDuration);
                 Assert.Equal(EndReason.CountdownElapsed, countdown.EndReason);
                 viewModel.SelectedTimerMode = viewModel.TimerModes[0];
                 viewModel.Whitelist.Domain = "example.edu";
@@ -290,6 +290,7 @@ public sealed class DesktopFlowTests
                 viewModel.Whitelist.Websites.Add(new WebsiteRule("other.edu", true));
                 Assert.True(viewModel.CanNavigateWebsite("https://example.edu/"));
                 Assert.False(viewModel.CanNavigateWebsite("https://other.edu/"));
+                clock.Advance(TimeSpan.FromSeconds(10));
                 viewModel.PauseCommand.Execute(null);
                 Assert.True(viewModel.RestrictionsActive);
                 var blockedPreview = new ApplicationBlockedWindow { DataContext = viewModel };
@@ -307,6 +308,7 @@ public sealed class DesktopFlowTests
                 VerifyProjectManagement(window, viewModel, store, clock);
                 VerifyProjectNamesAndLastDeletion(window, viewModel, store, clock, directory);
                 VerifyProjectSelectionPreference(viewModel, directory);
+                VerifyShortFocusRecords(window, viewModel, directory);
                 RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "background-animation.gif"));
                 RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "alto-minho-waterfall.gif"));
                 RunWithDispatcher(() => VerifyThumbnailLoadingAsync(viewModel, directory));
@@ -804,6 +806,39 @@ public sealed class DesktopFlowTests
         restored.Media.Dispose(); original.RefreshSystemTheme();
     }
 
+    private static void VerifyShortFocusRecords(MainWindow window, MainViewModel original, string directory)
+    {
+        var store = new SqliteFocusStore(Path.Combine(directory, "short-focus.db"));
+        var clock = new ManualClock(); var model = new MainViewModel(store, new FocusTimer(clock));
+        model.RestMinutes = "0"; model.SelectedRestrictionMode = model.RestrictionModes.Single(mode => mode.Strict);
+        var notices = 0;
+        model.ShortFocusDiscarded += (_, _) => notices++;
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromMilliseconds(9999)); model.EndCommand.Execute(null);
+        Assert.Empty(store.GetRecords()); Assert.Empty(model.Records); Assert.False(model.HasUnsavedRecord);
+        Assert.False(model.RestrictionsActive); Assert.Equal(1, notices); Assert.Contains("不足10秒", model.StatusMessage);
+        model.Tick(); model.Tick(); Assert.Equal(1, notices);
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(5)); model.PauseCommand.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(10)); model.EndCommand.Execute(null);
+        Assert.Empty(store.GetRecords()); Assert.Equal(2, notices);
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(10)); model.EndCommand.Execute(null);
+        Assert.Equal(TimeSpan.FromSeconds(10), Assert.Single(store.GetRecords()).FocusDuration); Assert.Equal(2, notices);
+        model.SelectedTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Countdown); model.DurationMinutes = "0.1";
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(9)); model.Tick();
+        Assert.Single(store.GetRecords()); Assert.Equal(3, notices); Assert.False(model.HasUnsavedRecord);
+        model.SelectedTimerMode = model.TimerModes[0]; model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(2));
+        Assert.True(model.PrepareExit()); Assert.Single(store.GetRecords()); Assert.Equal(4, notices);
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            var notice = Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single();
+            Assert.Equal("本次专注未计入", ((TextBlock)notice.FindName("DeletionHeading")).Text);
+            Assert.Equal(Visibility.Collapsed, ((Button)notice.FindName("ConfirmDeletionButton")).Visibility);
+            Assert.Equal(Visibility.Visible, ((Button)notice.FindName("NoticeButton")).Visibility);
+            notice.DialogResult = false;
+        }));
+        ConfirmDeletionWindow.ShowNotice(window, "本次有效专注不足10秒，未计入专注时长和记录。", "本次专注未计入");
+        model.Media.Dispose(); original.RefreshSystemTheme();
+    }
+
     private static async Task VerifyVideoBackgroundAsync(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock, string directory, string fixture)
     {
         var media = model.Media;
@@ -814,7 +849,14 @@ public sealed class DesktopFlowTests
         media.ImportFolder(folder);
         var card = media.Images.Single(image => image.Asset.File == path);
         Assert.True(card.IsVideo); Assert.Equal("视频循环", card.FormatLabel); Assert.Equal("自定义", card.Origin);
-        Assert.Null(card.Thumbnail); Assert.True(card.LoadThumbnailAsync().IsCompleted);
+        var thumbnailLoading = card.LoadThumbnailAsync();
+        Assert.Same(thumbnailLoading, card.LoadThumbnailAsync());
+        await thumbnailLoading; Assert.NotNull(card.Thumbnail); Assert.True(card.Thumbnail.IsFrozen);
+        Assert.Equal("", card.ThumbnailStatus);
+        var cachedThumbnail = card.Thumbnail; await card.LoadThumbnailAsync(); Assert.Same(cachedThumbnail, card.Thumbnail);
+        var preview = new Image { Source = card.Thumbnail, Width = 320, Height = 180, Stretch = Stretch.Uniform };
+        preview.Measure(new Size(320, 180)); preview.Arrange(new Rect(0, 0, 320, 180));
+        SavePreview(preview, Brushes.Black, "video-thumbnail" + Path.GetExtension(fixture) + ".png", 320, 180);
         card.Favorite = true;
         ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0;
         window.UpdateLayout(); FlushBindings();
@@ -917,7 +959,10 @@ public sealed class DesktopFlowTests
         await card.LoadThumbnailAsync(); Assert.Same(cached, card.Thumbnail);
         var missing = new FocusImage(new FocusBloom.Desktop.ViewModels.FocusAsset("missing", "不可用图片", Path.Combine(directory, "missing.jpg")), () => { });
         await missing.LoadThumbnailAsync(); Assert.Null(missing.Thumbnail); Assert.Equal("图片不可用", missing.ThumbnailStatus);
+        var missingVideo = new FocusImage(new FocusAsset("missing-video", "不可用视频", Path.Combine(directory, "missing.mp4")), () => { });
+        await missingVideo.LoadThumbnailAsync(); Assert.Null(missingVideo.Thumbnail); Assert.Equal("视频预览不可用", missingVideo.ThumbnailStatus);
         await Task.WhenAll(model.Media.Images.Select(image => image.LoadThumbnailAsync()));
+        Assert.NotNull(model.Media.Images.Single(image => image.Asset.Id == "clackamas-river").Thumbnail);
     }
 
     private static void VerifyFocusMedia(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, ManualClock clock, string directory)

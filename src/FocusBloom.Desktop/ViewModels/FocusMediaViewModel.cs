@@ -47,13 +47,13 @@ public sealed class FocusImage(FocusAsset asset, Action changed, ImageSource? th
     public bool IsDynamic => IsGif || IsVideo;
     public string FormatLabel => IsVideo ? "视频循环" : IsGif ? "GIF 动态" : "";
     public ImageSource? Thumbnail { get { _ = LoadThumbnailAsync(); return _thumbnail; } }
-    public string ThumbnailStatus => IsVideo ? "视频背景" : _thumbnail is not null ? "" : _thumbnailLoaded ? "图片不可用" : "加载图片…";
-    public Task LoadThumbnailAsync() => IsVideo ? Task.CompletedTask : _thumbnailTask ??= DecodeThumbnailAsync();
+    public string ThumbnailStatus => _thumbnail is not null ? "" : _thumbnailLoaded ? IsVideo ? "视频预览不可用" : "图片不可用" : IsVideo ? "加载视频预览…" : "加载图片…";
+    public Task LoadThumbnailAsync() => _thumbnailTask ??= DecodeThumbnailAsync();
     private async Task DecodeThumbnailAsync()
     {
         ImageSource? bitmap;
         await ThumbnailSlots.WaitAsync().ConfigureAwait(false);
-        try { bitmap = await Task.Run(() => FocusMediaViewModel.LoadImage(Asset.File, 320)).ConfigureAwait(false); }
+        try { bitmap = await Task.Run(() => IsVideo ? VideoThumbnail.Load(Asset.File) : FocusMediaViewModel.LoadImage(Asset.File, 320)).ConfigureAwait(false); }
         finally { ThumbnailSlots.Release(); }
         await _dispatcher.InvokeAsync(() =>
         {

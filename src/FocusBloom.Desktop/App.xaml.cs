@@ -38,6 +38,7 @@ public partial class App : Application
             var store = await Task.Run(() => new SqliteFocusStore(Path.Combine(dataDirectory, "focusbloom.db")));
             _viewModel = new MainViewModel(store);
             _viewModel.PropertyChanged += OnFocusPhaseChanged;
+            _viewModel.ShortFocusDiscarded += OnShortFocusDiscarded;
             SystemEvents.UserPreferenceChanged += OnSystemAppearanceChanged;
             _window = new MainWindow(_viewModel, store);
             MainWindow = _window;
@@ -92,6 +93,16 @@ public partial class App : Application
             Dispatcher.BeginInvoke(new Action(() => _viewModel.RefreshSystemTheme()));
     }
 
+    private void OnShortFocusDiscarded(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_exiting || _window is null) return;
+            _window.ShowFromTray();
+            ConfirmDeletionWindow.ShowNotice(_window, "本次有效专注不足10秒，未计入专注时长和记录。", "本次专注未计入");
+        }));
+    }
+
     private void OnFocusPhaseChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(MainViewModel.State) || _viewModel is null || _lastFocusState == _viewModel.State) return;
@@ -107,7 +118,11 @@ public partial class App : Application
         _refresh?.Stop();
         _keepAwake?.Dispose();
         _viewModel?.Media.Dispose();
-        if (_viewModel is not null) _viewModel.PropertyChanged -= OnFocusPhaseChanged;
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged -= OnFocusPhaseChanged;
+            _viewModel.ShortFocusDiscarded -= OnShortFocusDiscarded;
+        }
         _restrictions?.Dispose();
         _window?.DisposeBrowser();
         SystemEvents.UserPreferenceChanged -= OnSystemAppearanceChanged;

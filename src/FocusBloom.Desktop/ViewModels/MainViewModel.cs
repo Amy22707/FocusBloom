@@ -145,6 +145,7 @@ public sealed class MainViewModel : ObservableObject
     public string RestrictionStatus => RestrictionsActive ? "严格限制生效 · 暂停期间保持限制" : "应用与网站限制已解除";
     public bool CanNavigateWebsite(string address) => WebsiteAccess.IsAllowed(address, RestrictionsActive, SessionWebsites, SessionWebsiteMode);
     public event EventHandler? RestrictionsChanged;
+    public event EventHandler? ShortFocusDiscarded;
     public ObservableCollection<ProjectFolder> Folders { get; } = [];
     public ObservableCollection<FocusProject> FolderProjects { get; } = [];
     public IReadOnlyList<ThemePalette> Palettes => Appearance.Palettes;
@@ -467,6 +468,13 @@ public sealed class MainViewModel : ObservableObject
     {
         if (!HasUnsavedRecord) return true;
         _attemptedRecordId = _timer.LastRecord!.Id;
+        if (_timer.LastRecord.FocusDuration < TimeSpan.FromSeconds(10))
+        {
+            _savedRecordId = _timer.LastRecord.Id;
+            StatusMessage = "本次有效专注不足10秒，未计入专注记录。";
+            ShortFocusDiscarded?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
         try
         {
             _store.SaveRecord(_timer.LastRecord!);
