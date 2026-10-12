@@ -15,12 +15,12 @@
 | 7 | `default-6` | 我们一生不过是清醒地穿过梦境，每个人只不过是岁月的一个幽灵。 | 弗兰兹·卡夫卡 |  | 用户确认沿用署名；尚无可核对的原作和对应译本。 |
 | 8 | `default-7` | 我的肩上是风<br>风上是闪烁的星群 | 北岛 | 《结局或开始——献给遇罗克》 | [诗歌引文](https://www.chinaindiefilm.org/wp-content/uploads/2022/09/Ending-or-Starting%E2%80%94Researching-the-Fragments-of-the-Pre-History-of-Chinese-Independent-Cinema.pdf) 正文与作品名可对应。 |
 | 9 | `default-8` | 少日春怀似酒浓，插花走马醉千钟。 | 辛弃疾 | 《定风波·暮春漫兴》 | [原词](https://www.gushiwen.cn/mingju/juv_07a1029712d2.aspx) 采用“少日春怀”。 |
-| 10 | `default-9` | 无论风暴将我带到什么样的岸边，我都将以主人的身份上岸。 | 昆图斯·贺拉斯·弗拉库斯 |  | 用户确认沿用署名和“主人”措辞；[相关拉丁原文](https://latin.packhum.org/loc/893/5/0) hospes 为“客人”，不能证明此中文版本。 |
+| 10 | `default-9` | 无论风暴将我带到什么样的岸边，我都将以主人的身份上岸。 | 昆图斯·贺拉斯·弗拉库斯 | 《颂歌集》 | 用户确认沿用署名、“主人”措辞和《颂歌集》作品名；[相关拉丁原文](https://latin.packhum.org/loc/893/5/0) hospes 为“客人”，不能证明此中文版本。 |
 | 11 | `default-10` | 所有的星星终将毁灭，可它们无畏地燃烧着。 | 埃迪特·索德格朗 | 《存在的凯旋》 | [索德格朗诗歌资料](https://www.swedishfinnhistoricalsociety.org/2021/11/19/poems-by-edith-sodergran/) 对应 Triumf är att finnas till…，收于 Septemberlyran（1918）；中文译者未填写。 |
 | 12 | `default-11` | 所谓无底深渊，下去，也是前程万里。 | 木心 | 《素履之往》 | [作品资料](https://www.dedao.cn/ebook/detail?id=donM9vjLM8m6d5YQ7lvJGVz2Xgaqb3pE6ownBRyejENkP1KZo9rD4OApxpxkY7Ke) 木心《素履之往》。 |
 | 13 | `default-12` | 虽然辛苦，我还是会选择那种滚烫的人生。 | 北野武 | 《北野武的小酒馆》 | [作品引文](https://www.chinawriter.com.cn/n1/2018/0809/c419388-30218441.html) 北野武《北野武的小酒馆》；中文译者未填写。 |
 | 14 | `default-13` | 休对故人思故国，且将新火试新茶。诗酒趁年华。 | 苏轼 | 《望江南·超然台作》 | [原词](https://www.gushiju.net/ju/532490) 苏轼《望江南·超然台作》。 |
-| 15 | `default-14` | 我当然不会试图摘月，我要月亮奔我而来。 | 萨布丽娜（奥黛丽·赫本饰） | 《龙凤配》 | [电影资料](https://mami.mumbaifilmfestival.com/media/1276/mami_festival_catalogue-2016.pdf) 对应《龙凤配》角色台词；用户确认写明角色及演员。中文保留用户版本。 |
+| 15 | `default-14` | After all, tomorrow is another day. | Margaret Mitchell | Gone with the Wind | 按用户指定的正文、作者与作品名保存，英文作品名以斜体展示。 |
 | 16 | `default-15` | 人独自行过生命，蒙受玷污，承担罪过，痛饮苦酒，寻觅出路。 | 赫尔曼·黑塞 | 《悉达多》 | [作品引文](https://www.fdsm.fudan.edu.cn/_upload/article/files/28/65/cd1670844d8397a8bf984d9e36ed/78afe921-b887-4ef1-a354-3eb5fea4df7c.pdf) 采用“玷污”；中文版本译者未填写。 |
 | 17 | `default-16` | 以心灵的秩序对抗世界的复杂性。 | 伊塔洛·卡尔维诺 | 《为什么读经典》 | [《为什么读经典》前言节选](https://www.yami.com/us/en/p/book/3105014481) 前言论述瓦莱里时使用此句；署名保留卡尔维诺。 |
 | 18 | `default-18` | 你要到达自由的高处，你的灵魂渴慕星空。 | 弗里德里希·尼采 | 《查拉图斯特拉如是说》 | [作品引文](https://ptextold.nju.edu.cn/ba/a5/c13383a244389/page.htm) 《查拉图斯特拉如是说·山上的树》；中文译者未填写。 |

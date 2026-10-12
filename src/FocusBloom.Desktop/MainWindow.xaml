@@ -12,6 +12,7 @@
         <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="30,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox x:Name="TimerFloatToggle" Content="计时浮窗" IsChecked="{Binding TimerFloatVisible}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,18,0" />
                     <CheckBox Content="窗口置顶" IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}}"
                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,20,0" />
                     <Button x:Name="EnterFullscreenButton" Content="全屏  ↗" Click="ToggleFullscreen_Click" Padding="18,10" ToolTip="F11 切换，Esc 返回" />
@@ -69,7 +70,7 @@
                                             <Button x:Name="StartButton" Content="开始专注  →" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="200" Padding="24,12" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
                                             <Button x:Name="PauseButton" Content="暂停" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Margin="0,0,10,0" Width="110" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
                                             <Button x:Name="ResumeButton" Content="继续专注" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" Width="120" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
-                                            <Button x:Name="EndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="100" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" />
+                                            <Button x:Name="EndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="100" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,10,0" />
                                             <Button Content="跳过休息" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="180" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
                                         </WrapPanel>
                                         <Grid Grid.Row="1" Margin="0,18,0,0">
@@ -88,7 +89,7 @@
                         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22">
                             <DockPanel>
                                 <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBrush}" CornerRadius="12" Padding="14" Margin="0,18,0,0">
-                                    <TextBlock Text="暂停不计入专注时长。休息设为 0 时，结束后直接保存记录。" FontSize="11" Foreground="{DynamicResource MutedBrush}" LineHeight="20" />
+                                    <TextBlock Text="暂停和休息不计入专注时长。番茄循环每轮单独记录，专注不足10秒不计入。" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="20" />
                                 </Border>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                     <StackPanel>
@@ -109,11 +110,15 @@
                                                 <TextBlock Text="专注时长 / 分钟" Style="{StaticResource Caption}" />
                                                 <TextBox Text="{Binding DurationMinutes, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
-                                            <Grid>
+                                            <Grid Visibility="{Binding SingleTimer, Converter={StaticResource BoolVisibility}}">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                                 <StackPanel><TextBlock Text="暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                                                 <StackPanel Grid.Column="2"><TextBlock Text="休息 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                                             </Grid>
+                                            <views:PomodoroSettingsView x:Name="PomodoroConfiguration" Visibility="{Binding Pomodoro, Converter={StaticResource BoolVisibility}}" />
+                                            <StackPanel Visibility="{Binding Pomodoro, Converter={StaticResource BoolVisibility}}" Margin="0,14,0,0">
+                                                <TextBlock Text="暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
                                 </ScrollViewer>
@@ -137,13 +142,14 @@
                                     <TextBox x:Name="FolderNameInput" Text="{Binding NewFolderName, UpdateSourceTrigger=PropertyChanged}" ToolTip="新建文件夹，例如：学习、工作、生活" Padding="9,7" Height="36" />
                                     <Button x:Name="AddFolderButton" Grid.Column="2" Content="＋" Command="{Binding AddFolderCommand}" Padding="0" Height="36" ToolTip="新建文件夹" />
                                 </Grid>
-                                <ListBox x:Name="FolderList" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" ItemContainerStyle="{StaticResource FolderItem}">
+                                <ListBox x:Name="FolderList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" ItemContainerStyle="{StaticResource FolderItem}">
                                     <ListBox.ItemTemplate><DataTemplate>
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
                                             <Path Data="M 2,5 L 9,5 L 12,8 L 22,8 L 22,21 L 2,21 Z" Width="23" Height="20" Stretch="Uniform" Fill="{DynamicResource AccentSoftBrush}" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Margin="0,4,12,0" />
                                             <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" /><TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0" /></StackPanel>
-                                            <Button Grid.Column="2" Content="···" Click="EditFolder_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" Background="Transparent" ToolTip="修改或删除文件夹" />
+                                            <present:ReorderButton Grid.Column="2" VerticalAlignment="Top" ReorderRequested="FolderOrder_Requested" />
+                                            <Button Grid.Column="3" Content="···" Click="EditFolder_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" Background="Transparent" ToolTip="修改或删除文件夹" />
                                         </Grid>
                                     </DataTemplate></ListBox.ItemTemplate>
                                 </ListBox>
@@ -167,7 +173,7 @@
                                         <TextBlock Text="文件夹还是空的" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,8" HorizontalAlignment="Center" />
                                         <TextBlock Text="添加第一个想专注的项目吧" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                     </StackPanel>
-                                    <ListBox x:Name="ProjectList" ItemsSource="{Binding FolderProjects}" SelectedItem="{Binding SelectedProject}" ScrollViewer.VerticalScrollBarVisibility="Visible">
+                                    <ListBox x:Name="ProjectList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding FolderProjects}" SelectedItem="{Binding SelectedProject}" ScrollViewer.VerticalScrollBarVisibility="Visible">
                                         <ListBox.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource {x:Type ScrollBar}}"><Style.Triggers><Trigger Property="Maximum" Value="0"><Setter Property="Opacity" Value="0" /></Trigger></Style.Triggers></Style></ListBox.Resources>
                                         <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource ProjectItem}"><Setter Property="Height" Value="120" /><Setter Property="VerticalAlignment" Value="Top" /><Setter Property="Margin" Value="0,0,10,10" /></Style></ListBox.ItemContainerStyle>
                                         <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" VerticalAlignment="Top" /></ItemsPanelTemplate></ListBox.ItemsPanel>
@@ -176,6 +182,7 @@
                                                 <StackPanel>
                                                     <DockPanel Margin="0,0,0,8">
                                                         <Button DockPanel.Dock="Right" Content="···" Click="EditProject_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" HorizontalAlignment="Right" Background="Transparent" ToolTip="修改或删除项目" />
+                                                        <present:ReorderButton DockPanel.Dock="Right" VerticalAlignment="Top" ReorderRequested="ProjectOrder_Requested" />
                                                         <Border Background="{DynamicResource SubtleBrush}" Width="32" Height="32" CornerRadius="8" HorizontalAlignment="Left"><Path Data="M 3,1 L 16,1 L 23,8 L 23,31 L 3,31 Z M 16,1 L 16,8 L 23,8" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" Fill="{DynamicResource AccentSoftBrush}" StrokeThickness="1.5" Margin="9,6" /></Border>
                                                     </DockPanel>
                                                     <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
@@ -246,6 +253,13 @@
                             <Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,0,0,20"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border>
                             <Border Style="{StaticResource Card}" Margin="0,0,0,20">
                                 <StackPanel>
+                                    <TextBlock Text="桌面计时浮窗" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16" />
+                                    <CheckBox Content="显示计时浮窗" IsChecked="{Binding TimerFloatVisible}" />
+                                    <TextBlock Text="共用当前计时，主窗口进入托盘后继续显示。在浮窗设置里选择置顶、背景和透明度；关闭浮窗不会结束专注。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                                <StackPanel>
                                     <TextBlock Text="计时偏好" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,22" />
                                     <Grid MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -264,6 +278,7 @@
                                         <StackPanel Grid.Column="2"><TextBlock Text="默认休息 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                                     </Grid>
                                     <TextBlock Text="保存后，每次开始默认采用所选方式和模式；也可在专注页临时调整本次选择。当前会话保持原设置，休息 0 分钟表示不休息。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,20" />
+                                    <views:PomodoroSettingsView x:Name="PomodoroPreferences" Visibility="{Binding DefaultPomodoro, Converter={StaticResource BoolVisibility}}" MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20" />
                                     <Button x:Name="SaveTimerPreferencesButton" Content="保存偏好" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Border>
@@ -287,7 +302,7 @@
                                             <Button Content="选择程序文件" Click="SelectApplicationFile_Click" Margin="0,0,12,8" />
                                             <Button Content="移除应用" Click="RemoveApplication_Click" Margin="0,0,0,8" />
                                         </WrapPanel>
-                                        <TextBlock Text="软件自身、必要系统界面、任务管理器和 Windows 截图工具自动放行。白名单只允许列表内应用；黑名单只限制列表内应用。浏览器应用可操作后，启用并连接扩展才能执行网站规则。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,22" />
+                                        <TextBlock Text="软件自身、必要系统界面、任务管理器、Windows 截图工具和照片查看器自动放行。白名单只允许列表内应用；黑名单只限制列表内应用。浏览器应用可操作后，启用并连接扩展才能执行网站规则。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,22" />
                                         <TextBlock Text="网站限制方式" Style="{StaticResource Caption}" />
                                         <ComboBox x:Name="WebsiteAccessModeSelector" ItemsSource="{Binding Whitelist.ListModes}" SelectedItem="{Binding Whitelist.WebsiteMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
                                         <TextBlock Text="{Binding Whitelist.WebsiteListTitle}" Style="{StaticResource Caption}" />
@@ -324,4 +339,3 @@
     </Border>
     </Grid>
 </Window>
-

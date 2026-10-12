@@ -114,7 +114,7 @@ public sealed class DesktopFlowTests
                 content.UpdateLayout();
                 FlushBindings();
                 var mode = (ComboBox)window.FindName("TimerModeSelector");
-                Assert.Equal(2, mode.Items.Count);
+                Assert.Equal(3, mode.Items.Count);
                 mode.SelectedIndex = 1;
                 FlushBindings();
                 content.UpdateLayout();
@@ -309,6 +309,8 @@ public sealed class DesktopFlowTests
                 VerifyProjectNamesAndLastDeletion(window, viewModel, store, clock, directory);
                 VerifyProjectSelectionPreference(viewModel, directory);
                 VerifyShortFocusRecords(window, viewModel, directory);
+                VerifyOrdering(viewModel, directory);
+                VerifyCustomQuoteRetention(viewModel, directory);
                 RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "background-animation.gif"));
                 RunWithDispatcher(() => VerifyGifBackgroundAsync(window, viewModel, store, clock, directory, "alto-minho-waterfall.gif"));
                 RunWithDispatcher(() => VerifyThumbnailLoadingAsync(viewModel, directory));
@@ -318,6 +320,8 @@ public sealed class DesktopFlowTests
                 RunWithDispatcher(() => VerifyWindowRestrictionAsync(window, viewModel, directory));
                 RunWithDispatcher(() => VerifyBrowserAsync(window, viewModel, directory));
                 VerifyTimerPreferences(window, viewModel, store, clock);
+                VerifyPomodoro(window, viewModel, store, clock);
+                VerifyTimerFloat(window, viewModel, store, clock);
                 VerifyRestrictionSnapshots(viewModel, store);
                 VerifyKeepAwake(viewModel, clock, store);
                 VerifyFocusMedia(window, viewModel, store, clock, directory);
@@ -788,7 +792,8 @@ public sealed class DesktopFlowTests
         Assert.Equal("移动目标", restored.SelectedFolder!.Name); Assert.Null(restored.SelectedProject); restored.Media.Dispose();
         store.DeleteFolder("移动目标");
         restored = new MainViewModel(new SqliteFocusStore(path));
-        Assert.Equal("改名后", restored.SelectedFolder!.Name); Assert.Equal(first.Id, restored.SelectedProject!.Id);
+        Assert.Same(restored.Folders.First(folder => folder.Projects.Count > 0), restored.SelectedFolder);
+        Assert.Same(restored.SelectedFolder!.Projects.First(), restored.SelectedProject);
         restored.NewFolderName = "留空"; restored.AddFolderCommand.Execute(null); restored.Media.Dispose();
         restored = new MainViewModel(new SqliteFocusStore(path));
         Assert.Equal("留空", restored.SelectedFolder!.Name); Assert.Null(restored.SelectedProject); restored.Media.Dispose();
@@ -804,6 +809,152 @@ public sealed class DesktopFlowTests
         restored = new MainViewModel(historyStore);
         Assert.Equal(historyProject.Id, restored.SelectedProject!.Id); Assert.Equal(historyProject.Category, restored.SelectedFolder!.Name);
         restored.Media.Dispose(); original.RefreshSystemTheme();
+    }
+
+    private static void VerifyOrdering(MainViewModel original, string directory)
+    {
+        var path = Path.Combine(directory, "ordering.db"); var store = new SqliteFocusStore(path);
+        var clock = new ManualClock(); var model = new MainViewModel(store, new FocusTimer(clock));
+        model.NewFolderName = "排序一"; model.AddFolderCommand.Execute(null);
+        foreach (var name in new[] { "项目一", "项目二", "项目三" }) { model.NewProjectName = name; model.AddProjectCommand.Execute(null); }
+        model.NewFolderName = "排序二"; model.AddFolderCommand.Execute(null);
+        model.NewProjectName = "另一项目"; model.AddProjectCommand.Execute(null);
+        var folder = model.Folders.Single(item => item.Name == "排序一");
+        model.SelectedFolder = folder; model.SelectedProject = folder.Projects[1];
+        var selected = model.SelectedProject!;
+        var window = new MainWindow(model, store, Path.Combine(directory, "ordering-browser"));
+        new WindowInteropHelper(window).EnsureHandle();
+        window.Show();
+        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedIndex = 1;
+        var content = (FrameworkElement)window.Content;
+        content.Measure(new Size(1240, 750)); content.Arrange(new Rect(0, 0, 1240, 750)); content.UpdateLayout(); FlushBindings();
+        ReorderButton Handle(DependencyObject parent, object data) => Descendants<ReorderButton>(parent).Single(button => ReferenceEquals(button.DataContext, data));
+        void MenuMove(ReorderButton handle, string title)
+        {
+            handle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Assert.True(handle.ContextMenu.IsOpen);
+            handle.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Header?.ToString() == title).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            handle.ContextMenu.IsOpen = false; window.UpdateLayout(); FlushBindings();
+        }
+        void Drop(ReorderButton handle, ItemsControl owner, FrameworkElement target)
+        {
+            var before = owner.Items.Cast<object>().ToArray();
+            var sourceContainer = (FrameworkElement)owner.ItemContainerGenerator.ContainerFromItem(handle.DataContext);
+            var originalTransform = sourceContainer.RenderTransform; var originalOpacity = sourceContainer.Opacity;
+            var payloadType = typeof(ReorderButton).GetNestedType("DragItem", BindingFlags.NonPublic)!;
+            var payload = Activator.CreateInstance(payloadType, handle, owner)!;
+            var data = new DataObject("FocusBloom.ItemOrder", payload);
+            var constructor = typeof(DragEventArgs).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+            DragEventArgs Args(RoutedEvent routed) => (DragEventArgs)constructor.Invoke([data, DragDropKeyStates.LeftMouseButton, DragDropEffects.Move, target, new Point(10, 10)]);
+            var over = Args(DragDrop.DragOverEvent); over.RoutedEvent = DragDrop.DragOverEvent; target.RaiseEvent(over);
+            Assert.Equal(DragDropEffects.Move, over.Effects);
+            Assert.Equal(before, owner.Items.Cast<object>()); Assert.Equal(0.16, sourceContainer.Opacity);
+            RunWithDispatcher(async () => await Task.Delay(200));
+            Assert.IsType<TransformGroup>(sourceContainer.RenderTransform);
+            var previewObject = payloadType.GetProperty("Preview")!.GetValue(payload)!;
+            Assert.NotNull(previewObject.GetType().GetProperty("Target")!.GetValue(previewObject));
+            Assert.NotNull(previewObject.GetType().GetField("_ghost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(previewObject));
+            SavePreview(window, window.Background, "ordering-drag-preview.png", (int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight));
+            ((IDisposable)previewObject).Dispose(); payloadType.GetProperty("Preview")!.SetValue(payload, null);
+            Assert.Equal(before, owner.Items.Cast<object>()); Assert.Same(originalTransform, sourceContainer.RenderTransform);
+            Assert.Equal(originalOpacity, sourceContainer.Opacity);
+            over = Args(DragDrop.DragOverEvent); over.RoutedEvent = DragDrop.DragOverEvent; target.RaiseEvent(over);
+            var drop = Args(DragDrop.DropEvent); drop.RoutedEvent = DragDrop.DropEvent; target.RaiseEvent(drop);
+            Assert.True(drop.Handled); FlushBindings();
+            Assert.Same(originalTransform, sourceContainer.RenderTransform); Assert.Equal(originalOpacity, sourceContainer.Opacity);
+        }
+        var folders = (ListBox)window.FindName("FolderList"); var projects = (ListBox)window.FindName("ProjectList");
+        Assert.True(ReorderButton.GetEnableDrop(folders)); Assert.True(ReorderButton.GetEnableDrop(projects));
+        MenuMove(Handle(folders, folder), "移到最前"); Assert.Same(folder, model.Folders[0]);
+        var grip = Handle(folders, folder);
+        Assert.Empty(Descendants<Border>(grip));
+        Assert.Equal(Colors.Transparent, ((SolidColorBrush)Descendants<Grid>(grip).First().Background).Color);
+        SavePreview(content, window.Background, "ordering-projects.png");
+        Assert.Same(folder, model.SelectedFolder); Assert.Same(selected, model.SelectedProject);
+        model.SelectedTimerMode = model.TimerModes[0]; model.SelectedRestrictionMode = model.RestrictionModes[0]; model.RestMinutes = "0";
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(12)); model.Tick();
+        var source = model.FolderProjects[2]; var target = model.FolderProjects[0];
+        Drop(Handle(projects, source), projects, (FrameworkElement)projects.ItemContainerGenerator.ContainerFromItem(target));
+        Assert.Same(source, model.FolderProjects[0]); Assert.Same(selected, model.SelectedProject); Assert.Equal("00:00:12", model.TimerText);
+        Assert.Equal(selected.Name, model.ActiveProjectName);
+        model.EndCommand.Execute(null);
+        var folderOrder = model.Folders.Select(item => item.Name).ToArray(); var projectOrder = model.FolderProjects.Select(item => item.Id).ToArray();
+        var restored = new MainViewModel(new SqliteFocusStore(path));
+        Assert.Equal(folderOrder, restored.Folders.Select(item => item.Name)); Assert.Equal(projectOrder, restored.FolderProjects.Select(item => item.Id)); restored.Media.Dispose();
+        Assert.True(model.RenameFolder(folder, "排序一改名")); Assert.Equal("排序一改名", model.Folders[0].Name);
+        model.NewProjectName = "新项目"; model.AddProjectCommand.Execute(null); Assert.Equal("新项目", model.FolderProjects.Last().Name);
+        tabs.SelectedIndex = 3; window.UpdateLayout(); FlushBindings();
+        var settings = (FocusMediaSettingsView)((Border)window.FindName("FocusMediaSettingsCard")).Child;
+        var media = model.Media; media.SelectedBackground = media.Images[0].Asset; media.SelectedQuote = media.Quotes[0].Quote; media.SelectedSound = media.Sounds[0].Asset;
+        model.StartCommand.Execute(null); var scene = media.Background; var quote = media.QuoteText;
+        foreach (var name in new[] { "BackgroundLibrary", "QuoteLibrary", "SoundLibrary" }) ((Expander)settings.FindName(name)).IsExpanded = true;
+        content.Measure(new Size(1240, 750)); content.Arrange(new Rect(0, 0, 1240, 750)); content.UpdateLayout(); FlushBindings();
+        var images = (ItemsControl)settings.FindName("BackgroundCards"); var quotes = (ItemsControl)settings.FindName("QuoteCards"); var sounds = (ItemsControl)settings.FindName("SoundCards");
+        Assert.True(ReorderButton.GetEnableDrop(images)); Assert.True(ReorderButton.GetEnableDrop(quotes)); Assert.True(ReorderButton.GetEnableDrop(sounds));
+        var image = media.Images[2]; var text = media.Quotes[2]; var sound = media.Sounds[2];
+        Drop(Handle(images, image), images, (FrameworkElement)images.ItemContainerGenerator.ContainerFromItem(media.Images[0]));
+        MenuMove(Handle(quotes, text), "移到最前"); MenuMove(Handle(sounds, sound), "移到最后");
+        Assert.Same(image, media.Images[0]); Assert.Same(text, media.Quotes[0]); Assert.Same(sound, media.Sounds.Last());
+        Assert.Same(scene, media.Background); Assert.Equal(quote, media.QuoteText);
+        Assert.Equal(media.Sounds.Select(item => item.Asset.Id), media.QuickSounds.Where(item => item.Id.Length > 0).Select(item => item.Id));
+        media.Images[0].Favorite = true; media.Images[2].Favorite = true; media.ShowFavoriteImages = true;
+        var favorite = media.VisibleImages.Last(); media.MoveImage(favorite, OrderMove.First);
+        Assert.Same(favorite, media.VisibleImages.First()); media.ShowFavoriteImages = false;
+        using (var loaded = new FocusMediaViewModel(store, _ => { }))
+        {
+            Assert.Equal(media.Images.Select(item => item.Asset.Id), loaded.Images.Select(item => item.Asset.Id));
+            Assert.Equal(media.Quotes.Select(item => item.Quote.Id), loaded.Quotes.Select(item => item.Quote.Id));
+            Assert.Equal(media.Sounds.Select(item => item.Asset.Id), loaded.Sounds.Select(item => item.Asset.Id));
+        }
+        var beforeRestore = media.Quotes.Select(item => item.Quote.Id).ToArray(); media.RestoreQuotes();
+        Assert.Equal(beforeRestore, media.Quotes.Select(item => item.Quote.Id));
+        var localImage = Path.Combine(directory, "rename-background.jpg"); File.Copy(media.Images[0].Asset.File, localImage);
+        media.ImportImages([localImage]); var custom = media.Images.Single(item => item.Asset.File == localImage);
+        var thumbnail = custom.Thumbnail; custom.Favorite = true; custom.Excluded = true;
+        Assert.False(media.RenameImage(media.Images.First(item => !item.Custom), "不能改默认"));
+        Assert.False(media.RenameImage(custom, " "));
+        var editor = new RenameBackgroundWindow(media, custom) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((TextBox)editor.FindName("NameInput")).Text = "我的背景显示名";
+            ((Button)editor.FindName("SaveNameButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(editor.ShowDialog()); Assert.Equal("我的背景显示名", custom.Name);
+        Assert.Equal(localImage, custom.Asset.File); Assert.True(File.Exists(localImage));
+        Assert.Same(thumbnail, custom.Thumbnail); Assert.True(custom.Favorite); Assert.True(custom.Excluded);
+        Assert.Equal(quote, media.QuoteText); Assert.Same(scene, media.Background);
+        using (var renamed = new FocusMediaViewModel(store, _ => { })) Assert.Equal(custom.Name, renamed.Images.Single(item => item.Asset.Id == custom.Asset.Id).Name);
+        SavePreview(content, window.Background, "ordering-media.png");
+        model.EndCommand.Execute(null); window.Close(); media.Dispose(); original.RefreshSystemTheme();
+    }
+
+    private static void VerifyCustomQuoteRetention(MainViewModel original, string directory)
+    {
+        var store = new SqliteFocusStore(Path.Combine(directory, "custom-quote-retention.db"));
+        var existing = new[]
+        {
+            new FocusQuote("existing-one", "诗万首，酒千觞。几曾着眼看侯王？", "朱敦儒", "《鹧鸪天·西都作》", Custom: true),
+            new FocusQuote("existing-two", "日拱一卒，功不唐捐。", Custom: true)
+        };
+        var webJson = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        store.SaveSetting("focus.media", JsonSerializer.Serialize(new MediaPreferences { CustomQuotes = existing.ToList() }, webJson));
+        using (var media = new FocusMediaViewModel(store, _ => { }))
+        {
+            Assert.Equal(existing, media.CustomQuotes);
+            media.NewQuoteText = "我当然不会试图摘月，我要月亮奔我而来。";
+            media.NewQuoteAuthor = "萨布丽娜（奥黛丽·赫本饰）"; media.NewQuoteWork = "《龙凤配》";
+            media.SaveQuoteCommand.Execute(null);
+            Assert.Equal(3, media.CustomQuotes.Count());
+            media.Volume = 31;
+        }
+        using (var reloaded = new FocusMediaViewModel(store, _ => { }))
+        {
+            Assert.Equal(3, reloaded.CustomQuotes.Count());
+            Assert.All(existing, quote => Assert.Contains(quote, reloaded.CustomQuotes));
+            reloaded.Quotes.Single(card => card.Quote.Id == existing[0].Id).Favorite = true;
+        }
+        using (var savedAgain = new FocusMediaViewModel(store, _ => { }))
+            Assert.All(existing, quote => Assert.Contains(quote, savedAgain.CustomQuotes));
+        original.RefreshSystemTheme();
     }
 
     private static void VerifyShortFocusRecords(MainWindow window, MainViewModel original, string directory)
@@ -823,10 +974,31 @@ public sealed class DesktopFlowTests
         model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(10)); model.EndCommand.Execute(null);
         Assert.Equal(TimeSpan.FromSeconds(10), Assert.Single(store.GetRecords()).FocusDuration); Assert.Equal(2, notices);
         model.SelectedTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Countdown); model.DurationMinutes = "0.1";
+        var rejected = 0;
+        model.FocusDurationRejected += (_, _) => rejected++;
         model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(9)); model.Tick();
-        Assert.Single(store.GetRecords()); Assert.Equal(3, notices); Assert.False(model.HasUnsavedRecord);
+        Assert.Single(store.GetRecords()); Assert.Equal(2, notices); Assert.Equal(1, rejected); Assert.False(model.IsFocusActive);
+        model.DurationMinutes = (10d / 60).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(10)); model.Tick();
+        Assert.Equal(2, store.GetRecords().Count); Assert.Equal(2, notices); Assert.False(model.HasUnsavedRecord);
+        model.SelectedTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+        model.PomodoroFocusMinutes = "0.16665";
+        model.StartCommand.Execute(null);
+        Assert.Equal(2, rejected); Assert.False(model.IsFocusActive);
+        model.DefaultTimerMode = model.SelectedTimerMode;
+        var priorPreference = store.GetSetting("timer.mode");
+        model.SaveSettingsCommand.Execute(null);
+        Assert.Equal(3, rejected); Assert.Equal(priorPreference, store.GetSetting("timer.mode"));
+        Assert.Null(store.GetSetting("pomodoro.focusMinutes"));
+        model.PomodoroFocusMinutes = (10d / 60).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        model.PomodoroShortRestMinutes = model.PomodoroLongRestMinutes = "0";
+        model.PomodoroRounds = "1";
+        model.SaveSettingsCommand.Execute(null);
+        model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(10)); model.Tick();
+        Assert.Equal(3, store.GetRecords().Count); Assert.Equal(3, rejected);
+        model.DefaultTimerMode = model.TimerModes[0]; model.SaveSettingsCommand.Execute(null);
         model.SelectedTimerMode = model.TimerModes[0]; model.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(2));
-        Assert.True(model.PrepareExit()); Assert.Single(store.GetRecords()); Assert.Equal(4, notices);
+        Assert.True(model.PrepareExit()); Assert.Equal(3, store.GetRecords().Count); Assert.Equal(3, notices);
         Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
         {
             var notice = Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single();
@@ -998,6 +1170,12 @@ public sealed class DesktopFlowTests
         Assert.All(media.Quotes, quote => { Assert.Equal("默认", quote.Origin); Assert.NotEmpty(quote.Credit); });
         Assert.Equal("William Shakespeare", media.QuoteChoices.Single(quote => quote.Id == "default-2").Author);
         Assert.Equal("北岛", media.QuoteChoices.Single(quote => quote.Id == "default-7").Author);
+        var tomorrow = media.QuoteChoices.Single(quote => quote.Id == "default-14");
+        Assert.Equal("After all, tomorrow is another day.", tomorrow.Text);
+        Assert.Equal("Margaret Mitchell", tomorrow.Author); Assert.Equal("Gone with the Wind", tomorrow.Work);
+        var tomorrowCredit = new QuoteAttributionText { Quote = tomorrow };
+        Assert.Equal(FontStyles.Italic, tomorrowCredit.Inlines.OfType<System.Windows.Documents.Run>().Single(run => run.Text == tomorrow.Work).FontStyle);
+        Assert.Equal("《颂歌集》", media.QuoteChoices.Single(quote => quote.Id == "default-9").Work);
         Assert.All(media.Images.Where(image => !image.IsVideo), image => Assert.NotNull(image.Thumbnail));
         Assert.All(media.SoundChoices.Where(sound => sound.File.Length > 0), sound => Assert.True(File.Exists(sound.File)));
         var localFolder = Path.Combine(directory, "pictures");
@@ -1326,6 +1504,244 @@ public sealed class DesktopFlowTests
         viewModel.SaveSettingsCommand.Execute(null);
         viewModel.SelectedRestrictionMode = viewModel.RestrictionModes[0];
     }
+    private static void VerifyTimerFloat(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock)
+    {
+        var oldAppearance = model.SelectedAppearanceMode;
+        var mainTopmost = window.Topmost;
+        model.SelectedTimerMode = model.TimerModes[0]; model.RestMinutes = "0";
+        model.SelectedRestrictionMode = model.RestrictionModes.Single(mode => mode.Strict);
+        model.Media.SelectedBackground = model.Media.Images.First(image => !image.Custom && !image.IsVideo && !image.IsGif).Asset;
+        var count = store.GetRecords().Count;
+        ((CheckBox)window.FindName("TimerFloatToggle")).IsChecked = true;
+        FlushBindings();
+        var floating = Application.Current.Windows.OfType<TimerFloatWindow>().Single();
+        Assert.True(floating.IsVisible); Assert.Null(floating.Owner); Assert.False(floating.ShowInTaskbar);
+        Assert.Same(model, floating.DataContext); Assert.True(floating.Topmost);
+        Assert.Equal("True", store.GetSetting("widget.timer.visible"));
+        var start = (Button)floating.FindName("FloatStartButton");
+        start.Command.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(15)); model.Tick(); FlushBindings();
+        Assert.Equal(model.TimerText, ((TextBlock)floating.FindName("FloatTimer")).Text);
+        Assert.Equal("00:00:15", model.TimerText);
+        var quote = model.Media.CurrentQuote; var background = model.Media.Background;
+        var ownWindow = ForegroundApplications.FromWindow(new WindowInteropHelper(floating).Handle)!;
+        Assert.True(ApplicationAccess.IsAllowed(ownWindow.ProcessId, Environment.ProcessId, ownWindow.ProcessName,
+            ownWindow.ExecutablePath, model.SessionApplications, model.SessionApplicationMode));
+        ((Button)floating.FindName("FloatPauseButton")).Command.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(2)); model.Tick(); FlushBindings();
+        Assert.Equal(FocusState.Paused, model.State); Assert.True(model.RestrictionsActive);
+        Assert.Same(quote, model.Media.CurrentQuote); Assert.Same(background, model.Media.Background);
+        Assert.Equal(Visibility.Visible, ((Button)floating.FindName("FloatResumeButton")).Visibility);
+        window.Hide(); clock.Advance(TimeSpan.FromSeconds(1)); model.Tick(); FlushBindings();
+        Assert.True(floating.IsVisible); Assert.False(window.IsVisible);
+        Assert.Equal(model.PhaseText, ((TextBlock)floating.FindName("FloatPhase")).Text);
+        ((Button)floating.FindName("OpenMainButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.True(window.IsVisible);
+        var fullscreen = (Button)window.FindName("EnterFullscreenButton");
+        fullscreen.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(floating.IsVisible); Assert.True(model.TimerFloatVisible);
+        fullscreen.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.True(floating.IsVisible); Assert.Equal(FocusState.Paused, model.State);
+        floating.Width = 240; floating.Height = 180;
+        model.TimerFloatUseBackground = false;
+        model.SelectedAppearanceMode = model.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Light);
+        floating.UpdateLayout(); FlushBindings();
+        Assert.Equal(Visibility.Collapsed, ((FocusBackgroundView)floating.FindName("FloatBackground")).Visibility);
+        Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color,
+            ((SolidColorBrush)((TextBlock)floating.FindName("FloatTimer")).Foreground).Color);
+        AssertVisibleInViewport((Button)floating.FindName("FloatResumeButton"), (FrameworkElement)floating.Content);
+        AssertVisibleInViewport((Button)floating.FindName("OpenMainButton"), (FrameworkElement)floating.Content);
+        SavePreview((FrameworkElement)floating.Content, floating.Background, "timer-float-light.png", 240, 180);
+        model.SelectedAppearanceMode = model.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Dark);
+        FlushBindings();
+        Assert.Equal(((SolidColorBrush)Application.Current.FindResource("CardBrush")).Color,
+            ((SolidColorBrush)((Border)floating.FindName("FloatSurface")).Background).Color);
+        SavePreview((FrameworkElement)floating.Content, floating.Background, "timer-float-dark.png", 240, 180);
+        ((MenuItem)floating.FindName("CurrentBackgroundItem")).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        FlushBindings();
+        Assert.True(model.TimerFloatUseBackground);
+        Assert.Same(background, ((FocusBackgroundView)floating.FindName("FloatBackground")).BackgroundImage);
+        Assert.Equal(Visibility.Visible, ((FocusBackgroundView)floating.FindName("FloatBackground")).Visibility);
+        Assert.Equal(Colors.White, ((SolidColorBrush)((TextBlock)floating.FindName("FloatTimer")).Foreground).Color);
+        Assert.Same(background, model.Media.Background); Assert.Same(quote, model.Media.CurrentQuote);
+        Assert.Equal(new Thickness(0), ((Border)floating.FindName("FloatSurface")).BorderThickness);
+        Assert.Equal(Colors.Transparent, ((SolidColorBrush)floating.Background).Color);
+        Assert.Null(floating.FindName("LockButton")); Assert.Null(floating.FindName("PinButton"));
+        SavePreview((FrameworkElement)floating.Content, floating.Background, "timer-float-image.png", 240, 180);
+        ((Button)floating.FindName("OptionsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.True(((MenuItem)floating.FindName("CurrentBackgroundItem")).IsChecked);
+        var transparencySlider = (Slider)floating.FindName("TransparencySlider");
+        transparencySlider.Value = 45; FlushBindings();
+        Assert.Equal(45, model.TimerFloatTransparency);
+        Assert.True(floating.AllowsTransparency); Assert.Equal(0.55, floating.Opacity);
+        var transparentFrame = new RenderTargetBitmap((int)floating.ActualWidth, (int)floating.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        transparentFrame.Render(floating);
+        var pixel = new byte[4];
+        transparentFrame.CopyPixels(new Int32Rect((int)floating.ActualWidth / 2, 5, 1, 1), pixel, 4, 0);
+        Assert.InRange(pixel[3], (byte)138, (byte)142);
+        transparentFrame.CopyPixels(new Int32Rect(0, 0, 1, 1), pixel, 4, 0);
+        Assert.Equal(0, pixel[3]);
+        ((Button)floating.FindName("OptionsButton")).ContextMenu.IsOpen = false;
+        floating.Width = 360; floating.Height = 260;
+        floating.Left += 24; floating.Top -= 30;
+        floating.FitToScreen();
+        ((MenuItem)floating.FindName("PinItem")).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.False(floating.Topmost); Assert.Equal(mainTopmost, window.Topmost);
+        Assert.Equal(ResizeMode.CanResize, floating.ResizeMode);
+        var savedLayout = floating.CaptureLayout();
+        Assert.Equal(savedLayout, JsonSerializer.Deserialize<TimerFloatLayout>(store.GetSetting(TimerFloatLayout.SettingKey)!));
+        var reloaded = new MainViewModel(store);
+        Assert.True(reloaded.TimerFloatVisible); Assert.True(reloaded.TimerFloatUseBackground);
+        Assert.Equal(45, reloaded.TimerFloatTransparency);
+        var oldLayout = System.Text.Json.Nodes.JsonNode.Parse(store.GetSetting(TimerFloatLayout.SettingKey)!)!.AsObject();
+        oldLayout["PositionLocked"] = true;
+        store.SaveSetting(TimerFloatLayout.SettingKey, oldLayout.ToJsonString());
+        var restored = new TimerFloatWindow(model, store, window.ReturnToFocus);
+        new WindowInteropHelper(restored).EnsureHandle();
+        Assert.Equal(savedLayout, restored.CaptureLayout());
+        Assert.Equal(0.55, restored.Opacity);
+        Assert.Equal(ResizeMode.CanResize, restored.ResizeMode);
+        restored.CloseForExit(); Assert.True(model.TimerFloatVisible);
+        var restoredMain = new MainWindow(reloaded, store);
+        new WindowInteropHelper(restoredMain).EnsureHandle();
+        Assert.True(Application.Current.Windows.OfType<TimerFloatWindow>().Single(item => item.DataContext == reloaded).IsVisible);
+        restoredMain.Close();
+        Assert.DoesNotContain(Application.Current.Windows.OfType<TimerFloatWindow>(), item => item.DataContext == reloaded);
+        Assert.True(reloaded.TimerFloatVisible); Assert.Equal("True", store.GetSetting("widget.timer.visible"));
+        floating.Close(); Assert.False(floating.IsVisible); Assert.False(model.TimerFloatVisible);
+        Assert.Equal(FocusState.Paused, model.State); Assert.True(model.RestrictionsActive);
+        model.TimerFloatVisible = true; Assert.True(floating.IsVisible);
+        ((Button)floating.FindName("FloatResumeButton")).Command.Execute(null);
+        ((Button)floating.FindName("FloatEndButton")).Command.Execute(null);
+        Assert.Equal(count + 1, store.GetRecords().Count);
+        Assert.Equal(TimeSpan.FromSeconds(15), store.GetRecords().First().FocusDuration);
+        var imageSelection = model.Media.SelectedBackground;
+        model.Media.SelectedBackground = model.Media.Images.Single(image => image.Asset.Id == "clackamas-river").Asset;
+        RunWithDispatcher(async () =>
+        {
+            var player = (MediaElement)((FocusBackgroundView)floating.FindName("FloatBackground")).FindName("VideoPlayer");
+            await WaitForAsync(() => player.HasVideo && player.Position > TimeSpan.FromMilliseconds(300));
+            var frame = new RenderTargetBitmap((int)player.ActualWidth, (int)player.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            frame.Render(player);
+            var colors = new byte[frame.PixelWidth * frame.PixelHeight * 4];
+            frame.CopyPixels(colors, frame.PixelWidth * 4, 0);
+            Assert.True(colors.Where((_, index) => index % 4 != 3).Any(value => value > 40), "透明浮窗中应能显示视频画面。");
+            SavePreview((FrameworkElement)floating.Content, floating.Background, "timer-float-video.png", (int)floating.ActualWidth, (int)floating.ActualHeight);
+        });
+        model.Media.SelectedBackground = imageSelection;
+        model.SelectedTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+        model.PomodoroFocusMinutes = "0.2"; model.PomodoroShortRestMinutes = "0.1"; model.PomodoroRounds = "2";
+        start.Command.Execute(null); clock.Advance(TimeSpan.FromSeconds(12)); model.Tick(); FlushBindings();
+        Assert.Equal(FocusState.Resting, model.State); Assert.False(model.RestrictionsActive);
+        Assert.Equal("00:00:06", ((TextBlock)floating.FindName("FloatTimer")).Text);
+        var skip = (Button)floating.FindName("FloatSkipRestButton"); Assert.Equal(Visibility.Visible, skip.Visibility);
+        AssertVisibleInViewport(skip, (FrameworkElement)floating.Content);
+        skip.Command.Execute(null); Assert.Contains("第 2 / 2 轮", model.PhaseText);
+        clock.Advance(TimeSpan.FromSeconds(12)); model.Tick(); FlushBindings();
+        Assert.Equal(FocusState.Ended, model.State); Assert.Equal(count + 3, store.GetRecords().Count);
+        ((Button)floating.FindName("HideFloatButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(floating.IsVisible); Assert.Equal("False", store.GetSetting("widget.timer.visible"));
+        model.TimerFloatUseBackground = false;
+        model.TimerFloatTransparency = 0;
+        model.SelectedAppearanceMode = oldAppearance;
+        model.SelectedRestrictionMode = model.RestrictionModes[0];
+        reloaded.Media.Dispose();
+    }
+
+    private static void VerifyPomodoro(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock)
+    {
+        var tabs = (TabControl)window.FindName("MainTabs");
+        tabs.SelectedIndex = 3;
+        model.DefaultTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+        model.DefaultRestrictionMode = model.RestrictionModes.Single(mode => mode.Strict);
+        model.PomodoroFocusMinutes = "0.2";
+        model.PomodoroShortRestMinutes = "0.05";
+        model.PomodoroLongRestMinutes = "0.1";
+        model.PomodoroLongRestEvery = "2";
+        model.PomodoroRounds = "3";
+        var mediaPreferences = store.GetSetting("focus.media");
+        model.SaveSettingsCommand.Execute(null);
+        Assert.Equal(mediaPreferences, store.GetSetting("focus.media"));
+        var reopened = new MainViewModel(store);
+        Assert.True(reopened.Pomodoro);
+        Assert.Equal("0.2", reopened.PomodoroFocusMinutes);
+        Assert.Equal("0.05", reopened.PomodoroShortRestMinutes);
+        Assert.Equal("0.1", reopened.PomodoroLongRestMinutes);
+        Assert.Equal("2", reopened.PomodoroLongRestEvery);
+        Assert.Equal("3", reopened.PomodoroRounds);
+        FlushBindings();
+        Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("PomodoroPreferences")).Visibility);
+        tabs.SelectedIndex = 0;
+        FlushBindings();
+        Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("PomodoroConfiguration")).Visibility);
+        var count = store.GetRecords().Count;
+        model.PomodoroFocusMinutes = "0";
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            var notice = Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single();
+            Assert.Equal("专注时长至少10秒", ((TextBlock)notice.FindName("DeletionHeading")).Text);
+            Assert.Equal(Visibility.Visible, ((Button)notice.FindName("NoticeButton")).Visibility);
+            Assert.Equal(Visibility.Collapsed, ((Button)notice.FindName("ConfirmDeletionButton")).Visibility);
+            notice.DialogResult = false;
+        }));
+        model.StartCommand.Execute(null);
+        Assert.False(model.IsFocusActive);
+        model.PomodoroFocusMinutes = "0.2";
+        model.StartCommand.Execute(null);
+        Assert.True(model.RestrictionsActive);
+        Assert.Contains("第 1 / 3 轮", model.PhaseText);
+        Assert.Equal("00:00:12", model.TimerText);
+        FlushBindings();
+        Assert.False(((FrameworkElement)window.FindName("PomodoroConfiguration")).IsEnabled);
+        SavePreview((FrameworkElement)window.Content, window.Background, "pomodoro-focus.png");
+        var quote = model.Media.CurrentQuote;
+        clock.Advance(TimeSpan.FromSeconds(5)); model.PauseCommand.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(1)); model.ResumeCommand.Execute(null);
+        Assert.Same(quote, model.Media.CurrentQuote);
+        Assert.True(model.RestrictionsActive);
+        clock.Advance(TimeSpan.FromSeconds(7)); model.Tick();
+        Assert.Equal(FocusState.Resting, model.State);
+        Assert.Equal("短休息", model.StateText);
+        Assert.Equal("00:00:03", model.TimerText);
+        Assert.False(model.RestrictionsActive);
+        Assert.True(model.CanEditWhitelist);
+        Assert.True(model.ShowEnd);
+        Assert.False(model.CanDeleteProject(model.SelectedProject!));
+        Assert.Equal(count + 1, store.GetRecords().Count);
+        Assert.Equal(TimeSpan.FromSeconds(12), store.GetRecords().First().FocusDuration);
+        Assert.Equal("番茄循环", model.Records.First().Mode);
+        var site = new WebsiteRule("pomodoro.example", true);
+        model.Whitelist.Websites.Add(site);
+        model.SkipRestCommand.Execute(null);
+        Assert.Contains("第 2 / 3 轮", model.PhaseText);
+        Assert.Contains(site, model.SessionWebsites);
+        Assert.True(model.RestrictionsActive);
+        clock.Advance(TimeSpan.FromSeconds(12)); model.Tick();
+        Assert.Equal("长休息", model.StateText);
+        Assert.Equal("00:00:06", model.TimerText);
+        FlushBindings();
+        SavePreview((FrameworkElement)window.Content, window.Background, "pomodoro-rest.png");
+        clock.Advance(TimeSpan.FromSeconds(6)); model.Tick();
+        Assert.Contains("第 3 / 3 轮", model.PhaseText);
+        Assert.True(model.RestrictionsActive);
+        clock.Advance(TimeSpan.FromSeconds(12)); model.Tick();
+        Assert.Equal(FocusState.Ended, model.State);
+        Assert.True(model.CanConfigure);
+        Assert.False(model.RestrictionsActive);
+        Assert.Equal(count + 3, store.GetRecords().Count);
+        model.StartCommand.Execute(null);
+        clock.Advance(TimeSpan.FromSeconds(12)); model.Tick();
+        Assert.Equal(FocusState.Resting, model.State);
+        model.EndCommand.Execute(null);
+        clock.Advance(TimeSpan.FromMinutes(1)); model.Tick();
+        Assert.Equal(FocusState.Ended, model.State);
+        Assert.Equal(count + 4, store.GetRecords().Count);
+        model.Whitelist.Websites.Remove(site);
+        model.DefaultTimerMode = model.TimerModes[0];
+        model.DefaultRestrictionMode = model.RestrictionModes[0];
+        model.SaveSettingsCommand.Execute(null);
+    }
+
     private static void VerifyTimerPreferences(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, ManualClock clock)
     {
         ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;

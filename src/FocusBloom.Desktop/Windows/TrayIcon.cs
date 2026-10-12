@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using FocusBloom.Desktop.ViewModels;
+using System.ComponentModel;
 
 namespace FocusBloom.Desktop.Windows;
 
@@ -9,15 +10,22 @@ public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
     private readonly Icon _applicationIcon;
+    private readonly MainViewModel _viewModel;
+    private readonly ToolStripMenuItem _floatMenu;
 
     public TrayIcon(MainViewModel viewModel, Action open, Action exit)
     {
+        _viewModel = viewModel;
         using var iconStream = System.Windows.Application.GetResourceStream(
             new Uri("pack://application:,,,/FocusBloom;component/Resources/Branding/FocusBloom.ico"))!.Stream;
         using var sourceIcon = new Icon(iconStream);
         _applicationIcon = (Icon)sourceIcon.Clone();
         var menu = new ContextMenuStrip();
         menu.Items.Add("打开一刻专注", null, (_, _) => open());
+        _floatMenu = new ToolStripMenuItem("桌面计时浮窗") { Checked = viewModel.TimerFloatVisible };
+        _floatMenu.Click += (_, _) => viewModel.TimerFloatVisible = !viewModel.TimerFloatVisible;
+        menu.Items.Add(_floatMenu);
+        viewModel.PropertyChanged += OnPreferenceChanged;
         menu.Items.Add("暂停／继续", null, (_, _) =>
         {
             if (viewModel.PauseCommand.CanExecute(null)) viewModel.PauseCommand.Execute(null);
@@ -38,8 +46,14 @@ public sealed class TrayIcon : IDisposable
 
     public void Update(string text) => _icon.Text = text.Length > 63 ? text[..63] : text;
 
+    private void OnPreferenceChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.TimerFloatVisible)) _floatMenu.Checked = _viewModel.TimerFloatVisible;
+    }
+
     public void Dispose()
     {
+        _viewModel.PropertyChanged -= OnPreferenceChanged;
         _icon.Visible = false;
         _icon.ContextMenuStrip?.Dispose();
         _icon.Dispose();

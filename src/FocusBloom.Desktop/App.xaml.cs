@@ -109,7 +109,7 @@ public partial class App : Application
         var state = _viewModel.State;
         if (_lastFocusState is FocusState.Focusing or FocusState.Paused && state is FocusState.Resting or FocusState.Ended)
             _viewModel.Media.PlayReminder(false);
-        else if (_lastFocusState == FocusState.Resting && state == FocusState.Ready) _viewModel.Media.PlayReminder(true);
+        else if (_lastFocusState == FocusState.Resting && state is FocusState.Ready or FocusState.Focusing) _viewModel.Media.PlayReminder(true);
         _lastFocusState = state;
     }
 

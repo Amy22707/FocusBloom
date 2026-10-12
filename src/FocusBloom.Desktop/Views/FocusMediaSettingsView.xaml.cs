@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Windows;
 using Microsoft.Win32;
+using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.Views;
 
@@ -36,6 +37,17 @@ public partial class FocusMediaSettingsView : UserControl
         var dialog = new OpenFolderDialog { Title = "选择专注背景文件夹" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Model.ImportFolder(dialog.FolderName);
     }
+    private void MediaOrder_Requested(object sender, RoutedEventArgs e)
+    {
+        var direction = ((ReorderEventArgs)e).Direction;
+        switch (((ReorderButton)sender).DataContext)
+        {
+            case FocusImage image: Model.MoveImage(image, direction, ((ReorderEventArgs)e).Target as FocusImage); break;
+            case FocusQuoteCard quote: Model.MoveQuote(quote, direction, ((ReorderEventArgs)e).Target as FocusQuoteCard); break;
+            case FocusSoundCard sound: Model.MoveSound(sound, direction, ((ReorderEventArgs)e).Target as FocusSoundCard); break;
+        }
+        e.Handled = true;
+    }
     private void RandomBackground_Click(object sender, RoutedEventArgs e) => Model.SelectedBackground = Model.BackgroundChoices[0];
     private void PlainBackground_Click(object sender, RoutedEventArgs e) => Model.SelectedBackground = Model.BackgroundChoices[1];
     private void RandomQuote_Click(object sender, RoutedEventArgs e) => Model.SelectedQuote = Model.QuoteChoices[0];
@@ -45,6 +57,11 @@ public partial class FocusMediaSettingsView : UserControl
     {
         var image = (FocusImage)((Button)sender).DataContext;
         if (image.Custom && ConfirmDeletionWindow.Ask(Window.GetWindow(this), $"删除自定义背景‘{image.Name}’？原文件保留。")) Model.RemoveImage(image);
+    }
+    private void RenameImage_Click(object sender, RoutedEventArgs e)
+    {
+        var image = (FocusImage)((Button)sender).DataContext;
+        if (image.Custom) new RenameBackgroundWindow(Model, image) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
     private void UseQuote_Click(object sender, RoutedEventArgs e) => Model.SelectedQuote = ((FocusQuoteCard)((Button)sender).DataContext).Quote;
     private void EditQuote_Click(object sender, RoutedEventArgs e)

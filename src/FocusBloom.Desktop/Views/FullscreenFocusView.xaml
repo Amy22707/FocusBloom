@@ -30,7 +30,7 @@
                     <Button x:Name="FullscreenStartButton" Content="开始专注  →" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="210" Padding="24,14" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
                     <Button x:Name="FullscreenPauseButton" Content="暂停" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Width="130" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
                     <Button x:Name="FullscreenResumeButton" Content="继续专注" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Width="150" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
-                    <Button x:Name="FullscreenEndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="130" Padding="24,14" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" />
+                    <Button x:Name="FullscreenEndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="130" Padding="24,14" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,14,0" />
                     <Button Content="跳过休息" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="190" Padding="24,14" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
                 </WrapPanel>
                 <Grid Grid.Row="1" Margin="0,22,0,0">

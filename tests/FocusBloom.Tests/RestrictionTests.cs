@@ -80,15 +80,20 @@ public sealed class RestrictionTests
         Assert.True(ApplicationAccess.IsAllowed(20, 10, "chrome", "C:\\Chrome\\chrome.exe", new[] { new AllowedApplication("Chrome", "C:\\Chrome\\chrome.exe") }));
     }
 
-    [Fact]
-    public void ScreenshotToolsAreAllowedAndPhotosRequireAnApplicationRule()
+    [Theory]
+    [InlineData(AccessListMode.Whitelist)]
+    [InlineData(AccessListMode.Blacklist)]
+    public void WindowsScreenshotAndPhotoToolsAreAlwaysAllowed(AccessListMode mode)
     {
-        Assert.True(ApplicationAccess.IsAllowed(20, 10, "SnippingTool", null, Array.Empty<AllowedApplication>()));
-        Assert.True(ApplicationAccess.IsAllowed(20, 10, "ScreenClippingHost", null, Array.Empty<AllowedApplication>()));
-        Assert.False(ApplicationAccess.IsAllowed(20, 10, "Photos", "C:\\Photos\\Photos.exe", Array.Empty<AllowedApplication>()));
-        Assert.False(ApplicationAccess.IsAllowed(20, 10, "Microsoft.Photos", "C:\\Photos\\Microsoft.Photos.exe", Array.Empty<AllowedApplication>()));
-        Assert.True(ApplicationAccess.IsAllowed(20, 10, "Photos", "C:\\Photos\\Photos.exe",
-            new[] { new AllowedApplication("照片", "C:\\Photos\\Photos.exe") }));
+        foreach (var name in new[] { "SnippingTool", "ScreenClippingHost", "Photos", "Microsoft.Photos" })
+        {
+            var path = $"C:\\WindowsApps\\{name}.exe";
+            Assert.True(ApplicationAccess.IsAllowed(20, 10, name, path, Array.Empty<AllowedApplication>(), mode));
+            Assert.True(ApplicationAccess.IsAllowed(20, 10, name.ToLowerInvariant(), null, Array.Empty<AllowedApplication>(), mode));
+            Assert.True(ApplicationAccess.IsAllowed(20, 10, name, path, new[] { new AllowedApplication(name, path) }, mode));
+        }
+        Assert.False(ApplicationAccess.IsAllowed(20, 10, "chrome", "C:\\Chrome\\chrome.exe",
+            mode == AccessListMode.Blacklist ? new[] { new AllowedApplication("Chrome", "C:\\Chrome\\chrome.exe") } : Array.Empty<AllowedApplication>(), mode));
     }
 
 }

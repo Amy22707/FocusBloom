@@ -13,10 +13,17 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     public FocusState State { get; private set; } = FocusState.Ready;
     public FocusRecord? LastRecord { get; private set; }
     public bool IsActive => State is FocusState.Focusing or FocusState.Paused;
+    public bool IsPomodoro => _options?.Mode == TimerMode.Pomodoro;
+    public bool IsRunning => IsActive || (IsPomodoro && State == FocusState.Resting);
+    public Guid SessionId => _sessionId;
+    public int Round { get; private set; }
+    public int TotalRounds => _options?.Pomodoro?.Rounds ?? 1;
+    public bool IsLongRest { get; private set; }
     public bool RestrictionsActive => IsActive && _options?.Strict == true;
     public bool IsStrictSession => _options?.Strict == true;
     public TimeSpan Elapsed => ElapsedAt(_clock.GetUtcNow());
-    public TimeSpan DisplayTime => _options?.Mode == TimerMode.Countdown
+    public TimeSpan DisplayTime => IsPomodoro && State == FocusState.Resting ? PhaseRemaining
+        : _options?.Mode is TimerMode.Countdown or TimerMode.Pomodoro
         ? MaxZero(_options.Duration - Elapsed)
         : Elapsed;
     public TimeSpan PhaseRemaining => State is FocusState.Paused or FocusState.Resting
@@ -27,16 +34,26 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     {
         if (State is not (FocusState.Ready or FocusState.Ended))
             throw new InvalidOperationException("请先结束当前专注或跳过休息。");
-        if (options.Mode == TimerMode.Countdown && options.Duration <= TimeSpan.Zero)
+        if (options.Mode is TimerMode.Countdown or TimerMode.Pomodoro && options.Duration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(options), "倒计时时长必须大于零。");
         if (options.PauseDuration <= TimeSpan.Zero || options.RestDuration < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(options), "暂停须大于零，休息不能小于零。");
+        if (options.Mode == TimerMode.Pomodoro && (options.Pomodoro is not { } cycle
+            || cycle.LongRestDuration < TimeSpan.Zero || cycle.LongRestEvery is < 1 or > 100 || cycle.Rounds is < 1 or > 100))
+            throw new ArgumentOutOfRangeException(nameof(options), "请设置有效的番茄循环时长和轮数。");
 
         _options = options;
-        _sessionId = Guid.NewGuid();
-        _startedAt = _phaseStartedAt = _clock.GetUtcNow();
-        _intervals.Clear();
+        Round = 1;
+        IsLongRest = false;
         LastRecord = null;
+        BeginRound(_clock.GetUtcNow());
+    }
+
+    private void BeginRound(DateTimeOffset now)
+    {
+        _sessionId = Guid.NewGuid();
+        _startedAt = _phaseStartedAt = now;
+        _intervals.Clear();
         State = FocusState.Focusing;
     }
 
@@ -60,18 +77,22 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
 
     public void End(EndReason reason = EndReason.Manual, bool takeRest = true)
     {
+        if (IsPomodoro && State == FocusState.Resting) { State = FocusState.Ended; return; }
         Update();
+        if (IsPomodoro && State == FocusState.Resting) { State = FocusState.Ended; return; }
         if (!IsActive) return;
         Complete(_clock.GetUtcNow(), reason, takeRest);
     }
 
     public void SkipRest()
     {
-        if (State == FocusState.Resting) State = FocusState.Ready;
+        if (State != FocusState.Resting) return;
+        if (IsPomodoro) { Round++; BeginRound(_clock.GetUtcNow()); }
+        else State = FocusState.Ready;
     }
 
     // 界面刷新只是触发计算；区间终点由真实时间点决定，包含睡眠时间。
-    public void Update()
+    public void Update(bool allowNextRound = true)
     {
         var now = _clock.GetUtcNow();
         if (State == FocusState.Paused && now >= _phaseEndsAt)
@@ -79,14 +100,26 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
             CloseInterval(IntervalKind.Pause, _phaseEndsAt);
             State = FocusState.Focusing;
         }
-        if (State == FocusState.Focusing && _options!.Mode == TimerMode.Countdown)
+        if (State == FocusState.Focusing && _options!.Mode is TimerMode.Countdown or TimerMode.Pomodoro)
         {
             var completed = SumFocus();
             var deadline = _phaseStartedAt + (_options.Duration - completed);
-            if (now >= deadline) Complete(deadline, EndReason.CountdownElapsed, true);
+            if (now >= deadline)
+            {
+                Complete(deadline, EndReason.CountdownElapsed, true);
+                if (IsPomodoro) return;
+            }
         }
         if (State == FocusState.Resting && now >= _phaseEndsAt)
-            State = FocusState.Ready;
+        {
+            if (IsPomodoro)
+            {
+                if (!allowNextRound) return;
+                Round++;
+                BeginRound(now);
+            }
+            else State = FocusState.Ready;
+        }
     }
 
     private void Complete(DateTimeOffset endedAt, EndReason reason, bool takeRest)
@@ -94,7 +127,15 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
         CloseInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, endedAt);
         LastRecord = new FocusRecord(_sessionId, _options!.ProjectId, _options.Mode,
             _startedAt, endedAt, reason, _intervals.ToArray(), _options.Strict);
-        if (takeRest && _options.RestDuration > TimeSpan.Zero)
+        if (IsPomodoro)
+        {
+            if (reason != EndReason.CountdownElapsed || !takeRest || Round >= TotalRounds)
+            { State = FocusState.Ended; return; }
+            IsLongRest = Round % _options.Pomodoro!.LongRestEvery == 0;
+            _phaseEndsAt = endedAt + (IsLongRest ? _options.Pomodoro.LongRestDuration : _options.RestDuration);
+            State = FocusState.Resting;
+        }
+        else if (takeRest && _options.RestDuration > TimeSpan.Zero)
         {
             _phaseEndsAt = endedAt + _options.RestDuration;
             State = FocusState.Resting;

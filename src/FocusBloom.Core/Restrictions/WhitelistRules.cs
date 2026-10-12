@@ -9,7 +9,7 @@ public static class ApplicationAccess
     {
         "explorer", "SystemSettings", "Taskmgr", "ShellExperienceHost", "ShellHost", "StartMenuExperienceHost",
         "SearchHost", "SearchApp", "TextInputHost", "ctfmon", "LockApp", "LogonUI", "winlogon", "CredentialUIBroker",
-        "SnippingTool", "ScreenClippingHost"
+        "SnippingTool", "ScreenClippingHost", "Photos", "Microsoft.Photos"
     };
 
     public static bool IsAllowed(int processId, int ownProcessId, string processName, string? executablePath,

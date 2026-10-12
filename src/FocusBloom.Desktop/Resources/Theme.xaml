@@ -363,5 +363,17 @@
             <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Opacity" Value="1" /></Trigger>
         </Style.Triggers>
     </Style>
+    <Style x:Key="ReorderHandle" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <Setter Property="Opacity" Value="0.65" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+            <Grid Background="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
+        </ControlTemplate></Setter.Value></Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}" /><Setter Property="Opacity" Value="1" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Opacity" Value="1" /></Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>
 

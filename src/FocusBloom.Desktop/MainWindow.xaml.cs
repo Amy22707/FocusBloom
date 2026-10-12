@@ -14,6 +14,7 @@ using System.IO;
 using System.Diagnostics;
 using System.ComponentModel;
 using FocusBloom.Desktop.Views;
+using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop;
 
@@ -31,6 +32,8 @@ public partial class MainWindow : Window
     private bool _layoutInitialized;
     private bool _browserFullscreen;
     private readonly MainViewModel _viewModel;
+    private readonly IFocusStore _store;
+    private TimerFloatWindow? _timerFloat;
     private readonly StudyBrowserView _studyBrowser;
 
     public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null)
@@ -38,16 +41,18 @@ public partial class MainWindow : Window
         InitializeComponent();
         WindowAppearance.Attach(this);
         _viewModel = viewModel;
+        _store = store;
         _studyBrowser = browserUserDataFolder is null ? new StudyBrowserView() : new StudyBrowserView(browserUserDataFolder);
         BrowserTab.Content = _studyBrowser;
         _studyBrowser.ReturnToFocusRequested += BrowserReturnToFocusRequested;
         _studyBrowser.FullscreenRequested += BrowserFullscreenRequested;
         DataContext = viewModel;
         viewModel.PropertyChanged += OnFocusStateChanged;
-        Closed += (_, _) => { viewModel.PropertyChanged -= OnFocusStateChanged; _studyBrowser.Dispose(); };
+        viewModel.FocusDurationRejected += OnFocusDurationRejected;
+        Closed += (_, _) => { viewModel.PropertyChanged -= OnFocusStateChanged; viewModel.FocusDurationRejected -= OnFocusDurationRejected; _timerFloat?.CloseForExit(); _studyBrowser.Dispose(); };
         var savedJson = store.GetSetting(WindowLayout.SettingKey);
         var savedLayout = savedJson is null ? null : JsonSerializer.Deserialize<WindowLayout>(savedJson);
-        SourceInitialized += (_, _) => RestoreWindowLayout(savedLayout);
+        SourceInitialized += (_, _) => { RestoreWindowLayout(savedLayout); UpdateTimerFloatVisibility(); };
         Closing += (_, _) =>
         {
             if (!_layoutInitialized) return;
@@ -57,7 +62,9 @@ public partial class MainWindow : Window
         StateChanged += (_, _) =>
         {
             if (!_fullscreen && WindowState != WindowState.Minimized) _lastWindowState = WindowState;
+            UpdateTimerFloatVisibility();
         };
+        IsVisibleChanged += (_, _) => UpdateTimerFloatVisibility();
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.F11 || (e.Key == Key.Escape && _fullscreen))
@@ -70,6 +77,8 @@ public partial class MainWindow : Window
     }
 
     public event EventHandler? ExitRequested;
+    private void OnFocusDurationRejected(object? sender, EventArgs e) =>
+        ConfirmDeletionWindow.ShowNotice(this, _viewModel.StatusMessage, "专注时长至少10秒");
     private void RemoveApplication_Click(object sender, RoutedEventArgs args)
     {
         if (_viewModel.Whitelist.SelectedApplication is { } app && ConfirmDeletionWindow.Ask(this, $"从应用列表移除‘{app.Name}’？")) _viewModel.Whitelist.RemoveApplicationCommand.Execute(null);
@@ -77,6 +86,16 @@ public partial class MainWindow : Window
     private void RemoveWebsite_Click(object sender, RoutedEventArgs args)
     {
         if (_viewModel.Whitelist.SelectedWebsite is { } website && ConfirmDeletionWindow.Ask(this, $"从网站列表删除‘{website.Domain}’？")) _viewModel.Whitelist.RemoveWebsiteCommand.Execute(null);
+    }
+    private void FolderOrder_Requested(object sender, RoutedEventArgs e)
+    {
+        _viewModel.MoveFolder((ProjectFolder)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as ProjectFolder);
+        e.Handled = true;
+    }
+    private void ProjectOrder_Requested(object sender, RoutedEventArgs e)
+    {
+        _viewModel.MoveProject((FocusBloom.Core.Projects.FocusProject)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as FocusBloom.Core.Projects.FocusProject);
+        e.Handled = true;
     }
     private void EditFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -115,6 +134,22 @@ public partial class MainWindow : Window
     private void OnFocusStateChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_fullscreen && e.PropertyName == nameof(MainViewModel.IsFocusActive)) UpdateFullscreenContent();
+        if (e.PropertyName == nameof(MainViewModel.TimerFloatVisible)) UpdateTimerFloatVisibility();
+    }
+
+    private void UpdateTimerFloatVisibility()
+    {
+        if (!_layoutInitialized) return;
+        if (!_viewModel.TimerFloatVisible) { _timerFloat?.SaveLayout(); _timerFloat?.Hide(); return; }
+        if (_timerFloat is null)
+        {
+            _timerFloat = new TimerFloatWindow(_viewModel, _store, ReturnToFocus);
+            new WindowInteropHelper(_timerFloat).EnsureHandle();
+        }
+        var sameScreen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle).DeviceName
+            == System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(_timerFloat).Handle).DeviceName;
+        if (_fullscreen && IsVisible && WindowState != WindowState.Minimized && sameScreen) _timerFloat.Hide();
+        else if (!_timerFloat.IsVisible) { _timerFloat.FitToScreen(); _timerFloat.Show(); }
     }
 
     private void UpdateFullscreenContent()
@@ -132,6 +167,7 @@ public partial class MainWindow : Window
         BrowserFullscreenView.Visibility = browser ? Visibility.Visible : Visibility.Collapsed;
         _studyBrowser.SetFullscreenPresentation(browser);
         EnterFullscreenButton.Content = _fullscreen ? "退出全屏  ↙" : "全屏  ↗";
+        UpdateTimerFloatVisibility();
     }
 
     private void RestoreBrowserContent()

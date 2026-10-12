@@ -37,7 +37,8 @@ public sealed class FocusImage(FocusAsset asset, Action changed, ImageSource? th
     private bool _thumbnailLoaded = thumbnail is not null;
     private Task? _thumbnailTask = thumbnail is not null ? Task.CompletedTask : null;
     private bool _selected;
-    public FocusAsset Asset { get; } = asset;
+    public FocusAsset Asset { get; private set; } = asset;
+    internal void Rename(string name) { Asset = Asset with { Name = name }; Notify(nameof(Name)); Notify(nameof(Asset)); }
     public string Name => Asset.Name;
     public string Credit => $"{Asset.Author} · {Asset.License}";
     public bool Custom => Asset.Custom;
@@ -120,6 +121,9 @@ public sealed class MediaPreferences
     public List<FocusAsset> CustomSounds { get; set; } = [];
     public List<FocusQuote> CustomQuotes { get; set; } = [];
     public List<FocusQuote> EditedDefaultQuotes { get; set; } = [];
+    public List<string> ImageOrder { get; set; } = [];
+    public List<string> QuoteOrder { get; set; } = [];
+    public List<string> SoundOrder { get; set; } = [];
 }
 
 public sealed class FocusMediaViewModel : ObservableObject, IDisposable
@@ -186,6 +190,10 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         _defaultSounds = catalog.Sounds.Select(asset => asset with { File = Path.Combine(root, asset.File) }).ToArray();
         foreach (var asset in _defaultSounds.Concat(_preferences.CustomSounds).Where(asset => !asset.Custom || !_preferences.RemovedSoundIds.Contains(asset.Id))) AddSound(asset);
         RefreshFolders();
+        CollectionOrder.Apply(Images, _preferences.ImageOrder, image => image.Asset.Id);
+        CollectionOrder.Apply(Quotes, _preferences.QuoteOrder, quote => quote.Quote.Id);
+        CollectionOrder.Apply(Sounds, _preferences.SoundOrder, sound => sound.Asset.Id);
+        SyncChoiceOrder();
         _selectedBackground = BackgroundChoices.FirstOrDefault(asset => asset.Id == _preferences.BackgroundId) ?? BackgroundChoices[0];
         _selectedQuote = QuoteChoices.FirstOrDefault(quote => quote.Id == _preferences.QuoteId) ?? QuoteChoices[0];
         _selectedSound = SoundChoices.FirstOrDefault(asset => asset.Id == _preferences.SoundId) ?? SoundChoices[0];
@@ -389,6 +397,19 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
             catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _report($"图片文件夹不可用：{folder}"); }
         }
     }
+    public bool RenameImage(FocusImage image, string name)
+    {
+        if (!image.Custom) { _report("默认背景不能改名。"); return false; }
+        name = name.Trim();
+        if (name.Length == 0) { _report("请填写背景名称。"); return false; }
+        var previous = image.Asset;
+        image.Rename(name);
+        BackgroundChoices[BackgroundChoices.IndexOf(previous)] = image.Asset;
+        if (_selectedBackground.Id == previous.Id) { _selectedBackground = image.Asset; Notify(nameof(SelectedBackground)); }
+        if (_currentImage?.Id == previous.Id) { _currentImage = image.Asset; Notify(nameof(ImageCredit)); }
+        LibraryChanged(); _report("背景名称已保存，原文件名保持不变。");
+        return true;
+    }
     public void RemoveImage(FocusImage image)
     {
         if (!image.Custom) { _report("默认背景不能删除，可设置不参与随机。"); return; }
@@ -510,9 +531,33 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         _editingQuote = null; NewQuoteText = ""; NewQuoteAuthor = ""; NewQuoteWork = ""; NewQuoteTranslator = ""; NewQuoteSource = ""; NewQuoteNote = "";
         QuoteEditorCompleted?.Invoke(edited);
     }
+    public void MoveImage(FocusImage image, OrderMove direction, FocusImage? target = null)
+    {
+        if (!CollectionOrder.Move(Images, image, direction, VisibleImages, target)) return;
+        SyncChoiceOrder(); LibraryChanged();
+    }
+    public void MoveQuote(FocusQuoteCard quote, OrderMove direction, FocusQuoteCard? target = null)
+    {
+        if (!CollectionOrder.Move(Quotes, quote, direction, VisibleQuotes, target)) return;
+        SyncChoiceOrder(); LibraryChanged();
+    }
+    public void MoveSound(FocusSoundCard sound, OrderMove direction, FocusSoundCard? target = null)
+    {
+        if (!CollectionOrder.Move(Sounds, sound, direction, VisibleSounds, target)) return;
+        SyncChoiceOrder(); LibraryChanged();
+    }
+    private void SyncChoiceOrder()
+    {
+        CollectionOrder.Apply(BackgroundChoices, new[] { "", "theme" }.Concat(Images.Select(image => image.Asset.Id)).ToArray(), asset => asset.Id);
+        CollectionOrder.Apply(QuoteChoices, new[] { "" }.Concat(Quotes.Select(quote => quote.Quote.Id)).ToArray(), quote => quote.Id);
+        CollectionOrder.Apply(SoundChoices, new[] { "" }.Concat(Sounds.Select(sound => sound.Asset.Id)).ToArray(), asset => asset.Id);
+    }
     private void Save()
     {
         if (_loading) return;
+        _preferences.ImageOrder = Images.Select(image => image.Asset.Id).ToList();
+        _preferences.QuoteOrder = Quotes.Select(quote => quote.Quote.Id).ToList();
+        _preferences.SoundOrder = Sounds.Select(sound => sound.Asset.Id).ToList();
         _preferences.CustomImages = Images.Where(image => image.Asset.Custom).Select(image => image.Asset).ToList();
         _preferences.CustomSounds = SoundChoices.Where(sound => sound.Custom).ToList();
         _preferences.CustomQuotes = CustomQuotes.ToList();
