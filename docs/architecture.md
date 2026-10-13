@@ -109,6 +109,14 @@ SQLite 表为 `project_folders`、`projects`、`sessions`、`intervals`、`setti
 
 ## 下一模块的接入位置
 
+待办的重要、紧急分别保存为todo_items的整数列，旧事项默认未勾选。四象限从VisibleItems按两个标记分组；范围可为当前文件夹或全部文件夹，与列表共享对象、筛选及排序。todos.view保存展示方式，todos.quadrantScope保存范围。直接新建预填象限标记，编辑及完成沿用已有事务与历史关联；TodoDetailsWindow提供完整信息、编辑及计时入口。
+
+FocusTimer为每轮维护InterceptionCount，只有严格专注及暂停接受计数，BeginRound清零，完成时写入FocusRecord和sessions.interceptions。应用提示只在开始显示或拦截目标改变时累计，网站只统计主页面或弹窗拒绝访问；旧记录该列为空，界面显示未统计。
+
+待办界面以文件夹ID和事项ID独立组织，`TodoLibraryViewModel`管理编辑、筛选和排序；已保存的分类字段保留原值，不参与层级与范围筛选。`FocusOptions`及`FocusRecord`包含可空TodoId，番茄进入新轮次沿用开始时的关联。数据库新增待办与成果表、sessions.todo_id可空列，已有记录保持原有项目和时长。TodoStartWindow保留独立的输入草稿，开始时采用所选方式和模式，取消或输入被拒绝时保持原计时参数。
+
+成果按会话ID保存于session_outcomes，不更改计时区间；OutcomeEditorWindow仅由用户主动打开，固定编辑目标ID，界面调度继续更新计时。新会话开始、休息及逐轮保存不等待成果填写。记录页批量读取成果，最新待办会话的下一步更新恢复备注，编辑旧会话不覆盖较新的备注。详情见`docs/todos-and-outcomes.md`。
+
 `TimerFloatWindow`是无任务栏按钮的独立WPF窗口，不设置主窗口为Owner，隐藏主窗口时继续显示。它与主界面绑定同一MainViewModel及命令，依赖App现有刷新，不创建计时器或重复保存记录。主窗口维护单个浮窗实例，独立关闭转为隐藏，明确关闭主窗口时关闭浮窗并保留显示偏好。
 
 `widget.timer.visible`和`widget.timer.background`保存显示与背景样式；`widget.timer.layout`保存位置、尺寸、显示器及置顶，最小尺寸240×180。拖动／缩放结束、开关置顶、隐藏及退出保存布局；显示器变化后调整到可见工作区。主窗口全屏且可见时隐藏同屏浮窗，退出全屏、最小化或进入托盘后恢复。背景复用FocusBackgroundView，纯色或浮窗隐藏时释放动态播放资源，主题和字体沿用动态资源。
@@ -131,4 +139,3 @@ SQLite 表为 `project_folders`、`projects`、`sessions`、`intervals`、`setti
 暂停默认 5 分钟、可调整；休息初始为 0，可填写正数开启。暂停和休息不计入专注时长，单次休息结束回到准备界面。初始界面使用莫兰迪雾蓝并跟随系统明暗，设置提供 6 种马卡龙／莫兰迪配色。上述建议默认值随对应交互设计调整，不替代方案中明确的产品规则。
 
 拖动期间使用原位置加TranslateTransform预览占位，数据集合在松开后更新；取消或离开拖动时释放预览图并恢复透明度与变换。自定义背景改名只更新FocusAsset.Name，固定路径与ID，保留缩略图、偏好和当前播放；默认素材改名由模型拒绝。
-

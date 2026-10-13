@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -77,8 +78,11 @@ public partial class MainWindow : Window
     }
 
     public event EventHandler? ExitRequested;
+    private void LatestOutcome_Click(object sender, RoutedEventArgs e)
+    { if (_viewModel.LastSavedRecordId is { } id) new OutcomeEditorWindow(_viewModel, id) { Owner = this }.ShowDialog(); }
+    private void RecordOutcome_Click(object sender, RoutedEventArgs e) => new OutcomeEditorWindow(_viewModel, ((RecordRow)((Button)sender).DataContext).Id) { Owner = this }.ShowDialog();
     private void OnFocusDurationRejected(object? sender, EventArgs e) =>
-        ConfirmDeletionWindow.ShowNotice(this, _viewModel.StatusMessage, "专注时长至少10秒");
+        ConfirmDeletionWindow.ShowNotice(Application.Current.Windows.OfType<Window>().LastOrDefault(window => window.IsActive) ?? this, _viewModel.StatusMessage, "专注时长至少10秒");
     private void RemoveApplication_Click(object sender, RoutedEventArgs args)
     {
         if (_viewModel.Whitelist.SelectedApplication is { } app && ConfirmDeletionWindow.Ask(this, $"从应用列表移除‘{app.Name}’？")) _viewModel.Whitelist.RemoveApplicationCommand.Execute(null);
@@ -101,6 +105,12 @@ public partial class MainWindow : Window
     {
         var folder = (ProjectFolder)((Button)sender).DataContext;
         new ProjectEditorWindow(_viewModel, folder) { Owner = this }.ShowDialog();
+    }
+    private void NewFolder_Click(object sender, RoutedEventArgs e) => new ProjectEditorWindow(_viewModel, newFolder: true) { Owner = this }.ShowDialog();
+    private void NewProject_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.Folders.Count == 0) { ConfirmDeletionWindow.ShowNotice(this, "请先新建一个文件夹，再添加项目。", "先创建文件夹"); return; }
+        new ProjectEditorWindow(_viewModel, newFolder: false) { Owner = this }.ShowDialog();
     }
     private void EditProject_Click(object sender, RoutedEventArgs e)
     {

@@ -18,6 +18,7 @@ using FocusBloom.Desktop.Presentation;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Windows;
 using FocusBloom.Core.Restrictions;
+using FocusBloom.Core.Todos;
 using FocusBloom.Desktop.Views;
 using Microsoft.Web.WebView2.Wpf;
 using FocusBloom.Infrastructure.Storage;
@@ -78,28 +79,29 @@ public sealed class DesktopFlowTests
                 tabs.SelectedIndex = 1;
                 content.UpdateLayout();
                 FlushBindings();
-                var folderInput = (TextBox)window.FindName("FolderNameInput");
-                var addFolder = (Button)window.FindName("AddFolderButton");
-                folderInput.Text = "学习";
-                FlushBindings();
-                addFolder.Command.Execute(null);
-                var projectInput = (TextBox)window.FindName("ProjectNameInput");
-                var addProject = (Button)window.FindName("AddProjectButton");
-                projectInput.Text = "英语阅读";
-                FlushBindings();
-                addProject.Command.Execute(null);
-                projectInput.Text = "高等数学";
-                FlushBindings();
-                addProject.Command.Execute(null);
-                folderInput.Text = "生活";
-                FlushBindings();
-                addFolder.Command.Execute(null);
-                projectInput.Text = "阅读";
-                FlushBindings();
-                addProject.Command.Execute(null);
-                folderInput.Text = "工作";
-                FlushBindings();
-                addFolder.Command.Execute(null);
+                Assert.Null(window.FindName("FolderNameInput"));
+                Assert.Null(window.FindName("ProjectNameInput"));
+                window.Show(); FlushBindings();
+                void CreateFromPopup(string buttonName, string name)
+                {
+                    Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                    {
+                        var dialog = Application.Current.Windows.OfType<ProjectEditorWindow>().Single();
+                        Assert.Equal(Visibility.Collapsed, ((Button)dialog.FindName("DeleteButton")).Visibility);
+                        ((Button)dialog.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        Assert.False(string.IsNullOrEmpty(((TextBlock)dialog.FindName("ValidationMessage")).Text));
+                        ((TextBox)dialog.FindName("NameInput")).Text = name;
+                        ((Button)dialog.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    }));
+                    ((Button)window.FindName(buttonName)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    FlushBindings();
+                }
+                CreateFromPopup("AddFolderButton", "学习");
+                CreateFromPopup("AddProjectButton", "英语阅读");
+                CreateFromPopup("AddProjectButton", "高等数学");
+                CreateFromPopup("AddFolderButton", "生活");
+                CreateFromPopup("AddProjectButton", "阅读");
+                CreateFromPopup("AddFolderButton", "工作");
                 Assert.Empty(viewModel.FolderProjects);
                 var folders = (ListBox)window.FindName("FolderList");
                 folders.SelectedItem = viewModel.Folders.Single(f => f.Name == "学习");
@@ -197,7 +199,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal(Visibility.Collapsed, fullscreen.Visibility);
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("WorkspaceView")).Visibility);
                 Assert.Equal("00:01:00", viewModel.TimerText);
-                tabs.SelectedIndex = 3;
+                tabs.SelectedIndex = 4;
                 content.UpdateLayout();
                 FlushBindings();
                 var palettes = (ListBox)window.FindName("PaletteSelector");
@@ -251,7 +253,7 @@ public sealed class DesktopFlowTests
                 Assert.Single(reopened.Folders, f => f.Name == "工作" && f.Projects.Count == 0);
                 viewModel.SelectedPalette = viewModel.Palettes[0];
                 viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(m => m.Mode == AppearanceMode.Light);
-                tabs.SelectedIndex = 2;
+                tabs.SelectedIndex = 3;
                 content.UpdateLayout();
                 FlushBindings();
                 SavePreview(content, window.Background, "records-page.png");
@@ -322,6 +324,8 @@ public sealed class DesktopFlowTests
                 VerifyTimerPreferences(window, viewModel, store, clock);
                 VerifyPomodoro(window, viewModel, store, clock);
                 VerifyTimerFloat(window, viewModel, store, clock);
+                VerifyTodosAndOutcomes(window, viewModel, store, clock);
+                VerifyQuadrants(window, viewModel, store, clock);
                 VerifyRestrictionSnapshots(viewModel, store);
                 VerifyKeepAwake(viewModel, clock, store);
                 VerifyFocusMedia(window, viewModel, store, clock, directory);
@@ -493,7 +497,7 @@ public sealed class DesktopFlowTests
     {
         var typography = viewModel.Typography;
         var image = viewModel.Media.Background; var quote = viewModel.Media.QuoteText; var timer = viewModel.TimerText;
-        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedIndex = 3;
+        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedIndex = 4;
         content.UpdateLayout(); FlushBindings();
         var settings = (FocusFontSettingsView)((Border)window.FindName("FocusFontSettingsCard")).Child;
         Assert.Same(typography, settings.DataContext);
@@ -882,7 +886,7 @@ public sealed class DesktopFlowTests
         Assert.Equal(folderOrder, restored.Folders.Select(item => item.Name)); Assert.Equal(projectOrder, restored.FolderProjects.Select(item => item.Id)); restored.Media.Dispose();
         Assert.True(model.RenameFolder(folder, "排序一改名")); Assert.Equal("排序一改名", model.Folders[0].Name);
         model.NewProjectName = "新项目"; model.AddProjectCommand.Execute(null); Assert.Equal("新项目", model.FolderProjects.Last().Name);
-        tabs.SelectedIndex = 3; window.UpdateLayout(); FlushBindings();
+        tabs.SelectedIndex = 4; window.UpdateLayout(); FlushBindings();
         var settings = (FocusMediaSettingsView)((Border)window.FindName("FocusMediaSettingsCard")).Child;
         var media = model.Media; media.SelectedBackground = media.Images[0].Asset; media.SelectedQuote = media.Quotes[0].Quote; media.SelectedSound = media.Sounds[0].Asset;
         model.StartCommand.Execute(null); var scene = media.Background; var quote = media.QuoteText;
@@ -1189,7 +1193,7 @@ public sealed class DesktopFlowTests
         media.ImportImages([invalidPath]);
         Assert.DoesNotContain(media.Images, image => image.Asset.File == invalidPath);
 
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
         var content = (FrameworkElement)window.Content;
         content.Measure(new Size(1240, 750)); content.Arrange(new Rect(0, 0, 1240, 750)); content.UpdateLayout(); FlushBindings();
         var settings = (FocusMediaSettingsView)((Border)window.FindName("FocusMediaSettingsCard")).Child;
@@ -1354,7 +1358,7 @@ public sealed class DesktopFlowTests
         media.RemoveImage(media.Images[0]); Assert.Equal(7, media.Images.Count);
         media.RemoveSound(media.Sounds[0]); Assert.Equal(5, media.Sounds.Count);
         quoteLibrary.IsExpanded = true; backgroundLibrary.IsExpanded = false; soundLibrary.IsExpanded = false;
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
         content.UpdateLayout(); FlushBindings();
         Assert.All(FindButtons((ItemsControl)settings.FindName("QuoteCards")).Where(button => button.Content?.ToString() is "编辑" or "删除" && button.DataContext is FocusQuoteCard { Custom: false }), button => Assert.Equal(Visibility.Collapsed, button.Visibility));
         var styled = new QuoteAttributionText { Quote = originalQuote };
@@ -1440,7 +1444,7 @@ public sealed class DesktopFlowTests
         content.UpdateLayout(); FlushBindings();
         Assert.InRange(((FrameworkElement)window.FindName("NewFolderArea")).ActualHeight, 0, 40);
         SavePreview(content, window.Background, "projects-compact-dark.png");
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
         viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
         Assert.All(favoriteCheckBoxes(settings), box => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)box.Foreground).Color));
         static IEnumerable<CheckBox> favoriteCheckBoxes(DependencyObject root) => Descendants<CheckBox>(root).Where(box => box.Content?.ToString()?.Contains("收藏") == true);
@@ -1523,6 +1527,7 @@ public sealed class DesktopFlowTests
         clock.Advance(TimeSpan.FromSeconds(15)); model.Tick(); FlushBindings();
         Assert.Equal(model.TimerText, ((TextBlock)floating.FindName("FloatTimer")).Text);
         Assert.Equal("00:00:15", model.TimerText);
+        VerifyFloatingActions(floating);
         var quote = model.Media.CurrentQuote; var background = model.Media.Background;
         var ownWindow = ForegroundApplications.FromWindow(new WindowInteropHelper(floating).Handle)!;
         Assert.True(ApplicationAccess.IsAllowed(ownWindow.ProcessId, Environment.ProcessId, ownWindow.ProcessName,
@@ -1532,6 +1537,7 @@ public sealed class DesktopFlowTests
         Assert.Equal(FocusState.Paused, model.State); Assert.True(model.RestrictionsActive);
         Assert.Same(quote, model.Media.CurrentQuote); Assert.Same(background, model.Media.Background);
         Assert.Equal(Visibility.Visible, ((Button)floating.FindName("FloatResumeButton")).Visibility);
+        VerifyFloatingActions(floating);
         window.Hide(); clock.Advance(TimeSpan.FromSeconds(1)); model.Tick(); FlushBindings();
         Assert.True(floating.IsVisible); Assert.False(window.IsVisible);
         Assert.Equal(model.PhaseText, ((TextBlock)floating.FindName("FloatPhase")).Text);
@@ -1635,6 +1641,7 @@ public sealed class DesktopFlowTests
         Assert.Equal(FocusState.Resting, model.State); Assert.False(model.RestrictionsActive);
         Assert.Equal("00:00:06", ((TextBlock)floating.FindName("FloatTimer")).Text);
         var skip = (Button)floating.FindName("FloatSkipRestButton"); Assert.Equal(Visibility.Visible, skip.Visibility);
+        VerifyFloatingActions(floating);
         AssertVisibleInViewport(skip, (FrameworkElement)floating.Content);
         skip.Command.Execute(null); Assert.Contains("第 2 / 2 轮", model.PhaseText);
         clock.Advance(TimeSpan.FromSeconds(12)); model.Tick(); FlushBindings();
@@ -1648,10 +1655,429 @@ public sealed class DesktopFlowTests
         reloaded.Media.Dispose();
     }
 
+    private static void VerifyTodosAndOutcomes(MainWindow window, MainViewModel main, SqliteFocusStore store, ManualClock clock)
+    {
+        var library = main.Todos;
+        Assert.True(library.SaveCategory(null, "学习待办"));
+        Assert.False(library.SaveCategory(null, " 学习待办 "));
+        var folder = library.SaveFolder(null, "课程论文", "学习待办")!;
+        Assert.NotNull(folder); Assert.Null(library.SaveFolder(null, "课程论文", "学习待办"));
+        var editor = new TodoEditorWindow(main) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((TextBox)editor.FindName("TitleInput")).Text = "阅读第三章";
+            ((DatePicker)editor.FindName("DueDateInput")).SelectedDate = new DateTime(2026, 10, 20);
+            ((TextBox)editor.FindName("DueTimeInput")).Text = "18:30";
+            ((TextBox)editor.FindName("EstimateInput")).Text = "45";
+            ((TextBox)editor.FindName("NotesInput")).Text = "整理概念与例题";
+            ((TextBox)editor.FindName("ResumeInput")).Text = "从第42页继续";
+            ((Button)editor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(editor.ShowDialog());
+        var item = library.Items.Single(row => row.Title == "阅读第三章").Item;
+        Assert.Equal(new DateOnly(2026, 10, 20), item.DueDate); Assert.Equal(new TimeOnly(18, 30), item.DueTime); Assert.Equal(45, item.EstimatedMinutes);
+        Assert.True(library.SaveItem(new(Guid.NewGuid(), folder.Id, "写作提纲", Priority: TodoPriority.High)));
+        Assert.False(library.SaveItem(new(Guid.NewGuid(), folder.Id, " 阅读第三章 ")));
+        var otherFolder = library.SaveFolder(null, "工作待办", "未分类")!;
+        var folderSelector = (ComboBox)window.FindName("FocusTodoFolderSelector");
+        var itemSelector = (ComboBox)window.FindName("FocusTodoSelector");
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 0; FlushBindings(); window.UpdateLayout();
+        folderSelector.SelectedItem = main.FocusTodoFolderChoices.Single(choice => choice.Id == otherFolder.Id); FlushBindings();
+        Assert.Single(main.FolderFocusTodoChoices); Assert.Null(main.SelectedFocusTodo.Id);
+        var otherItem = new TodoItem(Guid.NewGuid(), otherFolder.Id, item.Title);
+        Assert.True(library.SaveItem(otherItem)); FlushBindings();
+        Assert.Equal(new Guid?[] { null, otherItem.Id }, main.FolderFocusTodoChoices.Select(choice => choice.Id));
+        itemSelector.SelectedItem = main.FolderFocusTodoChoices.Single(choice => choice.Id == otherItem.Id); FlushBindings();
+        Assert.Equal(otherItem.Id, main.SelectedFocusTodo.Id);
+        folderSelector.SelectedItem = main.FocusTodoFolderChoices.Single(choice => choice.Id == folder.Id); FlushBindings();
+        Assert.Null(main.SelectedFocusTodo.Id); Assert.DoesNotContain(main.FolderFocusTodoChoices, choice => choice.Id == otherItem.Id);
+        itemSelector.SelectedItem = main.FolderFocusTodoChoices.Single(choice => choice.Id == item.Id); FlushBindings();
+        Assert.Equal(item.Id, main.SelectedFocusTodo.Id); Assert.Equal(item.Title, main.SelectedFocusTodo.Title);
+        var restoredAssociation = new MainViewModel(store);
+        Assert.Equal(folder.Id, restoredAssociation.SelectedFocusTodoFolder.Id); Assert.Equal(item.Id, restoredAssociation.SelectedFocusTodo.Id);
+        restoredAssociation.Media.Dispose();
+        main.SelectedFocusTodo = main.FocusTodoChoices.Single(choice => choice.Id == otherItem.Id); FlushBindings();
+        Assert.Equal(otherFolder.Id, main.SelectedFocusTodoFolder.Id);
+        Assert.True(library.DeleteFolder(otherFolder)); FlushBindings();
+        Assert.Null(main.SelectedFocusTodoFolder.Id); Assert.Null(main.SelectedFocusTodo.Id); Assert.False(itemSelector.IsEnabled);
+        folderSelector.SelectedItem = main.FocusTodoFolderChoices.Single(choice => choice.Id == folder.Id); FlushBindings();
+        itemSelector.SelectedItem = main.FolderFocusTodoChoices.Single(choice => choice.Id == item.Id); FlushBindings();
+        library.SelectedFolder = folder;
+        SavePreview((FrameworkElement)window.Content, window.Background, "focus-todo-folder-selection.png");
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("TodoTab");
+        window.UpdateLayout(); FlushBindings();
+        var todoView = (TodosView)window.FindName("TodoPage");
+        Assert.Equal(2, ((ListBox)todoView.FindName("TodoList")).Items.Count);
+        library.Search = "提纲"; FlushBindings(); Assert.Single(library.VisibleItems); library.Search = "";
+        library.MoveItem(library.Items.Single(row => row.Title == "写作提纲"), OrderMove.First);
+        Assert.Equal("写作提纲", library.VisibleItems[0].Title);
+        FlushBindings(); window.UpdateLayout();
+        Assert.Contains("阅读第三章", VisibleTexts(todoView)); Assert.Contains("写作提纲", VisibleTexts(todoView));
+        SavePreview((FrameworkElement)window.Content, window.Background, "todos-page.png");
+        var appearance = main.SelectedAppearanceMode;
+        main.SelectedAppearanceMode = main.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+        FlushBindings(); window.UpdateLayout();
+        SavePreview((FrameworkElement)window.Content, window.Background, "todos-dark.png");
+        var darkEditor = new TodoEditorWindow(main, item) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            darkEditor.UpdateLayout(); FlushBindings();
+            var picker = (DatePicker)darkEditor.FindName("DueDateInput");
+            Assert.Equal(((SolidColorBrush)Application.Current.FindResource("FieldBrush")).Color, ((SolidColorBrush)picker.Background).Color);
+            SavePreview((FrameworkElement)darkEditor.Content, darkEditor.Background, "todo-editor-dark.png", (int)darkEditor.ActualWidth, (int)darkEditor.ActualHeight);
+            darkEditor.DialogResult = false;
+        }));
+        darkEditor.ShowDialog(); main.SelectedAppearanceMode = appearance;
+        var count = store.GetRecords().Count;
+        main.SelectedRestrictionMode = main.RestrictionModes[0]; main.RestMinutes = "0"; main.SelectedTimerMode = main.TimerModes[0];
+        var launch = new TodoStartWindow(main, item, 5) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() => ((Button)launch.FindName("StartButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent))));
+        Assert.True(launch.ShowDialog());
+        Assert.Equal("未分类", main.SelectedProject!.Category); Assert.Equal(TimerMode.Countdown, main.SelectedTimerMode.Mode);
+        Assert.Equal(item.Id, main.SelectedFocusTodo.Id); Assert.Equal("阅读第三章", main.FocusTodoText);
+        Assert.Equal(folder.Id, main.SelectedFocusTodoFolder.Id);
+        Assert.Equal("从第42页继续", main.FocusResumeNote);
+        Assert.Equal(TodoStatus.InProgress, library.Items.Single(row => row.Id == item.Id).Item.Status);
+        Assert.False(library.CanDeleteItem(item.Id)); Assert.False(library.CanDeleteFolder(folder)); Assert.False(library.CanDeleteCategory("学习待办"));
+        Assert.False(main.StartFromTodo(library.Items.First(row => row.Id != item.Id).Id));
+        main.SelectedFocusTodo = main.FocusTodoChoices[0]; Assert.Equal(item.Id, main.SelectedFocusTodo.Id);
+        main.SelectedFocusTodoFolder = main.FocusTodoFolderChoices[0]; Assert.Equal(folder.Id, main.SelectedFocusTodoFolder.Id);
+        window.ReturnToFocus(); clock.Advance(TimeSpan.FromSeconds(12)); main.Tick();
+        FlushBindings(); window.UpdateLayout();
+        SavePreview((FrameworkElement)window.Content, window.Background, "todo-focus.png");
+        main.EndCommand.Execute(null);
+        Assert.Equal(count + 1, store.GetRecords().Count); Assert.Equal(item.Id, store.GetRecords().First().TodoId);
+        Assert.True(main.ShowOutcomeEntry); Assert.Equal(TodoStatus.InProgress, library.Items.Single(row => row.Id == item.Id).Item.Status);
+        var id = main.LastSavedRecordId!.Value;
+        var result = new OutcomeEditorWindow(main, id) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((TextBox)result.FindName("SummaryInput")).Text = "读完第三章";
+            ((TextBox)result.FindName("QuantityInput")).Text = "8";
+            ((TextBox)result.FindName("UnitInput")).Text = "页";
+            ((TextBox)result.FindName("NextInput")).Text = "接着做练习题";
+            ((Button)result.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(result.ShowDialog());
+        Assert.Equal("读完第三章", store.GetOutcome(id)!.Summary); Assert.Equal("接着做练习题", main.FocusResumeNote);
+        Assert.Equal(TimeSpan.FromSeconds(12), store.GetRecords().First(record => record.Id == id).FocusDuration);
+        var project = main.Projects.First(); main.SelectedTimerMode = main.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+        main.PomodoroFocusMinutes = "0.2"; main.PomodoroShortRestMinutes = "0.05"; main.PomodoroRounds = "2";
+        Assert.True(main.StartFromTodo(item.Id, project)); clock.Advance(TimeSpan.FromSeconds(12)); main.Tick();
+        Assert.Equal(FocusState.Resting, main.State);
+        var firstRound = main.LastSavedRecordId!.Value;
+        Assert.True(main.SaveOutcome(new(id, "补充旧成果", 9, "页", "旧记录的备注")));
+        Assert.Equal(FocusState.Resting, main.State); Assert.Equal("接着做练习题", library.Items.Single(row => row.Id == item.Id).Item.ResumeNote);
+        clock.Advance(TimeSpan.FromSeconds(3)); main.Tick(); Assert.Equal(FocusState.Focusing, main.State);
+        Assert.True(main.SaveOutcome(new(firstRound, "番茄第一轮成果", NextStep: "第二轮继续")));
+        Assert.Equal(FocusState.Focusing, main.State);
+        clock.Advance(TimeSpan.FromSeconds(12)); main.Tick(); Assert.Equal(FocusState.Ended, main.State);
+        Assert.Equal(count + 3, store.GetRecords().Count);
+        Assert.All(store.GetRecords().Take(2), record => Assert.Equal(item.Id, record.TodoId));
+        main.SelectedFocusTodo = main.FocusTodoChoices[0]; main.SelectedTimerMode = main.TimerModes[0];
+        main.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(10)); main.EndCommand.Execute(null);
+        var independent = main.LastSavedRecordId!.Value; Assert.Null(main.GetRecord(independent)!.TodoId);
+        Assert.True(main.SaveOutcome(new(independent, "自由阅读", NextStep: "继续附录")));
+        Assert.True(main.HasResumeNote); Assert.Equal("继续附录", main.FocusResumeNote);
+        var beforeShort = store.GetRecords().Count;
+        main.StartCommand.Execute(null); clock.Advance(TimeSpan.FromSeconds(2)); main.EndCommand.Execute(null);
+        Assert.Equal(beforeShort, store.GetRecords().Count); Assert.False(main.ShowOutcomeEntry);
+        var row = library.Items.Single(row => row.Id == item.Id);
+        library.MoveItem(row, OrderMove.First); Assert.Equal(item.Id, library.VisibleItems[0].Id);
+        library.ToggleCompleted(row);
+        Assert.True(library.Items.Single(row => row.Id == item.Id).Completed);
+        Assert.Equal(item.Id, library.VisibleItems[^1].Id); Assert.Equal("写作提纲", library.VisibleItems[0].Title);
+        var reloaded = new MainViewModel(store);
+        Assert.Equal(item.Id, reloaded.Todos.VisibleItems[^1].Id); Assert.Equal("写作提纲", reloaded.Todos.VisibleItems[0].Title);
+        Assert.Equal(TodoStatus.Completed, reloaded.Todos.Items.Single(row => row.Id == item.Id).Item.Status);
+        library.ToggleCompleted(library.Items.Single(row => row.Id == item.Id));
+        Assert.Equal(item.Id, library.VisibleItems[0].Id);
+        library.ToggleCompleted(library.Items.Single(row => row.Id == item.Id));
+        Assert.Equal("自由阅读", reloaded.GetOutcome(independent)!.Summary);
+        main.NewFolderName = "待办计时分组"; main.AddFolderCommand.Execute(null);
+        Assert.True(main.StartFromTodo(item.Id, category: "待办计时分组"));
+        Assert.Equal("待办计时分组", main.SelectedProject!.Category); Assert.Equal("未分类", main.SelectedProject.Name);
+        clock.Advance(TimeSpan.FromSeconds(10)); main.EndCommand.Execute(null);
+        Assert.Equal("待办计时分组", main.Records.First().Category);
+        Assert.True(library.DeleteItem(item.Id)); Assert.Equal("阅读第三章", main.Records.First(record => record.Id == id).Todo);
+        Assert.NotNull(store.GetOutcome(id));
+        Assert.True(library.DeleteFolder(folder)); Assert.Empty(library.Items);
+        Assert.True(library.DeleteCategory("学习待办"));
+        main.SelectedFocusTodo = main.FocusTodoChoices[0]; reloaded.Media.Dispose();
+    }
+
+    private static void VerifyQuadrants(MainWindow window, MainViewModel main, SqliteFocusStore store, ManualClock clock)
+    {
+        var library = main.Todos;
+        library.SaveCategory(null, "象限测试"); var folder = library.SaveFolder(null, "本周事项", "象限测试")!;
+        var page = (TodosView)window.FindName("TodoPage");
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("TodoTab");
+        library.ViewMode = "四象限"; FlushBindings(); window.UpdateLayout();
+        Assert.Equal(Visibility.Visible, ((FrameworkElement)page.FindName("QuadrantViewport")).Visibility);
+        var tabs = (TabControl)window.FindName("MainTabs");
+        tabs.SelectedIndex = 1; FlushBindings(); window.UpdateLayout();
+        var projectWidth = ((Border)window.FindName("ProjectContentCard")).ActualWidth;
+        var selectedProject = main.SelectedProject;
+        var projectToggle = (System.Windows.Controls.Primitives.ToggleButton)window.FindName("ProjectSidebarToggle");
+        projectToggle.IsChecked = true; FlushBindings(); window.UpdateLayout();
+        Assert.Equal(Visibility.Collapsed, ((Border)window.FindName("ProjectFoldersPane")).Visibility);
+        Assert.True(((Border)window.FindName("ProjectContentCard")).ActualWidth >= projectWidth + 239);
+        Assert.Same(selectedProject, main.SelectedProject);
+        projectToggle.IsChecked = false; tabs.SelectedItem = window.FindName("TodoTab"); FlushBindings(); window.UpdateLayout();
+        var todoWidth = ((Border)page.FindName("TodoContentCard")).ActualWidth;
+        var todoToggle = (System.Windows.Controls.Primitives.ToggleButton)page.FindName("TodoSidebarToggle");
+        todoToggle.IsChecked = true; FlushBindings(); window.UpdateLayout();
+        Assert.Equal(Visibility.Collapsed, ((Border)page.FindName("TodoCategoriesPane")).Visibility);
+        Assert.True(((Border)page.FindName("TodoContentCard")).ActualWidth >= todoWidth + 222);
+        Assert.Equal(folder.Id, library.SelectedFolder!.Id);
+        todoToggle.IsChecked = false; FlushBindings(); window.UpdateLayout();
+        Assert.Null(page.FindName("TodoCategorySelector"));
+        foreach (var quadrant in library.Quadrants)
+        {
+            var add = Descendants<Button>(page).Single(button => Equals(button.Content, "＋") && ReferenceEquals(button.DataContext, quadrant));
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+            {
+                var editor = Application.Current.Windows.OfType<TodoEditorWindow>().Single();
+                Assert.Equal(quadrant.Important, ((CheckBox)editor.FindName("ImportantInput")).IsChecked);
+                Assert.Equal(quadrant.Urgent, ((CheckBox)editor.FindName("UrgentInput")).IsChecked);
+                ((TextBox)editor.FindName("TitleInput")).Text = quadrant.Title;
+                ((Button)editor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }));
+            add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); FlushBindings(); window.UpdateLayout();
+            Assert.Single(quadrant.Items);
+        }
+        SavePreview((FrameworkElement)window.Content, window.Background, "todo-quadrants.png");
+        var viewport = (ScrollViewer)page.FindName("QuadrantViewport");
+        var board = (FrameworkElement)page.FindName("QuadrantBoard");
+        var origin = board.TranslatePoint(new Point(board.ActualWidth / 2, board.ActualHeight / 2), viewport);
+        var originX = origin.X; var originY = origin.Y;
+        var axes = (System.Windows.Shapes.Path)page.FindName("QuadrantAxes");
+        void CheckAxisPosition()
+        {
+            var center = ((EllipseGeometry)((GeometryGroup)axes.Data).Children[1]).Center;
+            var drawnOrigin = axes.TranslatePoint(center, viewport);
+            var boardOrigin = board.TranslatePoint(new Point(board.ActualWidth / 2, board.ActualHeight / 2), viewport);
+            Assert.InRange((drawnOrigin - boardOrigin).Length, 0, 0.5);
+            Assert.True(axes.RenderedGeometry.Bounds.Width >= board.ActualWidth);
+        }
+        CheckAxisPosition();
+        todoToggle.IsChecked = true; FlushBindings(); window.UpdateLayout(); CheckAxisPosition();
+        SavePreview((FrameworkElement)window.Content, window.Background, "todo-quadrant-axes-expanded.png");
+        todoToggle.IsChecked = false; FlushBindings(); window.UpdateLayout(); CheckAxisPosition();
+        Assert.Equal(0, viewport.ScrollableHeight);
+        foreach (var quadrant in library.Quadrants)
+        {
+            var heading = Descendants<TextBlock>(page).Single(text => text.Text == quadrant.Title && ReferenceEquals(text.DataContext, quadrant));
+            var bounds = heading.TransformToAncestor(viewport).TransformBounds(new Rect(heading.RenderSize));
+            Assert.True(bounds.Top >= 0 && bounds.Bottom <= viewport.ActualHeight, "常规窗口下四个象限标题均须可见。");
+            Assert.Equal(quadrant.Important, bounds.Left > originX);
+            Assert.Equal(quadrant.Urgent, bounds.Top < originY);
+            var scroll = Descendants<ScrollViewer>(page).Single(element => ReferenceEquals(element.DataContext, quadrant));
+            var card = Descendants<Border>(scroll).Single(border => border.DataContext is TodoRow && border.CornerRadius.TopLeft == 10);
+            var cardBounds = card.TransformToAncestor(scroll).TransformBounds(new Rect(card.RenderSize));
+            Assert.True(cardBounds.Top >= 0 && cardBounds.Bottom <= scroll.ViewportHeight + 1, "单个事项卡片在常规窗口下须完整显示。");
+            Assert.Equal(0, scroll.ScrollableHeight);
+            Assert.InRange(card.ActualHeight, 31, 33);
+        }
+        var appearance = main.SelectedAppearanceMode;
+        main.SelectedAppearanceMode = main.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+        FlushBindings(); window.UpdateLayout(); SavePreview((FrameworkElement)window.Content, window.Background, "todo-quadrants-dark.png");
+        var secondFolder = library.SaveFolder(null, "工作事项", "旧分类")!;
+        Assert.Null(library.SaveFolder(null, folder.Name, "另一个旧分类"));
+        var crossFolderItem = new TodoItem(Guid.NewGuid(), secondFolder.Id, "处理工作邮件", Important: true, Urgent: false);
+        Assert.True(library.SaveItem(crossFolderItem)); library.SelectedFolder = folder;
+        Assert.Equal(5, library.VisibleItems.Count); Assert.Contains(library.VisibleItems, row => row.Id == crossFolderItem.Id);
+        library.QuadrantScope = "当前文件夹"; Assert.Equal(4, library.VisibleItems.Count);
+        Assert.DoesNotContain(library.VisibleItems, row => row.Id == crossFolderItem.Id);
+        library.SelectedFolder = secondFolder; Assert.Equal(crossFolderItem.Id, Assert.Single(library.VisibleItems).Id);
+        var scopedReload = new MainViewModel(store);
+        Assert.Equal(secondFolder.Id, scopedReload.Todos.SelectedFolder!.Id); Assert.Equal("当前文件夹", scopedReload.Todos.QuadrantScope);
+        Assert.Equal(crossFolderItem.Id, Assert.Single(scopedReload.Todos.VisibleItems).Id); scopedReload.Media.Dispose();
+        library.QuadrantScope = "全部文件夹"; Assert.Equal(5, library.VisibleItems.Count);
+        library.ViewMode = "列表"; Assert.Equal(crossFolderItem.Id, Assert.Single(library.VisibleItems).Id);
+        library.ViewMode = "四象限"; Assert.Equal(5, library.VisibleItems.Count);
+        Assert.True(library.DeleteFolder(secondFolder)); library.SelectedFolder = folder;
+        FlushBindings(); window.UpdateLayout();
+        var detailItem = library.Quadrants[0].Items[0].Item;
+        Assert.True(library.SaveItem(detailItem with { Notes = "完整备注", DueDate = new DateOnly(2026, 10, 20), DueTime = new TimeOnly(18, 30) }));
+        FlushBindings(); window.UpdateLayout();
+        var deadline = Descendants<TextBlock>(page).Single(text => text.Name == "QuadrantDeadline" && text.DataContext is TodoRow row && row.Id == detailItem.Id);
+        Assert.Equal("10-20 18:30", deadline.Text); Assert.Equal(Visibility.Visible, deadline.Visibility);
+        Assert.All(Descendants<TextBlock>(page).Where(text => text.Name == "QuadrantDeadline" && text.DataContext is TodoRow row && !row.HasDueDate), text => Assert.Equal(Visibility.Collapsed, text.Visibility));
+        SavePreview((FrameworkElement)window.Content, window.Background, "todo-quadrants-dark.png");
+        var detailButton = Descendants<Button>(page).Single(button => button.Name == "OpenTodoDetailsButton" && button.DataContext is TodoRow row && row.Id == detailItem.Id);
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            var details = Application.Current.Windows.OfType<TodoDetailsWindow>().Single();
+            Assert.Equal(detailItem.Title, ((TextBlock)details.FindName("DetailTitle")).Text);
+            Assert.Equal(folder.Name, ((TextBlock)details.FindName("FolderLocation")).Text);
+            Assert.Equal("完整备注", ((TextBlock)details.FindName("DetailNotes")).Text);
+            Assert.Contains("2026-10-20", ((TextBlock)details.FindName("DetailDue")).Text);
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+            {
+                var editor = Application.Current.Windows.OfType<TodoEditorWindow>().Single();
+                ((TextBox)editor.FindName("NotesInput")).Text = "修改后的备注";
+                ((Button)editor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }));
+            ((Button)details.FindName("EditButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); FlushBindings();
+            Assert.Equal("修改后的备注", ((TextBlock)details.FindName("DetailNotes")).Text);
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+            {
+                var start = Application.Current.Windows.OfType<TodoStartWindow>().Single();
+                Assert.Equal(detailItem.Title, ((TextBlock)start.FindName("TodoHeading")).Text);
+                start.DialogResult = false;
+            }));
+            ((Button)details.FindName("FocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            SavePreview((FrameworkElement)details.Content, details.Background, "todo-details-dark.png", (int)details.ActualWidth, (int)details.ActualHeight);
+            details.Close();
+        }));
+        detailButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); FlushBindings();
+        VerifyTodoStartSettings(window, main, library.Items.Single(row => row.Id == detailItem.Id).Item, clock);
+        var crowded = library.Quadrants[0];
+        var extraItems = Enumerable.Range(1, 12).Select(index => new TodoItem(Guid.NewGuid(), folder.Id, $"坐标事项 {index}", Important: true, Urgent: true)).ToArray();
+        foreach (var extra in extraItems) Assert.True(library.SaveItem(extra));
+        library.ToggleCompleted(library.Items.Single(row => row.Id == extraItems[0].Id));
+        library.ToggleCompleted(library.Items.Single(row => row.Id == extraItems[1].Id));
+        Assert.Equal(new[] { extraItems[0].Id, extraItems[1].Id }, crowded.Items.TakeLast(2).Select(row => row.Id));
+        Assert.All(crowded.Items.Take(crowded.Items.Count - 2), row => Assert.False(row.Completed));
+        library.ToggleCompleted(library.Items.Single(row => row.Id == extraItems[0].Id));
+        library.ToggleCompleted(library.Items.Single(row => row.Id == extraItems[1].Id));
+        FlushBindings(); window.UpdateLayout();
+        var quadrantScroll = Descendants<ScrollViewer>(page).Single(scroll => ReferenceEquals(scroll.DataContext, crowded));
+        Assert.True(quadrantScroll.ScrollableHeight > 0);
+        quadrantScroll.ScrollToEnd(); FlushBindings(); window.UpdateLayout();
+        var lastCard = Descendants<Border>(quadrantScroll).Single(border => border.DataContext is TodoRow row && row.Id == extraItems[^1].Id && border.CornerRadius.TopLeft == 10);
+        var lastBounds = lastCard.TransformToAncestor(quadrantScroll).TransformBounds(new Rect(lastCard.RenderSize));
+        Assert.True(lastBounds.Bottom <= quadrantScroll.ViewportHeight + 1, "象限末项须能完整滚动到可见区域。");
+        quadrantScroll.ScrollToHome(); FlushBindings(); window.UpdateLayout();
+        Assert.Equal(0, quadrantScroll.VerticalOffset);
+        foreach (var extra in extraItems) Assert.True(library.DeleteItem(extra.Id));
+        library.ViewMode = "列表"; FlushBindings(); window.UpdateLayout();
+        var todoList = (ListBox)page.FindName("TodoList");
+        var listContainers = Enumerable.Range(0, 4).Select(index => (ListBoxItem)todoList.ItemContainerGenerator.ContainerFromIndex(index)).ToArray();
+        var listBounds = listContainers.Select(container => container.TransformToAncestor(todoList).TransformBounds(new Rect(container.RenderSize))).ToArray();
+        Assert.InRange(Math.Abs(listBounds[0].Top - listBounds[2].Top), 0, 1);
+        Assert.True(listBounds[0].Right <= listBounds[1].Left && listBounds[1].Right <= listBounds[2].Left);
+        Assert.True(listBounds[3].Top > listBounds[0].Top);
+        Assert.All(listContainers, container => Assert.InRange(container.ActualHeight, 119, 121));
+        var listDeadline = Descendants<TextBlock>(todoList).Single(text => text.Name == "ListDeadline" && text.DataContext is TodoRow row && row.Id == detailItem.Id);
+        Assert.Equal(12, listDeadline.FontSize); Assert.Contains("2026-10-20", listDeadline.Text);
+        SavePreview((FrameworkElement)window.Content, window.Background, "todo-list-cards-dark.png");
+        library.ViewMode = "四象限";
+        library.Search = "不重要且紧急"; Assert.Single(library.VisibleItems); Assert.Single(library.Quadrants[2].Items);
+        library.Search = ""; library.ViewMode = "列表";
+        var item = library.Quadrants[0].Items[0].Item;
+        Assert.True(library.SaveItem(item with { Urgent = false })); Assert.Empty(library.Quadrants[0].Items); Assert.Equal(2, library.Quadrants[1].Items.Count);
+        library.ViewMode = "四象限"; var reloaded = new MainViewModel(store);
+        Assert.Equal("四象限", reloaded.Todos.ViewMode); Assert.Equal(2, reloaded.Todos.Quadrants[1].Items.Count);
+        Assert.Equal("全部文件夹", reloaded.Todos.QuadrantScope);
+        Assert.True(library.DeleteFolder(folder)); library.DeleteCategory("象限测试"); library.ViewMode = "列表";
+        reloaded.Media.Dispose(); main.SelectedAppearanceMode = appearance;
+    }
+
+    private static void VerifyTodoStartSettings(MainWindow window, MainViewModel main, TodoItem item, ManualClock clock)
+    {
+        var originalMode = main.SelectedTimerMode; var originalDuration = main.DurationMinutes;
+        var cancelled = new TodoStartWindow(main, item) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((ComboBox)cancelled.FindName("TimerSelector")).SelectedItem = main.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+            FlushBindings(); Assert.Equal(Visibility.Visible, ((FrameworkElement)cancelled.FindName("CycleSettings")).Visibility);
+            ((TextBox)((PomodoroSettingsView)cancelled.FindName("CycleSettings")).FindName("FocusMinutesInput")).Text = "20";
+            cancelled.DialogResult = false;
+        }));
+        var originalCycle = main.PomodoroFocusMinutes; cancelled.ShowDialog();
+        Assert.Same(originalMode, main.SelectedTimerMode); Assert.Equal(originalDuration, main.DurationMinutes); Assert.Equal(originalCycle, main.PomodoroFocusMinutes);
+        var start = new TodoStartWindow(main, item) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((ComboBox)start.FindName("TimerSelector")).SelectedItem = main.TimerModes.Single(mode => mode.Mode == TimerMode.Countdown);
+            ((ComboBox)start.FindName("RestrictionSelector")).SelectedItem = main.RestrictionModes.Single(mode => !mode.Strict);
+            ((TextBox)start.FindName("DurationInput")).Text = "0.1";
+            Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() => Application.Current.Windows.OfType<ConfirmDeletionWindow>().Single().Close()));
+            ((Button)start.FindName("StartButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.False(main.IsFocusActive); Assert.True(start.IsVisible);
+            Assert.Equal(originalDuration, main.DurationMinutes);
+            ((TextBox)start.FindName("DurationInput")).Text = "2";
+            FlushBindings(); start.UpdateLayout();
+            SavePreview((FrameworkElement)start.Content, start.Background, "todo-start-settings.png", (int)start.ActualWidth, (int)start.ActualHeight);
+            ((Button)start.FindName("StartButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(start.ShowDialog()); Assert.Equal(TimerMode.Countdown, main.SelectedTimerMode.Mode); Assert.Equal("2", main.DurationMinutes);
+        Assert.Equal(item.Id, main.SelectedFocusTodo.Id); Assert.False(main.SelectedRestrictionMode.Strict);
+        main.RestMinutes = "0"; clock.Advance(TimeSpan.FromSeconds(12)); main.Tick(); main.EndCommand.Execute(null);
+        var originalFocus = main.PomodoroFocusMinutes; var originalShort = main.PomodoroShortRestMinutes;
+        var originalLong = main.PomodoroLongRestMinutes; var originalEvery = main.PomodoroLongRestEvery; var originalRounds = main.PomodoroRounds;
+        var cycleStart = new TodoStartWindow(main, item) { Owner = window };
+        Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            ((ComboBox)cycleStart.FindName("TimerSelector")).SelectedItem = main.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
+            ((ComboBox)cycleStart.FindName("RestrictionSelector")).SelectedItem = main.RestrictionModes.Single(mode => mode.Strict);
+            var cycle = (PomodoroSettingsView)cycleStart.FindName("CycleSettings");
+            FlushBindings(); cycleStart.UpdateLayout();
+            foreach (var setting in new[] { ("PomodoroFocusMinutes", "0.2"), ("PomodoroShortRestMinutes", "0"), ("PomodoroLongRestMinutes", "0"), ("PomodoroLongRestEvery", "1"), ("PomodoroRounds", "1") })
+            {
+                var input = Descendants<TextBox>(cycle).Single(text => System.Windows.Data.BindingOperations.GetBindingExpression(text, TextBox.TextProperty)?.ParentBinding.Path.Path == setting.Item1);
+                input.Text = setting.Item2;
+            }
+            FlushBindings(); cycleStart.UpdateLayout();
+            SavePreview((FrameworkElement)cycleStart.Content, cycleStart.Background, "todo-start-pomodoro.png", (int)cycleStart.ActualWidth, (int)cycleStart.ActualHeight);
+            ((Button)cycleStart.FindName("StartButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+        Assert.True(cycleStart.ShowDialog()); Assert.Equal(TimerMode.Pomodoro, main.SelectedTimerMode.Mode); Assert.True(main.RestrictionsActive);
+        Assert.Equal("0.2", main.PomodoroFocusMinutes); Assert.Equal("1", main.PomodoroRounds);
+        clock.Advance(TimeSpan.FromSeconds(12)); main.Tick(); Assert.Equal(FocusState.Ended, main.State);
+        main.PomodoroFocusMinutes = originalFocus; main.PomodoroShortRestMinutes = originalShort; main.PomodoroLongRestMinutes = originalLong;
+        main.PomodoroLongRestEvery = originalEvery; main.PomodoroRounds = originalRounds;
+        main.SelectedRestrictionMode = main.RestrictionModes.Single(mode => !mode.Strict);
+        main.SelectedTimerMode = originalMode; main.DurationMinutes = originalDuration;
+    }
+
+    private static void VerifyFloatingActions(TimerFloatWindow floating)
+    {
+        var width = floating.Width; var height = floating.Height;
+        var surface = (Border)floating.FindName("FloatSurface");
+        var actions = (Grid)floating.FindName("FloatActions");
+        var group = (StackPanel)floating.FindName("FloatTimerActions");
+        var timer = (TextBlock)floating.FindName("FloatTimer");
+        var brand = Descendants<StackPanel>((Border)floating.FindName("DragArea")).Single();
+        var hoverKey = (DependencyPropertyKey)typeof(UIElement).GetField("IsMouseOverPropertyKey", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        void SetHover(bool value)
+        {
+            surface.SetValue(hoverKey, value);
+            Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        }
+        foreach (var size in new[] { new Size(240, 180), new Size(360, 260) })
+        {
+            floating.Width = size.Width; floating.Height = size.Height;
+            floating.UpdateLayout(); FlushBindings(); SetHover(false);
+            Assert.Equal(Visibility.Hidden, actions.Visibility);
+            Assert.False(group.IsVisible);
+            Assert.Equal(Visibility.Hidden, brand.Visibility);
+            var timerBounds = timer.TransformToAncestor(floating).TransformBounds(new Rect(timer.RenderSize));
+            SetHover(true); floating.UpdateLayout();
+            Assert.Equal(Visibility.Visible, actions.Visibility);
+            Assert.True(group.IsVisible);
+            Assert.Equal(Visibility.Visible, brand.Visibility);
+            var bounds = group.TransformToAncestor(floating).TransformBounds(new Rect(group.RenderSize));
+            Assert.InRange(Math.Abs(bounds.Left + bounds.Width / 2 - floating.ActualWidth / 2), 0, 0.5);
+            Assert.Equal(timerBounds, timer.TransformToAncestor(floating).TransformBounds(new Rect(timer.RenderSize)));
+            AssertVisibleInViewport(group, (FrameworkElement)floating.Content);
+            var mainButton = (Button)floating.FindName("OpenMainButton");
+            var mainBounds = mainButton.TransformToAncestor(floating).TransformBounds(new Rect(mainButton.RenderSize));
+            Assert.True(bounds.Right < mainBounds.Left, "计时按钮与返回主窗口按钮须保持间距。");
+            SetHover(false);
+            Assert.Equal(Visibility.Hidden, actions.Visibility);
+            Assert.Equal(Visibility.Hidden, brand.Visibility);
+            Assert.Equal(timerBounds, timer.TransformToAncestor(floating).TransformBounds(new Rect(timer.RenderSize)));
+        }
+        floating.Width = width; floating.Height = height; floating.UpdateLayout(); FlushBindings();
+    }
+
     private static void VerifyPomodoro(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock)
     {
         var tabs = (TabControl)window.FindName("MainTabs");
-        tabs.SelectedIndex = 3;
+        tabs.SelectedIndex = 4;
         model.DefaultTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
         model.DefaultRestrictionMode = model.RestrictionModes.Single(mode => mode.Strict);
         model.PomodoroFocusMinutes = "0.2";
@@ -1744,7 +2170,7 @@ public sealed class DesktopFlowTests
 
     private static void VerifyTimerPreferences(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, ManualClock clock)
     {
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 3;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
         ((FrameworkElement)window.Content).UpdateLayout();
         FlushBindings();
         var defaultTimer = (ComboBox)window.FindName("DefaultTimerModeSelector");
@@ -1861,6 +2287,11 @@ public sealed class DesktopFlowTests
                     typeof(ApplicationRestrictionService).GetMethod("CheckWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(monitor, [fixture.Window]);
                     var blocked = (ApplicationBlockedWindow)typeof(ApplicationRestrictionService).GetField("_blockedWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(monitor)!;
                     Assert.True(blocked.IsVisible); Assert.False(IsIconic(fixture.Window));
+                    var activeTimer = (FocusTimer)typeof(MainViewModel).GetField("_timer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(viewModel)!;
+                    var interceptionCount = activeTimer.InterceptionCount;
+                    Assert.True(interceptionCount > 0);
+                    typeof(ApplicationRestrictionService).GetMethod("CheckWindow", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(monitor, [fixture.Window]);
+                    Assert.Equal(interceptionCount, activeTimer.InterceptionCount);
                     ((Button)blocked.FindName("ReturnToFocusButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     await WaitForAsync(() => originalState == 0 ? !IsWindowVisible(fixture.Window) : IsIconic(fixture.Window));
                     Assert.False(blocked.IsVisible); Assert.False(process.HasExited);
@@ -1908,6 +2339,8 @@ public sealed class DesktopFlowTests
     private static async Task VerifyBrowserAsync(MainWindow window, MainViewModel viewModel, string directory)
     {
         using var server = new BrowserTestServer();
+        var originalAppearance = viewModel.SelectedAppearanceMode;
+        viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
         ((Button)window.FindName("OpenStudyBrowserButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         var browser = (StudyBrowserView)((TabItem)window.FindName("BrowserTab")).Content;
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1918,13 +2351,28 @@ public sealed class DesktopFlowTests
             await WaitForAsync(() => tabs.Items.Count > 0 && Descendants<WebView2>(browser).Any(v => v.CoreWebView2 is not null));
             var webview = Descendants<WebView2>(browser).Single();
             webview.CoreWebView2.Environment.BrowserProcessExited += (_, _) => exited.TrySetResult();
+            await VerifyBlankBrowserThemeAsync(webview, Color.FromRgb(36, 40, 50));
+            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
+            FlushBindings();
+            await VerifyBlankBrowserThemeAsync(webview, Colors.White);
+            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Dark);
+            FlushBindings();
+            await VerifyBlankBrowserThemeAsync(webview, Color.FromRgb(36, 40, 50));
+            Descendants<Button>(browser).Single(button => Equals(button.Content, "＋")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitForAsync(() => tabs.Items.Count == 2 && Descendants<WebView2>(browser).Any(view => view != webview && view.CoreWebView2 is not null));
+            await VerifyBlankBrowserThemeAsync(Descendants<WebView2>(browser).Single(), Color.FromRgb(36, 40, 50));
+            tabs.SelectedIndex = 0; FlushBindings();
             await browser.NavigateAsync(server.DeniedUrl);
             await WaitForAsync(() => webview.CoreWebView2.Source == server.DeniedUrl && webview.CoreWebView2.DocumentTitle == "Learning fixture");
+            Assert.Equal("\"\"", await webview.CoreWebView2.ExecuteScriptAsync("document.documentElement.style.backgroundColor"));
+            Assert.Equal(System.Drawing.Color.White, webview.DefaultBackgroundColor);
             viewModel.Whitelist.Websites.Clear();
             viewModel.Whitelist.Websites.Add(new WebsiteRule("127.0.0.1", false));
             viewModel.SelectedRestrictionMode = viewModel.RestrictionModes.Single(choice => choice.Strict);
             viewModel.StartCommand.Execute(null);
             Assert.Equal(Visibility.Collapsed, webview.Visibility);
+            var strictTimer = (FocusTimer)typeof(MainViewModel).GetField("_timer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(viewModel)!;
+            Assert.True(strictTimer.InterceptionCount > 0);
             ((TextBox)browser.FindName("AddressBox")).Text = server.AllowedUrl;
             ((Button)browser.FindName("BrowserNavigateButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await WaitForAsync(() => webview.Visibility == Visibility.Visible && webview.CoreWebView2.Source == server.AllowedUrl);
@@ -1974,8 +2422,25 @@ public sealed class DesktopFlowTests
             browser.Dispose();
             window.ReturnToFocus();
             viewModel.PrepareExit();
+            viewModel.SelectedAppearanceMode = originalAppearance;
             await Task.WhenAny(exited.Task, Task.Delay(5000));
         }
+    }
+
+    private static async Task VerifyBlankBrowserThemeAsync(WebView2 browser, Color color)
+    {
+        var expected = $"rgb({color.R}, {color.G}, {color.B})";
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        string? actual;
+        do
+        {
+            actual = JsonSerializer.Deserialize<string>(await browser.CoreWebView2.ExecuteScriptAsync("getComputedStyle(document.documentElement).backgroundColor"));
+            if (actual == expected) break;
+            await Task.Delay(20);
+        } while (DateTime.UtcNow < deadline);
+        Assert.Equal(expected, actual);
+        Assert.Equal("about:blank", browser.CoreWebView2.Source);
+        Assert.Equal(System.Drawing.Color.FromArgb(color.A, color.R, color.G, color.B), browser.DefaultBackgroundColor);
     }
 
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject

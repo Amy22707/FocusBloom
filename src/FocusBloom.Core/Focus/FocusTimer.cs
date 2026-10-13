@@ -19,6 +19,8 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     public int Round { get; private set; }
     public int TotalRounds => _options?.Pomodoro?.Rounds ?? 1;
     public bool IsLongRest { get; private set; }
+    public int InterceptionCount { get; private set; }
+    public void RegisterInterception() { if (RestrictionsActive) InterceptionCount++; }
     public bool RestrictionsActive => IsActive && _options?.Strict == true;
     public bool IsStrictSession => _options?.Strict == true;
     public TimeSpan Elapsed => ElapsedAt(_clock.GetUtcNow());
@@ -51,6 +53,7 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
 
     private void BeginRound(DateTimeOffset now)
     {
+        InterceptionCount = 0;
         _sessionId = Guid.NewGuid();
         _startedAt = _phaseStartedAt = now;
         _intervals.Clear();
@@ -126,7 +129,7 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     {
         CloseInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, endedAt);
         LastRecord = new FocusRecord(_sessionId, _options!.ProjectId, _options.Mode,
-            _startedAt, endedAt, reason, _intervals.ToArray(), _options.Strict);
+            _startedAt, endedAt, reason, _intervals.ToArray(), _options.Strict, _options.TodoId, InterceptionCount);
         if (IsPomodoro)
         {
             if (reason != EndReason.CountdownElapsed || !takeRest || Round >= TotalRounds)

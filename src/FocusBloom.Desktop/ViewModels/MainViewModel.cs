@@ -8,13 +8,18 @@ using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Storage;
 using FocusBloom.Core.Restrictions;
+using FocusBloom.Core.Todos;
 using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
-public sealed record RecordRow(string Project, string Started, string Ended, string Duration, string Mode, string Reason, string RestrictionMode);
+public sealed record RecordRow(string Project, string Started, string Ended, string Duration, string Mode, string Reason, string RestrictionMode,
+    Guid Id, string Todo, string Outcome, string NextStep, string Category, string Interceptions)
+{
+    public string OutcomeAction => string.IsNullOrEmpty(Outcome) && string.IsNullOrEmpty(NextStep) ? "补记成果" : "编辑成果";
+}
 
-public sealed class MainViewModel : ObservableObject
+public sealed partial class MainViewModel : ObservableObject
 {
     private sealed record ProjectSelection(string Folder, Guid? ProjectId);
     private sealed record ProjectOrder(List<string> Folders, List<Guid> Projects);
@@ -117,6 +122,10 @@ public sealed class MainViewModel : ObservableObject
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RetrySaveCommand = new RelayCommand(() => { PersistRecord(); Refresh(); }, () => HasUnsavedRecord);
         LoadRecords();
+        Todos = new TodoLibraryViewModel(store, ReportStatus, CanDeleteTodo);
+        Todos.Changed += (_, _) => { RefreshTodoChoices(); LoadRecords(); };
+        var savedTodo = store.GetSetting("focus.todo");
+        RefreshTodoChoices(Guid.TryParse(savedTodo, out var todoId) ? todoId : null);
         SaveProjectSelection();
     }
 
@@ -206,6 +215,7 @@ public sealed class MainViewModel : ObservableObject
     public event EventHandler? RestrictionsChanged;
     public event EventHandler? ShortFocusDiscarded;
     public event EventHandler? FocusDurationRejected;
+    public void RegisterInterception() => _timer.RegisterInterception();
     public ObservableCollection<ProjectFolder> Folders { get; } = [];
     public ObservableCollection<FocusProject> FolderProjects { get; } = [];
     public IReadOnlyList<ThemePalette> Palettes => Appearance.Palettes;
@@ -244,6 +254,7 @@ public sealed class MainViewModel : ObservableObject
             Notify();
             Notify(nameof(ProjectPath));
             Notify(nameof(FocusHeading));
+            UpdateResumeNote();
             SaveProjectSelection();
         }
     }
@@ -325,6 +336,7 @@ public sealed class MainViewModel : ObservableObject
     public void Tick()
     {
         _timer.Update(allowNextRound: !HasUnsavedRecord);
+        Todos.RefreshDeadlines();
         Refresh();
     }
 
@@ -365,46 +377,69 @@ public sealed class MainViewModel : ObservableObject
         var duration = Countdown ? TimeSpan.FromMinutes(double.Parse(DurationMinutes, CultureInfo.CurrentCulture)) : TimeSpan.Zero;
         if (Pomodoro && !TryPomodoro(out duration, out rest, out cycle)) return;
         _timer.Start(new FocusOptions(SelectedProject.Id, SelectedTimerMode.Mode,
-            duration, pause, rest, SelectedRestrictionMode.Strict, cycle));
+            duration, pause, rest, SelectedRestrictionMode.Strict, cycle, SelectedFocusTodo.Id));
         ActiveProjectName = SelectedProject.Name;
         _activeProjectId = SelectedProject.Id;
-        StatusMessage = $"{SelectedRestrictionMode.Name} · 可以随时结束";
+        _activeTodoId = SelectedFocusTodo.Id;
+        _activeTodoTitle = Todos.Items.FirstOrDefault(item => item.Id == _activeTodoId)?.Title ?? "";
+        var todoStateSaved = true;
+        if (_activeTodoId is { } activeId && Todos.Items.FirstOrDefault(item => item.Id == activeId) is { } active)
+        {
+            try
+            {
+                _store.SaveTodo(active.Item with { PreferredProjectId = SelectedProject.Id,
+                    Status = active.Item.Status == TodoStatus.Pending ? TodoStatus.InProgress : active.Item.Status });
+                Todos.Reload();
+            }
+            catch (Exception ex) { todoStateSaved = false; StatusMessage = $"待办状态保存失败：{ex.Message}"; }
+        }
+        if (todoStateSaved) StatusMessage = $"{SelectedRestrictionMode.Name} · 可以随时结束";
         Refresh();
     }
 
     private void AddProject()
     {
-        if (string.IsNullOrWhiteSpace(NewProjectName)) { StatusMessage = "请填写项目名称。"; return; }
-        if (SelectedFolder is null) { StatusMessage = "请先选择或新建一个文件夹。"; return; }
-        var name = NewProjectName.Trim();
-        if (SelectedFolder.Projects.Any(project => string.Equals(project.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
-        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return; }
-        var project = new FocusProject(Guid.NewGuid(), name, SelectedFolder.Name, "#9683BE");
+        if (CreateProject(NewProjectName, SelectedFolder)) NewProjectName = "";
+    }
+
+    public bool CreateProject(string name, ProjectFolder? folder)
+    {
+        name = name.Trim();
+        if (name.Length == 0) { StatusMessage = "请填写项目名称。"; return false; }
+        if (folder is null) { StatusMessage = "请先选择或新建一个文件夹。"; return false; }
+        if (folder.Projects.Any(project => string.Equals(project.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return false; }
+        var project = new FocusProject(Guid.NewGuid(), name, folder.Name, "#9683BE");
         try
         {
             _store.SaveProject(project);
             Projects.Add(project);
-            SelectedFolder.Add(project);
-            FolderProjects.Add(project);
+            folder.Add(project);
+            if (SelectedFolder == folder) FolderProjects.Add(project);
             SaveProjectOrder();
-            if (CanConfigure) SelectedProject = project;
-            NewProjectName = "";
+            if (CanConfigure) { SelectedFolder = folder; SelectedProject = project; }
             StatusMessage = "项目已保存。";
             Notify(nameof(FolderSummary));
             Notify(nameof(IsFolderEmpty));
+            return true;
         }
-        catch (Exception ex) { StatusMessage = $"项目保存失败：{ex.Message}"; }
+        catch (Exception ex) { StatusMessage = $"项目保存失败：{ex.Message}"; return false; }
     }
 
     private void AddFolder()
     {
-        var name = NewFolderName.Trim();
-        if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return; }
+        if (CreateFolder(NewFolderName)) NewFolderName = "";
+    }
+
+    public bool CreateFolder(string name)
+    {
+        name = name.Trim();
+        if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return false; }
         var existing = Folders.FirstOrDefault(f => string.Equals(f.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
         {
             StatusMessage = "已有同名文件夹，请使用其他名称。";
-            return;
+            return false;
         }
         try
         {
@@ -413,10 +448,10 @@ public sealed class MainViewModel : ObservableObject
             Folders.Add(folder);
             SaveProjectOrder();
             SelectedFolder = folder;
-            NewFolderName = "";
             StatusMessage = "文件夹已创建，可以添加项目。";
+            return true;
         }
-        catch (Exception ex) { StatusMessage = $"文件夹保存失败：{ex.Message}"; }
+        catch (Exception ex) { StatusMessage = $"文件夹保存失败：{ex.Message}"; return false; }
     }
 
     public bool RenameFolder(ProjectFolder folder, string name)
@@ -587,7 +622,9 @@ public sealed class MainViewModel : ObservableObject
         {
             _store.SaveRecord(_timer.LastRecord!);
             _savedRecordId = _timer.LastRecord!.Id;
+            LastSavedRecordId = _savedRecordId;
             LoadRecords();
+            Todos?.Reload();
             StatusMessage = "本次专注已保存。";
             return true;
         }
@@ -601,14 +638,23 @@ public sealed class MainViewModel : ObservableObject
     private void LoadRecords()
     {
         Records.Clear();
-        var projects = _store.GetProjects(includeDeleted: true).ToDictionary(p => p.Id, p => p.Name);
+        var projectItems = _store.GetProjects(includeDeleted: true);
+        var projects = projectItems.ToDictionary(p => p.Id, p => p.Name);
+        var categories = projectItems.ToDictionary(p => p.Id, p => p.Category);
+        var todos = _store.GetTodos(includeDeleted: true).ToDictionary(item => item.Id, item => item.Title);
+        var outcomes = _store.GetOutcomes().ToDictionary(outcome => outcome.SessionId);
         foreach (var record in _store.GetRecords())
+        {
+            var outcome = outcomes.GetValueOrDefault(record.Id);
             Records.Add(new RecordRow(projects.GetValueOrDefault(record.ProjectId, "未分类"),
                 record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                 record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), Format(record.FocusDuration),
                 record.Mode switch { TimerMode.CountUp => "正计时", TimerMode.Pomodoro => "番茄循环", _ => "倒计时" },
                 record.EndReason switch { EndReason.Manual => "手动结束", EndReason.CountdownElapsed => "到点结束", _ => "退出软件" },
-                record.Strict ? "严格" : "普通"));
+                record.Strict ? "严格" : "普通", record.Id,
+                record.TodoId is { } todoId ? todos.GetValueOrDefault(todoId, "") : "",
+                FormatOutcome(outcome), outcome?.NextStep ?? "", categories.GetValueOrDefault(record.ProjectId, "未分类"), record.Strict ? record.InterceptionCount?.ToString(CultureInfo.CurrentCulture) ?? "未统计" : "—"));
+        }
         Notify(nameof(RecordSummary));
     }
 
@@ -630,6 +676,7 @@ public sealed class MainViewModel : ObservableObject
         foreach (var name in new[] { nameof(TimerText), nameof(StateText), nameof(State), nameof(PhaseText), nameof(CanConfigure),
             nameof(ActiveProjectName), nameof(FocusHeading), nameof(HasUnsavedRecord), nameof(ShowStart),
             nameof(ShowPause), nameof(ShowResume), nameof(ShowEnd), nameof(ShowSkipRest) }) Notify(name);
+        foreach (var name in new[] { nameof(FocusTodoText), nameof(HasFocusTodo), nameof(ShowOutcomeEntry) }) Notify(name);
         foreach (var name in new[] { nameof(IsFocusActive), nameof(RestrictionsActive), nameof(CanEditWhitelist), nameof(SessionModeText), nameof(RestrictionStatus), nameof(BrowserWebsites), nameof(WebsiteBlockedMessage) }) Notify(name);
         if (_lastRestrictionsActive != RestrictionsActive)
         {

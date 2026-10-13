@@ -2,11 +2,12 @@ using System.Globalization;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Storage;
+using FocusBloom.Core.Todos;
 using Microsoft.Data.Sqlite;
 
 namespace FocusBloom.Infrastructure.Storage;
 
-public sealed class SqliteFocusStore : IFocusStore
+public sealed partial class SqliteFocusStore : IFocusStore
 {
     private readonly string _connectionString;
     public static readonly Guid DefaultProjectId = Guid.Parse("6c02cad7-dd19-4f50-9c75-567b3eac38d9");
@@ -38,6 +39,20 @@ public sealed class SqliteFocusStore : IFocusStore
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS project_folders (name TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS todo_categories (name TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS todo_folders (
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS todo_items (
+                id TEXT PRIMARY KEY, folder_id TEXT NOT NULL REFERENCES todo_folders(id), title TEXT NOT NULL,
+                status INTEGER NOT NULL, priority INTEGER NOT NULL, due_date TEXT, due_time TEXT, notes TEXT NOT NULL,
+                estimated_minutes INTEGER, resume_note TEXT NOT NULL, preferred_project_id TEXT REFERENCES projects(id),
+                deleted INTEGER NOT NULL DEFAULT 0, important INTEGER NOT NULL DEFAULT 0, urgent INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS session_outcomes (
+                session_id TEXT PRIMARY KEY REFERENCES sessions(id), summary TEXT NOT NULL, quantity REAL,
+                unit TEXT NOT NULL, next_step TEXT NOT NULL
+            );
             INSERT OR IGNORE INTO projects (id, name, category, color) VALUES ($id, '未分类', '未分类', '#7B97A6');
             """;
         command.Parameters.AddWithValue("$id", DefaultProjectId.ToString());
@@ -45,11 +60,37 @@ public sealed class SqliteFocusStore : IFocusStore
         using var columns = connection.CreateCommand();
         columns.CommandText = "PRAGMA table_info(sessions)";
         var hasStrict = false;
+        var hasTodo = false;
+        var hasInterceptions = false;
         using (var reader = columns.ExecuteReader())
-            while (reader.Read()) if (reader.GetString(1) == "strict") hasStrict = true;
+            while (reader.Read())
+            {
+                if (reader.GetString(1) == "strict") hasStrict = true;
+                if (reader.GetString(1) == "todo_id") hasTodo = true;
+                if (reader.GetString(1) == "interceptions") hasInterceptions = true;
+            }
         if (!hasStrict)
         {
             columns.CommandText = "ALTER TABLE sessions ADD COLUMN strict INTEGER NOT NULL DEFAULT 0";
+            columns.ExecuteNonQuery();
+        }
+        if (!hasTodo)
+        {
+            columns.CommandText = "ALTER TABLE sessions ADD COLUMN todo_id TEXT REFERENCES todo_items(id)";
+            columns.ExecuteNonQuery();
+        }
+        if (!hasInterceptions)
+        {
+            columns.CommandText = "ALTER TABLE sessions ADD COLUMN interceptions INTEGER";
+            columns.ExecuteNonQuery();
+        }
+        columns.CommandText = "PRAGMA table_info(todo_items)";
+        var todoColumns = new HashSet<string>();
+        using (var reader = columns.ExecuteReader()) while (reader.Read()) todoColumns.Add(reader.GetString(1));
+        foreach (var name in new[] { "important", "urgent" })
+        {
+            if (todoColumns.Contains(name)) continue;
+            columns.CommandText = $"ALTER TABLE todo_items ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0";
             columns.ExecuteNonQuery();
         }
         columns.CommandText = "PRAGMA table_info(projects)";
@@ -165,8 +206,8 @@ public sealed class SqliteFocusStore : IFocusStore
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT OR IGNORE INTO sessions (id, project_id, mode, started_at, ended_at, end_reason, strict)
-            VALUES ($id, $project, $mode, $start, $end, $reason, $strict)
+            INSERT OR IGNORE INTO sessions (id, project_id, mode, started_at, ended_at, end_reason, strict, todo_id, interceptions)
+            VALUES ($id, $project, $mode, $start, $end, $reason, $strict, $todo, $interceptions)
             """;
         command.Parameters.AddWithValue("$id", record.Id.ToString());
         command.Parameters.AddWithValue("$project", record.ProjectId.ToString());
@@ -175,6 +216,8 @@ public sealed class SqliteFocusStore : IFocusStore
         command.Parameters.AddWithValue("$end", Format(record.EndedAt));
         command.Parameters.AddWithValue("$reason", (int)record.EndReason);
         command.Parameters.AddWithValue("$strict", record.Strict ? 1 : 0);
+        command.Parameters.AddWithValue("$todo", (object?)record.TodoId?.ToString() ?? DBNull.Value);
+        command.Parameters.AddWithValue("$interceptions", (object?)record.InterceptionCount ?? DBNull.Value);
         if (command.ExecuteNonQuery() > 0)
         {
             for (var i = 0; i < record.Intervals.Count; i++)
@@ -200,7 +243,7 @@ public sealed class SqliteFocusStore : IFocusStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT s.id, s.project_id, s.mode, s.started_at, s.ended_at, s.end_reason, s.strict,
-                   i.kind, i.started_at, i.ended_at
+                   i.kind, i.started_at, i.ended_at, s.todo_id, s.interceptions
             FROM sessions s LEFT JOIN intervals i ON s.id = i.session_id
             ORDER BY s.started_at DESC, s.id, i.ordinal
             """;
@@ -216,7 +259,8 @@ public sealed class SqliteFocusStore : IFocusStore
                 intervals = [];
                 records.Add(new FocusRecord(id, Guid.Parse(reader.GetString(1)),
                     (TimerMode)reader.GetInt32(2), Parse(reader.GetString(3)), Parse(reader.GetString(4)),
-                    (EndReason)reader.GetInt32(5), intervals, reader.GetInt32(6) != 0));
+                    (EndReason)reader.GetInt32(5), intervals, reader.GetInt32(6) != 0,
+                    reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetInt32(11)));
                 currentId = id;
             }
             if (!reader.IsDBNull(7)) intervals!.Add(new FocusInterval((IntervalKind)reader.GetInt32(7),

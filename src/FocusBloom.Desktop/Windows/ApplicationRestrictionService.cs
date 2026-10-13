@@ -59,6 +59,7 @@ public sealed class ApplicationRestrictionService : IDisposable
         var target = GetAncestor(window, 3);
         _lastAllowedWindow = IntPtr.Zero;
         if (target == IntPtr.Zero) target = window;
+        if (_blockedWindow?.IsVisible != true || _blockedTarget != target) _viewModel.RegisterInterception();
         _blockedTarget = target;
         GetWindowThreadProcessId(target, out _blockedProcess);
         _blockedWindow ??= CreateBlockedWindow();

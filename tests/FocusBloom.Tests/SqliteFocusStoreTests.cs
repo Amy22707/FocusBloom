@@ -31,6 +31,7 @@ public sealed class SqliteFocusStoreTests
             }
             var store = new SqliteFocusStore(path);
             Assert.False(Assert.Single(store.GetRecords()).Strict);
+            Assert.Null(Assert.Single(store.GetRecords()).InterceptionCount);
             Assert.False(Assert.Single(new SqliteFocusStore(path).GetRecords()).Strict);
             store.DeleteProject(SqliteFocusStore.DefaultProjectId);
             var reopened = new SqliteFocusStore(path);

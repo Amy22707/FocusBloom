@@ -5,6 +5,22 @@ namespace FocusBloom.Tests;
 
 public sealed class FocusTimerTests
 {
+    [Fact]
+    public void InterceptionsCountOnlyStrictFocusAndPauseAndResetForNextRound()
+    {
+        var clock = new ManualClock(); var timer = new FocusTimer(clock);
+        timer.Start(CycleOptions(rounds: 2));
+        timer.RegisterInterception(); timer.Pause(); timer.RegisterInterception(); timer.Resume();
+        clock.Advance(TimeSpan.FromSeconds(20)); timer.Update();
+        Assert.Equal(2, timer.LastRecord!.InterceptionCount);
+        timer.RegisterInterception(); Assert.Equal(2, timer.LastRecord.InterceptionCount);
+        timer.SkipRest(); Assert.Equal(0, timer.InterceptionCount);
+        timer.RegisterInterception(); clock.Advance(TimeSpan.FromSeconds(20)); timer.Update();
+        Assert.Equal(1, timer.LastRecord!.InterceptionCount);
+        timer.Start(Options()); timer.RegisterInterception(); clock.Advance(TimeSpan.FromSeconds(10)); timer.End();
+        Assert.Equal(0, timer.LastRecord!.InterceptionCount);
+    }
+
     private static FocusOptions CycleOptions(int rounds = 5, int restSeconds = 3) =>
         new(Guid.NewGuid(), TimerMode.Pomodoro, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(restSeconds), true, new PomodoroOptions(TimeSpan.FromSeconds(6), 2, rounds));

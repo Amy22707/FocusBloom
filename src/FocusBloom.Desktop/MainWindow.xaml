@@ -57,6 +57,7 @@
                                     <Viewbox Grid.Row="1" Margin="0,12" Stretch="Uniform" StretchDirection="DownOnly">
                                         <StackPanel Width="420" HorizontalAlignment="Center">
                                             <TextBlock Text="{Binding FocusHeading}" Style="{StaticResource SceneText}" FontSize="21" FontWeight="Medium" HorizontalAlignment="Center" TextAlignment="Center" />
+                                            <TextBlock Text="{Binding FocusTodoText}" Style="{StaticResource SceneCaption}" FontSize="13" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" Visibility="{Binding HasFocusTodo, Converter={StaticResource BoolVisibility}}" />
                                             <TextBlock x:Name="TimerDisplay" Text="{Binding TimerText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusTimerFont}" FontWeight="Light" Typography.NumeralAlignment="Tabular" FontSize="72" HorizontalAlignment="Center" Margin="0,16,0,10" />
                                             <TextBlock Text="{Binding StateText}" Style="{StaticResource SceneText}" HorizontalAlignment="Center" />
                                             <TextBlock Text="{Binding PhaseText}" Style="{StaticResource SceneCaption}" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0" />
@@ -76,8 +77,9 @@
                                         <Grid Grid.Row="1" Margin="0,18,0,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                             <ToggleButton x:Name="FocusKeepScreenOnButton" Content="常亮" IsChecked="{Binding KeepScreenOn}" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Left" ToolTip="保持屏幕常亮，专注与暂停时生效" />
-                                            <Button Grid.Column="1" ToolTip="{Binding Media.ImageSourceInfo}" Command="{Binding Media.OpenImageSourceCommand}" Style="{StaticResource SceneQuietButton}" Opacity="0.5" FontSize="9" VerticalAlignment="Center" MaxWidth="170"><TextBlock Text="{Binding Media.ImageCredit}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" /></Button>
+                                            <Button Grid.Column="1" ToolTip="{Binding Media.ImageSourceInfo}" Command="{Binding Media.OpenImageSourceCommand}" Opacity="0.5" FontSize="9" VerticalAlignment="Center" MaxWidth="170"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource SceneQuietButton}"><Style.Triggers><DataTrigger Binding="{Binding ShowOutcomeEntry}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style><TextBlock Text="{Binding Media.ImageCredit}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" /></Button>
                                             <ToggleButton x:Name="FocusSoundPanelButton" Grid.Column="2" Content="声音" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Right" ToolTip="音源、播放与音量" />
+                                            <Button Grid.Column="1" Content="补记成果（可选）" Click="LatestOutcome_Click" Style="{StaticResource SceneQuietButton}" FontSize="11" Visibility="{Binding ShowOutcomeEntry, Converter={StaticResource BoolVisibility}}" />
                                         </Grid>
                                         <Popup x:Name="FocusSoundPopup" IsOpen="{Binding IsChecked, ElementName=FocusSoundPanelButton}" PlacementTarget="{Binding ElementName=FocusSoundPanelButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True">
                                             <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16" Padding="20" Width="340" DataContext="{Binding Media}"><views:FocusAudioControls /></Border>
@@ -102,6 +104,10 @@
                                             <ComboBox x:Name="FocusFolderSelector" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" DisplayMemberPath="Name" Margin="0,0,0,16" />
                                             <TextBlock Text="专注项目" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="ProjectSelector" ItemsSource="{Binding FolderProjects}" SelectedItem="{Binding SelectedProject}" DisplayMemberPath="Name" Margin="0,0,0,16" />
+                                            <TextBlock Text="待办文件夹（可选）" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="FocusTodoFolderSelector" ItemsSource="{Binding FocusTodoFolderChoices}" SelectedItem="{Binding SelectedFocusTodoFolder}" DisplayMemberPath="Name" Margin="0,0,0,16" />
+                                            <TextBlock Text="关联待办事项" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="FocusTodoSelector" ItemsSource="{Binding FolderFocusTodoChoices}" SelectedItem="{Binding SelectedFocusTodo}" DisplayMemberPath="Title" IsEnabled="{Binding HasFocusTodoFolder}" Margin="0,0,0,16" />
                                             <TextBlock Text="计时方式" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="TimerModeSelector" ItemsSource="{Binding TimerModes}" SelectedItem="{Binding SelectedTimerMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
                                             <TextBlock Text="专注模式" Style="{StaticResource Caption}" />
@@ -120,6 +126,7 @@
                                                 <TextBlock Text="暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                         </StackPanel>
+                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="10" Padding="12" Margin="0,16,0,0" Visibility="{Binding HasResumeNote, Converter={StaticResource BoolVisibility}}"><StackPanel><TextBlock Text="接着上次继续" FontSize="11" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,6" /><TextBlock Text="{Binding FocusResumeNote}" FontSize="12" TextWrapping="Wrap" /></StackPanel></Border>
                                     </StackPanel>
                                 </ScrollViewer>
                             </DockPanel>
@@ -133,15 +140,16 @@
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <StackPanel Margin="0,0,0,22"><TextBlock Text="把想做的事，整理好" FontSize="26" FontWeight="SemiBold" /><TextBlock Text="文件夹收纳同类项目，每个项目记录自己的专注时间。" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" /></StackPanel>
                     <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource Card}" Padding="14,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="220" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
+                            <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="20" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
+                            <ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="ProjectFoldersPane" Padding="14,20"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Margin="8,0,8,16"><TextBlock Text="我的文件夹" FontWeight="SemiBold" FontSize="16" /></StackPanel>
-                                <Grid x:Name="NewFolderArea" DockPanel.Dock="Bottom" Margin="6,10,6,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="36" /></Grid.ColumnDefinitions>
-                                    <TextBox x:Name="FolderNameInput" Text="{Binding NewFolderName, UpdateSourceTrigger=PropertyChanged}" ToolTip="新建文件夹，例如：学习、工作、生活" Padding="9,7" Height="36" />
-                                    <Button x:Name="AddFolderButton" Grid.Column="2" Content="＋" Command="{Binding AddFolderCommand}" Padding="0" Height="36" ToolTip="新建文件夹" />
-                                </Grid>
+                                <Border x:Name="NewFolderArea" DockPanel.Dock="Bottom" Margin="6,10,6,0">
+                                    <Button x:Name="AddFolderButton" Content="＋ 新建文件夹" Click="NewFolder_Click" Padding="10,8" Height="36" FontSize="12" />
+                                </Border>
                                 <ListBox x:Name="FolderList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" ItemContainerStyle="{StaticResource FolderItem}">
                                     <ListBox.ItemTemplate><DataTemplate>
                                         <Grid>
@@ -155,18 +163,13 @@
                                 </ListBox>
                             </DockPanel>
                         </Border>
-                        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="24">
+                        <Border x:Name="ProjectContentCard" Grid.Column="2" Style="{StaticResource Card}" Padding="24">
                             <DockPanel>
-                                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,22">
-                                    <TextBlock Text="{Binding FolderTitle}" FontSize="22" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding FolderSummary}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0" />
-                                </StackPanel>
-                                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
-                                    <DockPanel x:Name="NewProjectArea">
-                                        <Button x:Name="AddProjectButton" DockPanel.Dock="Right" Content="＋ 添加" Command="{Binding AddProjectCommand}" Style="{StaticResource PrimaryButton}" Padding="12,7" Height="36" FontSize="12" Margin="8,0,0,0" ToolTip="在当前文件夹中添加项目" />
-                                        <TextBox x:Name="ProjectNameInput" Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" ToolTip="添加项目，例如：英语阅读" Padding="10,7" Height="36" />
-                                    </DockPanel>
-                                </Border>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,22">
+                                    <Border x:Name="NewProjectArea" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center"><Button x:Name="AddProjectButton" Content="＋ 新建项目" Click="NewProject_Click" Style="{StaticResource PrimaryButton}" Padding="12,7" Height="36" FontSize="12" /></Border>
+                                    <ToggleButton x:Name="ProjectSidebarToggle" DockPanel.Dock="Left" Style="{StaticResource SidebarToggle}" ToolTip="展开或收起文件夹" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                    <StackPanel><TextBlock Text="{Binding FolderTitle}" FontSize="22" FontWeight="SemiBold" /><TextBlock Text="{Binding FolderSummary}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0" /></StackPanel>
+                                </DockPanel>
                                 <Grid>
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding IsFolderEmpty, Converter={StaticResource BoolVisibility}}">
                                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" FontSize="46" Foreground="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center" />
@@ -197,7 +200,11 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem>
+            <TabItem x:Name="TodoTab">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73A;" Margin="0,2,12,0" /><TextBlock Text="待办事项" /></StackPanel></TabItem.Header>
+                <views:TodosView x:Name="TodoPage" DataContext="{Binding Todos}" />
+            </TabItem>
+            <TabItem x:Name="RecordsTab">
                 <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" Margin="0,2,12,0" /><TextBlock Text="专注记录" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
@@ -209,18 +216,24 @@
                         <DataGrid x:Name="RecordsGrid" ItemsSource="{Binding Records}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="项目" Binding="{Binding Project}" Width="*" MinWidth="100" />
+                                <DataGridTextColumn Header="计时分类" Binding="{Binding Category}" Width="100" />
+                                <DataGridTextColumn Header="待办" Binding="{Binding Todo}" Width="130" />
                                 <DataGridTextColumn Header="开始" Binding="{Binding Started}" Width="180" />
                                 <DataGridTextColumn Header="结束" Binding="{Binding Ended}" Width="180" />
                                 <DataGridTextColumn Header="有效时长" Binding="{Binding Duration}" Width="108" />
                                 <DataGridTextColumn Header="计时" Binding="{Binding Mode}" Width="86" />
                                 <DataGridTextColumn Header="模式" Binding="{Binding RestrictionMode}" Width="70" />
+                                <DataGridTextColumn Header="拦截次数" Binding="{Binding Interceptions}" Width="90" />
                                 <DataGridTextColumn Header="结束方式" Binding="{Binding Reason}" Width="110" />
+                                <DataGridTextColumn Header="成果" Binding="{Binding Outcome}" Width="160" />
+                                <DataGridTextColumn Header="下一步" Binding="{Binding NextStep}" Width="160" />
+                                <DataGridTemplateColumn Header="补充" Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding OutcomeAction}" Click="RecordOutcome_Click" Padding="8,5" FontSize="11" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Border>
                 </Grid>
             </TabItem>
-            <TabItem>
+            <TabItem x:Name="PreferencesTab">
                 <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" Margin="0,2,12,0" /><TextBlock Text="偏好设置" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>

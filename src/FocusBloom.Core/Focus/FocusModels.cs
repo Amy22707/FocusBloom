@@ -14,7 +14,8 @@ public sealed record FocusOptions(
     TimeSpan PauseDuration,
     TimeSpan RestDuration,
     bool Strict = false,
-    PomodoroOptions? Pomodoro = null);
+    PomodoroOptions? Pomodoro = null,
+    Guid? TodoId = null);
 
 public sealed record FocusInterval(IntervalKind Kind, DateTimeOffset StartedAt, DateTimeOffset EndedAt)
 {
@@ -29,8 +30,13 @@ public sealed record FocusRecord(
     DateTimeOffset EndedAt,
     EndReason EndReason,
     IReadOnlyList<FocusInterval> Intervals,
-    bool Strict = false)
+    bool Strict = false,
+    Guid? TodoId = null,
+    int? InterceptionCount = 0)
 {
     public TimeSpan FocusDuration => TimeSpan.FromTicks(
         Intervals.Where(i => i.Kind == IntervalKind.Focus).Sum(i => i.Duration.Ticks));
 }
+
+public sealed record FocusOutcome(Guid SessionId, string Summary = "", double? Quantity = null,
+    string Unit = "", string NextStep = "");

@@ -87,27 +87,38 @@
                         <Button x:Name="HideFloatButton" Content="&#xE8BB;" Click="Hide_Click" Style="{StaticResource FloatingIcon}" ToolTip="收起浮窗，继续计时" />
                     </StackPanel>
                     <Border x:Name="DragArea" Background="Transparent" MouseLeftButtonDown="DragArea_MouseLeftButtonDown" Cursor="SizeAll" ToolTip="拖动浮窗">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Image Source="{StaticResource BrandLogo}" Width="19" Height="19" Margin="0,0,7,0" /><TextBlock Text="一刻专注" Style="{StaticResource FloatingCaption}" FontSize="11" VerticalAlignment="Center" /></StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel.Style><Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers><DataTrigger Binding="{Binding IsMouseOver, ElementName=FloatSurface}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                            </Style></StackPanel.Style>
+                            <Image Source="{StaticResource BrandLogo}" Width="19" Height="19" Margin="0,0,7,0" /><TextBlock Text="一刻专注" Style="{StaticResource FloatingCaption}" FontSize="11" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Border>
                 </DockPanel>
                 <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly" Margin="0,6,0,8">
                     <StackPanel Width="280">
                         <TextBlock x:Name="FloatProject" Text="{Binding FocusHeading}" Style="{StaticResource FloatingText}" FontSize="16" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding FocusHeading}" />
+                        <TextBlock Text="{Binding FocusTodoText}" Style="{StaticResource FloatingCaption}" FontSize="11" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="{Binding HasFocusTodo, Converter={StaticResource BoolVisibility}}" />
                         <TextBlock x:Name="FloatTimer" Text="{Binding TimerText}" Style="{StaticResource FloatingText}" FontFamily="{DynamicResource FocusTimerFont}" FontSize="52" FontWeight="Light" Typography.NumeralAlignment="Tabular" HorizontalAlignment="Center" Margin="0,2" />
                         <TextBlock Text="{Binding StateText}" Style="{StaticResource FloatingText}" FontSize="12" TextAlignment="Center" />
                         <TextBlock x:Name="FloatPhase" Text="{Binding PhaseText}" Style="{StaticResource FloatingCaption}" FontSize="10" TextAlignment="Center" Margin="0,5,0,0" />
                     </StackPanel>
                 </Viewbox>
-                <DockPanel Grid.Row="2">
-                    <Button x:Name="OpenMainButton" DockPanel.Dock="Right" Content="&#xE8A7;" Click="OpenMain_Click" Style="{StaticResource FloatingIcon}" ToolTip="返回主窗口" Margin="8,0,0,0" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Grid x:Name="FloatActions" Grid.Row="2">
+                    <Grid.Style><Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Hidden" />
+                        <Style.Triggers><DataTrigger Binding="{Binding IsMouseOver, ElementName=FloatSurface}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                    </Style></Grid.Style>
+                    <Button x:Name="OpenMainButton" HorizontalAlignment="Right" Content="&#xE8A7;" Click="OpenMain_Click" Style="{StaticResource FloatingIcon}" ToolTip="返回主窗口" />
+                    <StackPanel x:Name="FloatTimerActions" Orientation="Horizontal" HorizontalAlignment="Center">
                         <Button x:Name="FloatStartButton" Content="开始" Command="{Binding StartCommand}" Style="{StaticResource FloatingButton}" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
                         <Button x:Name="FloatPauseButton" Content="暂停" Command="{Binding PauseCommand}" Style="{StaticResource FloatingButton}" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" Margin="0,0,8,0" />
                         <Button x:Name="FloatResumeButton" Content="继续" Command="{Binding ResumeCommand}" Style="{StaticResource FloatingButton}" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" Margin="0,0,8,0" />
                         <Button x:Name="FloatEndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource FloatingButton}" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" />
                         <Button x:Name="FloatSkipRestButton" Content="跳过休息" Command="{Binding SkipRestCommand}" Style="{StaticResource FloatingButton}" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" Margin="8,0,0,0" />
                     </StackPanel>
-                </DockPanel>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

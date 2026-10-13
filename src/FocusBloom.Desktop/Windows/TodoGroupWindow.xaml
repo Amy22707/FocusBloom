@@ -1,0 +1,10 @@
+<Window x:Class="FocusBloom.Desktop.Windows.TodoGroupWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="待办文件夹" Style="{StaticResource {x:Type Window}}" Width="440" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="28"><TextBlock x:Name="GroupHeading" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,18" />
+        <TextBlock Text="名称" Style="{StaticResource Caption}" /><TextBox x:Name="NameInput" />
+        <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource AccentTextBrush}" Margin="0,12,0,0" />
+        <DockPanel Margin="0,18,0,0"><Button x:Name="DeleteButton" Content="删除" Click="Delete_Click" DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="取消" IsCancel="True" Margin="0,0,12,0" /><Button x:Name="SaveButton" Content="保存" Click="Save_Click" Style="{StaticResource PrimaryButton}" IsDefault="True" /></StackPanel>
+        </DockPanel>
+    </StackPanel>
+</Window>

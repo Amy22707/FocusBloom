@@ -9,6 +9,24 @@ public partial class ProjectEditorWindow : Window
     private readonly MainViewModel _model;
     private readonly FocusProject? _project;
     private readonly ProjectFolder? _folder;
+    private readonly bool _creating;
+    private readonly bool _newFolder;
+
+    public ProjectEditorWindow(MainViewModel model, bool newFolder)
+    {
+        InitializeComponent(); WindowAppearance.Attach(this);
+        _model = model; _creating = true; _newFolder = newFolder;
+        Title = EditorHeading.Text = newFolder ? "新建文件夹" : "新建项目";
+        NameCaption.Text = newFolder ? "文件夹名称" : "项目名称";
+        NameInput.ToolTip = newFolder ? "例如：学习、工作、生活" : "例如：英语阅读、课程论文";
+        FolderField.Visibility = newFolder ? Visibility.Collapsed : Visibility.Visible;
+        FolderSelector.ItemsSource = model.Folders;
+        FolderSelector.SelectedItem = model.SelectedFolder ?? System.Linq.Enumerable.FirstOrDefault(model.Folders);
+        DeleteHint.Text = newFolder ? "用文件夹整理同类项目。" : "在这个文件夹中，记录一件想专注的事。";
+        DeleteButton.Visibility = Visibility.Collapsed;
+        SaveButton.Content = "创建";
+        Loaded += (_, _) => NameInput.Focus();
+    }
 
     public ProjectEditorWindow(MainViewModel model, FocusProject project)
     {
@@ -37,7 +55,9 @@ public partial class ProjectEditorWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        var saved = _project is not null
+        var saved = _creating
+            ? _newFolder ? _model.CreateFolder(NameInput.Text) : _model.CreateProject(NameInput.Text, FolderSelector.SelectedItem as ProjectFolder)
+            : _project is not null
             ? _model.UpdateProject(_project, NameInput.Text, FolderSelector.SelectedItem as ProjectFolder)
             : _model.RenameFolder(_folder!, NameInput.Text);
         if (saved) DialogResult = true;

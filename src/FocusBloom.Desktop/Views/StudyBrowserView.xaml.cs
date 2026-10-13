@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Data;
+using System.Windows.Media;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Core.Restrictions;
@@ -81,6 +82,7 @@ public partial class StudyBrowserView : UserControl, IDisposable
         tab.Content = content;
         content.Children.Add(tab.Browser);
         content.Children.Add(tab.BlockedPanel);
+        ApplyBrowserTheme(tab);
         var blockedTitle = new TextBlock { FontSize = 22, FontWeight = FontWeights.SemiBold };
         blockedTitle.SetBinding(TextBlock.TextProperty, new Binding(nameof(MainViewModel.WebsiteBlockedMessage)));
         tab.BlockedPanel.Children.Add(blockedTitle);
@@ -98,9 +100,13 @@ public partial class StudyBrowserView : UserControl, IDisposable
             var core = tab.Browser.CoreWebView2;
             core.NavigationStarting += (_, e) =>
             {
-                if (_viewModel?.CanNavigateWebsite(e.Uri) != false) return;
-                e.Cancel = true;
-                Block(tab, e.Uri);
+                if (_viewModel?.CanNavigateWebsite(e.Uri) == false)
+                {
+                    e.Cancel = true;
+                    Block(tab, e.Uri);
+                    return;
+                }
+                ApplyBrowserTheme(tab, e.Uri);
             };
             core.FrameNavigationStarting += (_, e) =>
             {
@@ -111,6 +117,7 @@ public partial class StudyBrowserView : UserControl, IDisposable
             core.SourceChanged += (_, _) =>
             {
                 if (tab.BlockedUri is not null) return;
+                ApplyBrowserTheme(tab);
                 tab.Address = core.Source;
                 if (tab == SelectedTab) AddressBox.Text = tab.Address;
             };
@@ -127,11 +134,13 @@ public partial class StudyBrowserView : UserControl, IDisposable
             core.NavigationCompleted += (_, e) =>
             {
                 if (tab.BlockedUri is not null) return;
+                ApplyBrowserTheme(tab);
                 if (e.IsSuccess) tab.Title = string.IsNullOrWhiteSpace(core.DocumentTitle) ? "新标签页" : core.DocumentTitle;
                 BrowserStatus.Text = e.IsSuccess ? "页面已加载" : $"页面加载未完成：{e.WebErrorStatus}";
             };
             core.WindowCloseRequested += async (_, _) => await CloseTabAsync(tab);
             if (address is not null) Navigate(tab, address);
+            else ApplyBrowserTheme(tab);
         }
         catch (Exception ex) { BrowserStatus.Text = $"学习浏览器未能启动：{ex.Message}。请确认已安装 Microsoft Edge WebView2 Runtime。"; }
         return tab;
@@ -147,8 +156,40 @@ public partial class StudyBrowserView : UserControl, IDisposable
         tab.Browser.CoreWebView2?.Navigate(address);
     }
 
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property == BackgroundProperty)
+            foreach (var tab in _tabs) ApplyBrowserTheme(tab);
+    }
+
+    private void ApplyBrowserTheme(BrowserTab tab, string? address = null)
+    {
+        if (Background is not SolidColorBrush brush) return;
+        var blank = (address ?? tab.Browser.CoreWebView2?.Source ?? "about:blank") == "about:blank";
+        var color = brush.Color;
+        tab.Browser.DefaultBackgroundColor = blank
+            ? System.Drawing.Color.FromArgb(color.A, color.R, color.G, color.B)
+            : System.Drawing.Color.White;
+        if (blank && tab.Browser.CoreWebView2 is not null) _ = ApplyBlankPageThemeAsync(tab);
+    }
+
+    private async Task ApplyBlankPageThemeAsync(BrowserTab tab)
+    {
+        if (tab.Browser.CoreWebView2 is not { } core || Background is not SolidColorBrush brush) return;
+        var color = brush.Color;
+        var scheme = Appearance.IsDark ? "dark" : "light";
+        try
+        {
+            await core.ExecuteScriptAsync($"if (location.href === 'about:blank' && document.documentElement) {{ document.documentElement.style.backgroundColor = '#{color.R:X2}{color.G:X2}{color.B:X2}'; document.documentElement.style.colorScheme = '{scheme}'; }}");
+        }
+        catch (InvalidOperationException) { }
+        catch (System.Runtime.InteropServices.COMException) { }
+    }
+
     private void Block(BrowserTab tab, string address)
     {
+        _viewModel?.RegisterInterception();
         tab.Browser.CoreWebView2?.Stop();
         tab.BlockedUri = address;
         tab.Address = address;
