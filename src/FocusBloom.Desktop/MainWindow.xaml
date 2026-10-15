@@ -6,10 +6,24 @@
         Title="一刻专注 · FocusBloom" Style="{StaticResource {x:Type Window}}"
         Icon="{StaticResource BrandLogo}"
         Width="1120" Height="720" MinWidth="900" MinHeight="560" WindowStartupLocation="Manual">
+    <Window.Resources>
+        <Style x:Key="SettingsSection" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,10" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><StackPanel>
+                <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Content="{TemplateBinding Header}">
+                    <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16,12" Cursor="Hand"><DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" Foreground="{DynamicResource MutedBrush}" FontSize="16" /><ContentPresenter TextElement.FontSize="15" TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource TextBrush}" /></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="－" /></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
+                </ToggleButton>
+                <ContentPresenter x:Name="Details" Visibility="Collapsed" />
+            </StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Details" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+
+        <Style x:Key="NavigationLabel" TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style>
+        <Style x:Key="NavigationIcon" TargetType="TextBlock"><Setter Property="Margin" Value="0,2,12,0" /><Style.Triggers><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="0,2,0,0" /></DataTrigger></Style.Triggers></Style>
+    </Window.Resources>
     <Grid>
     <Grid x:Name="WorkspaceView">
         <Grid.RowDefinitions><RowDefinition Height="88" /><RowDefinition Height="*" /><RowDefinition Height="42" /></Grid.RowDefinitions>
-        <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="30,0">
+        <Border x:Name="WorkspaceHeader" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="30,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox x:Name="TimerFloatToggle" Content="计时浮窗" IsChecked="{Binding TimerFloatVisible}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,18,0" />
@@ -29,9 +43,9 @@
                 </StackPanel>
             </DockPanel>
         </Border>
-        <TabControl x:Name="MainTabs" Grid.Row="1" TabStripPlacement="Left">
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Margin="0,2,12,0" /><TextBlock Text="专注时刻" /></StackPanel></TabItem.Header>
+        <TabControl x:Name="MainTabs" Grid.Row="1" TabStripPlacement="Left" SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem x:Name="FocusTab" ToolTip="专注时刻">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="专注时刻" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <StackPanel Margin="0,0,0,22">
@@ -134,8 +148,8 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" Margin="0,2,12,0" /><TextBlock Text="项目库" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="ProjectsTab" ToolTip="项目库">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="项目库" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <StackPanel Margin="0,0,0,22"><TextBlock Text="把想做的事，整理好" FontSize="26" FontWeight="SemiBold" /><TextBlock Text="文件夹收纳同类项目，每个项目记录自己的专注时间。" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" /></StackPanel>
@@ -178,10 +192,10 @@
                                     </StackPanel>
                                     <ListBox x:Name="ProjectList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding FolderProjects}" SelectedItem="{Binding SelectedProject}" ScrollViewer.VerticalScrollBarVisibility="Visible">
                                         <ListBox.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource {x:Type ScrollBar}}"><Style.Triggers><Trigger Property="Maximum" Value="0"><Setter Property="Opacity" Value="0" /></Trigger></Style.Triggers></Style></ListBox.Resources>
-                                        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource ProjectItem}"><Setter Property="Height" Value="120" /><Setter Property="VerticalAlignment" Value="Top" /><Setter Property="Margin" Value="0,0,10,10" /></Style></ListBox.ItemContainerStyle>
-                                        <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" VerticalAlignment="Top" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource ProjectItem}"><Setter Property="Height" Value="{DynamicResource ProjectCardHeight}" /><Setter Property="VerticalAlignment" Value="Top" /><Setter Property="Margin" Value="0,0,10,10" /></Style></ListBox.ItemContainerStyle>
+                                        <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="{DynamicResource ProjectCardColumns}" VerticalAlignment="Top" /></ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
-                                            <Border Height="120" Padding="12" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Background="{DynamicResource FieldBrush}">
+                                            <Border LayoutTransform="{DynamicResource ProjectCardTransform}" Height="120" Padding="12" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Background="{DynamicResource FieldBrush}">
                                                 <StackPanel>
                                                     <DockPanel Margin="0,0,0,8">
                                                         <Button DockPanel.Dock="Right" Content="···" Click="EditProject_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" HorizontalAlignment="Right" Background="Transparent" ToolTip="修改或删除项目" />
@@ -200,50 +214,60 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="TodoTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73A;" Margin="0,2,12,0" /><TextBlock Text="待办事项" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="TodoTab" ToolTip="待办事项">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73A;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="待办事项" /></StackPanel></TabItem.Header>
                 <views:TodosView x:Name="TodoPage" DataContext="{Binding Todos}" />
             </TabItem>
-            <TabItem x:Name="RecordsTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" Margin="0,2,12,0" /><TextBlock Text="专注记录" /></StackPanel></TabItem.Header>
-                <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <DockPanel Margin="0,0,0,22">
-                        <Button DockPanel.Dock="Right" Content="重试保存" Command="{Binding RetrySaveCommand}" VerticalAlignment="Center" Visibility="{Binding HasUnsavedRecord, Converter={StaticResource BoolVisibility}}" />
-                        <StackPanel><TextBlock Text="每一刻，都算数" FontSize="26" FontWeight="SemiBold" /><TextBlock Text="{Binding RecordSummary}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" /></StackPanel>
+            <TabItem x:Name="CalendarTab" ToolTip="日历与课表">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE787;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="日历与课表" /></StackPanel></TabItem.Header>
+                <views:CalendarView x:Name="CalendarPage" DataContext="{Binding Calendar}" />
+            </TabItem>
+            <TabItem x:Name="DateEventsTab" ToolTip="日期事项">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="日期事项" /></StackPanel></TabItem.Header>
+                <views:DateEventsView DataContext="{Binding DateEvents}" />
+            </TabItem>
+            <TabItem x:Name="RecordsTab" ToolTip="专注记录">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="专注记录" /></StackPanel></TabItem.Header>
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="重试保存" Command="{Binding RetrySaveCommand}" Visibility="{Binding HasUnsavedRecord, Converter={StaticResource BoolVisibility}}" />
+                        <TextBlock DockPanel.Dock="Left" Text="专注记录" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,18,0" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="RecordTimelineButton" Content="时间轴" Tag="时间轴" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="时间轴"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                            <Button x:Name="RecordStatisticsButton" Content="统计" Tag="统计" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="统计"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                            <Button x:Name="RecordReviewButton" Content="复盘" Tag="复盘" Click="RecordPage_Click" Padding="12,6" FontSize="12"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="复盘"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                        </StackPanel>
                     </DockPanel>
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18">
-                        <DataGrid x:Name="RecordsGrid" ItemsSource="{Binding Records}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="项目" Binding="{Binding Project}" Width="*" MinWidth="100" />
-                                <DataGridTextColumn Header="计时分类" Binding="{Binding Category}" Width="100" />
-                                <DataGridTextColumn Header="待办" Binding="{Binding Todo}" Width="130" />
-                                <DataGridTextColumn Header="开始" Binding="{Binding Started}" Width="180" />
-                                <DataGridTextColumn Header="结束" Binding="{Binding Ended}" Width="180" />
-                                <DataGridTextColumn Header="有效时长" Binding="{Binding Duration}" Width="108" />
-                                <DataGridTextColumn Header="计时" Binding="{Binding Mode}" Width="86" />
-                                <DataGridTextColumn Header="模式" Binding="{Binding RestrictionMode}" Width="70" />
-                                <DataGridTextColumn Header="拦截次数" Binding="{Binding Interceptions}" Width="90" />
-                                <DataGridTextColumn Header="结束方式" Binding="{Binding Reason}" Width="110" />
-                                <DataGridTextColumn Header="成果" Binding="{Binding Outcome}" Width="160" />
-                                <DataGridTextColumn Header="下一步" Binding="{Binding NextStep}" Width="160" />
-                                <DataGridTemplateColumn Header="补充" Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding OutcomeAction}" Click="RecordOutcome_Click" Padding="8,5" FontSize="11" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Border>
+                    <views:CalendarView x:Name="FocusCalendarPage" Grid.Row="1" DataContext="{Binding FocusCalendar}" Visibility="{Binding DataContext.ShowRecordCalendar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
+                    <views:StatisticsView x:Name="StatisticsPage" Grid.Row="1" DataContext="{Binding Statistics}" Visibility="{Binding DataContext.ShowRecordStatistics, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
                 </Grid>
             </TabItem>
-            <TabItem x:Name="PreferencesTab">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" Margin="0,2,12,0" /><TextBlock Text="偏好设置" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="PreferencesTab" ToolTip="偏好设置">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="偏好设置" /></StackPanel></TabItem.Header>
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <StackPanel Margin="0,0,0,22"><TextBlock Text="找到自己的节奏" FontSize="26" FontWeight="SemiBold" /><TextBlock Text="喜欢的颜色，舒服的节奏。" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" /></StackPanel>
-                    <ScrollViewer x:Name="PreferencesScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <StackPanel Margin="0,0,0,22"><TextBlock Text="找到自己的节奏" FontSize="26" FontWeight="SemiBold" /><TextBlock Text="按功能展开，或用关键词快速找到设置。" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" /></StackPanel>
+                    <DockPanel Grid.Row="1" Margin="0,0,0,12"><TextBlock Text="搜索设置" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource MutedBrush}" /><TextBox x:Name="SettingsSearchInput" TextChanged="SettingsSearch_Changed" ToolTip="输入字体、背景、颜色、提醒等关键词" /></DockPanel>
+                    <ScrollViewer x:Name="PreferencesScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto" ScrollChanged="PreferencesScroll_Changed">
                         <StackPanel>
-                            <Border x:Name="FocusMediaSettingsCard" Style="{StaticResource Card}" Margin="0,0,0,20"><views:FocusMediaSettingsView DataContext="{Binding Media}" /></Border>
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                            <TextBlock x:Name="SettingsSearchEmpty" Text="没有匹配的设置，试试字体、背景或提醒等关键词。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed" />
+                            <Expander x:Name="NavigationSettingsSection" Header="导航展示与顺序" Style="{StaticResource SettingsSection}">
+                                <Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+                                    <TextBlock Text="勾选要显示的栏目，拖动右侧手柄调整顺序。偏好设置入口始终保留。" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,12" />
+                                    <ItemsControl x:Name="NavigationSettingsItems" ItemsSource="{Binding Navigation.Items}" present:ReorderButton.EnableDrop="True"><ItemsControl.ItemTemplate><DataTemplate>
+                                        <Border Background="{DynamicResource FieldBrush}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6"><DockPanel>
+                                            <present:ReorderButton DockPanel.Dock="Right" ReorderRequested="NavigationOrder_Requested" />
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding Visible}" IsEnabled="{Binding CanHide}" VerticalAlignment="Center" />
+                                        </DockPanel></Border>
+                                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                </StackPanel></Border>
+                            </Expander>
+
+                            <Expander x:Name="MediaSettingsSection" Header="专注图文与声音" Style="{StaticResource SettingsSection}"><Border x:Name="FocusMediaSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusMediaSettingsView DataContext="{Binding Media}" /></Border></Expander>
+                            <Expander x:Name="AppearanceSettingsSection" Header="外观与配色" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="外观与配色" FontSize="18" FontWeight="SemiBold" />
+
                                     <TextBlock Text="马卡龙与莫兰迪，选一种今天喜欢的颜色。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,20" />
                                     <ListBox Style="{StaticResource FlowCardList}" x:Name="PaletteSelector" ItemsSource="{Binding Palettes}" SelectedItem="{Binding SelectedPalette}" ItemContainerStyle="{StaticResource ProjectItem}">
                                         <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
@@ -262,18 +286,49 @@
                                         <TextBlock Text="选择后立即应用，并在本机保存" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                            </Border>
-                            <Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,0,0,20"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border>
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                            </Border></Expander>
+                            <Expander x:Name="FontSettingsSection" Header="专注字体" Style="{StaticResource SettingsSection}"><Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border></Expander>
+                            <Expander x:Name="FloatSettingsSection" Header="桌面计时浮窗" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="桌面计时浮窗" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16" />
+
                                     <CheckBox Content="显示计时浮窗" IsChecked="{Binding TimerFloatVisible}" />
                                     <TextBlock Text="共用当前计时，主窗口进入托盘后继续显示。在浮窗设置里选择置顶、背景和透明度；关闭浮窗不会结束专注。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
                                 </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                            </Border></Expander>
+                            <Expander x:Name="SizeSettingsSection" Header="事项块大小" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+
+                                <TextBlock Text="按板块调整大小，立即生效并保存。100% 为默认大小。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,8,0,14" />
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="选择板块" Style="{StaticResource Caption}" />
+                                        <ComboBox x:Name="CardSizeSelector" ItemsSource="{Binding CardSizing.Options}" SelectedItem="{Binding CardSizing.PreviewOption}" DisplayMemberPath="Name" />
+                                        <StackPanel DataContext="{Binding CardSizing.PreviewOption}" Margin="0,18,0,0">
+                                            <DockPanel><TextBlock Text="大小" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="{Binding PercentageText}" HorizontalAlignment="Right" FontWeight="SemiBold" /></DockPanel>
+                                            <Slider x:Name="CardSizeSlider" Minimum="70" Maximum="140" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Percentage, UpdateSourceTrigger=PropertyChanged}" Margin="0,12,0,12" />
+                                            <TextBlock Text="{Binding PreviewDescription}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                                            <Button Content="恢复默认大小" Command="{Binding ResetCommand}" Padding="10,7" FontSize="11" HorizontalAlignment="Left" Margin="0,18,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" DataContext="{Binding CardSizing.PreviewOption}">
+                                        <TextBlock Text="实时预览" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" />
+                                        <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="12" Padding="14" Height="285">
+                                            <Border x:Name="CardSizePreview" Width="{Binding PreviewWidth}" Height="{Binding PreviewHeight}" LayoutTransform="{Binding PreviewTransform}" Background="{DynamicResource FieldBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{Binding PreviewPadding}" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                                <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding PreviewTitle}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding PreviewDetail}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" Visibility="{Binding ShowPreviewDetail, Converter={StaticResource BoolVisibility}}" /></StackPanel>
+                                            </Border>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel></Border></Expander>
+                            <Expander x:Name="ReminderSettingsSection" Header="日历与软件提醒" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+
+                                <CheckBox x:Name="SoftwareReminderToggle" Content="开启软件提醒" IsChecked="{Binding SoftwareRemindersEnabled}" />
+                                <TextBlock Text="总开关控制待办截止、日期事项、课程及计划安排的系统通知；关闭后保留各事项设置。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,14" />
+                                <CheckBox x:Name="OutlookSyncToggle" Content="与 Windows／Outlook 日历同步（待接入）" IsChecked="{Binding OutlookSyncRequested}" />
+                                <TextBlock Text="{Binding OutlookSyncStatus}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
+                            </StackPanel></Border></Expander>
+                            <Expander x:Name="TimerSettingsSection" Header="计时与番茄" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="计时偏好" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,22" />
+
                                     <Grid MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <StackPanel>
@@ -294,10 +349,10 @@
                                     <views:PomodoroSettingsView x:Name="PomodoroPreferences" Visibility="{Binding DefaultPomodoro, Converter={StaticResource BoolVisibility}}" MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20" />
                                     <Button x:Name="SaveTimerPreferencesButton" Content="保存偏好" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" />
                                 </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+                            </Border></Expander>
+                            <Expander x:Name="RestrictionSettingsSection" Header="严格模式规则" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="严格模式应用与网站规则" FontSize="18" FontWeight="SemiBold" />
+
                                     <TextBlock Text="外部浏览器由独立扩展控制，请在扩展中设置网站规则并开始专注。" Foreground="{DynamicResource AccentTextBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
                                     <TextBlock Text="应用和网站分别选择黑名单或白名单，各自列表独立保存。本次专注采用开始时的规则，暂停保持限制，休息和结束解除限制。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,20" />
                                     <TextBlock x:Name="RestrictionEditHint" Text="请先结束专注，再修改应用和网站规则。" FontSize="12" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,16" TextWrapping="Wrap">
@@ -329,7 +384,7 @@
                                         </WrapPanel>
                                     </StackPanel>
                                 </StackPanel>
-                            </Border>
+                            </Border></Expander>
                             <Border Style="{StaticResource Card}">
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Content="退出一刻专注" Click="Exit_Click" VerticalAlignment="Center" Margin="22,0,0,0" />
@@ -339,6 +394,10 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
+            </TabItem>
+            <TabItem x:Name="GoalsTab" ToolTip="目标与习惯">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE734;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="目标与习惯" /></StackPanel></TabItem.Header>
+                <views:GoalsView x:Name="GoalsPage" DataContext="{Binding Goals}" />
             </TabItem>
             <TabItem x:Name="BrowserTab">
                 <TabItem.Style><Style TargetType="TabItem"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border Visibility="Collapsed" /></ControlTemplate></Setter.Value></Setter></Style></TabItem.Style>
@@ -350,5 +409,6 @@
     <Border x:Name="BrowserFullscreenView" Background="{DynamicResource BackgroundBrush}" Padding="28" Visibility="Collapsed">
         <ContentControl x:Name="BrowserFullscreenHost" />
     </Border>
+    <Button x:Name="ExitContentFullscreenButton" Content="返回窗口 · Esc" Click="ToggleFullscreen_Click" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,18,0" Padding="12,7" FontSize="11" Visibility="{Binding ContentFullscreen, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
     </Grid>
 </Window>

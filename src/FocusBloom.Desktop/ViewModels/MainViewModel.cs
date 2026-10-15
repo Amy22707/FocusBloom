@@ -123,7 +123,18 @@ public sealed partial class MainViewModel : ObservableObject
         RetrySaveCommand = new RelayCommand(() => { PersistRecord(); Refresh(); }, () => HasUnsavedRecord);
         LoadRecords();
         Todos = new TodoLibraryViewModel(store, ReportStatus, CanDeleteTodo);
-        Todos.Changed += (_, _) => { RefreshTodoChoices(); LoadRecords(); };
+        Calendar = new CalendarViewModel(store);
+        FocusCalendar = new CalendarViewModel(store, true);
+        Navigation = new NavigationViewModel(store);
+        Statistics = new StatisticsViewModel(store);
+        Goals = new GoalsViewModel(store, ReportStatus);
+        Goals.Changed += (_, _) => { Statistics.Reload(); CalendarDataChanged?.Invoke(this, EventArgs.Empty); };
+        _recordPage = store.GetSetting("records.page") ?? "时间轴"; Statistics.ReviewMode = _recordPage == "复盘";
+        _softwareRemindersEnabled = store.GetSetting("reminders.enabled") != "False";
+        _outlookSyncRequested = store.GetSetting("outlook.sync.requested") == "True";
+        DateEvents = new DateEventsViewModel(store); DateEvents.Reload();
+        CardSizing = new CardSizingViewModel(store, () => { Calendar.Reload(); FocusCalendar.Reload(); Statistics.RequestRedraw(); });
+        Todos.Changed += (_, _) => { RefreshTodoChoices(); LoadRecords(); ReloadCalendarData(); };
         var savedTodo = store.GetSetting("focus.todo");
         RefreshTodoChoices(Guid.TryParse(savedTodo, out var todoId) ? todoId : null);
         SaveProjectSelection();
@@ -133,6 +144,7 @@ public sealed partial class MainViewModel : ObservableObject
     public RestrictionSettingsViewModel Whitelist { get; }
     public FocusMediaViewModel Media { get; }
     public FocusTypographyViewModel Typography { get; }
+    public CardSizingViewModel CardSizing { get; }
     public IReadOnlyList<RestrictionChoice> RestrictionModes { get; } = new[]
     {
         new RestrictionChoice(false, "普通模式"), new RestrictionChoice(true, "严格模式")
@@ -337,6 +349,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _timer.Update(allowNextRound: !HasUnsavedRecord);
         Todos.RefreshDeadlines();
+        RefreshCalendarDay();
         Refresh();
     }
 
@@ -656,6 +669,7 @@ public sealed partial class MainViewModel : ObservableObject
                 FormatOutcome(outcome), outcome?.NextStep ?? "", categories.GetValueOrDefault(record.ProjectId, "未分类"), record.Strict ? record.InterceptionCount?.ToString(CultureInfo.CurrentCulture) ?? "未统计" : "—"));
         }
         Notify(nameof(RecordSummary));
+        Calendar?.Reload(); FocusCalendar?.Reload(); Statistics?.Reload(); Goals?.Reload();
     }
 
     private void Refresh()

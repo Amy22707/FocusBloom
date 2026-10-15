@@ -2,7 +2,8 @@
     [ValidateSet('build', 'test', 'run', 'publish')]
     [string]$Task = 'run',
     [ValidateSet('Debug', 'Release')]
-    [string]$Configuration = 'Debug'
+    [string]$Configuration = 'Debug',
+    [string]$Filter = 'FullyQualifiedName~FocusBloom.Tests'
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -19,7 +20,11 @@ Push-Location $repoRoot
 try {
     switch ($Task) {
         'build' { & $dotnet build FocusBloom.sln -c $Configuration }
-        'test' { & $dotnet test FocusBloom.sln -c $Configuration }
+        'test' {
+            & $dotnet build FocusBloom.sln -c $Configuration
+            if ($LASTEXITCODE -ne 0) { throw '测试编译失败。' }
+            & (Join-Path $PSScriptRoot 'test-isolated.ps1') -Filter $Filter -Configuration $Configuration
+        }
         'run' { & $dotnet run --project src/FocusBloom.Desktop -c $Configuration }
         'publish' {
             & $dotnet publish src/FocusBloom.Desktop -c Release -r win-x64 --self-contained true -o artifacts/windows-x64

@@ -23,6 +23,7 @@ public partial class App : Application
     private ApplicationRestrictionService? _restrictions;
     private KeepAwakeService? _keepAwake;
     private FocusState _lastFocusState;
+    private WindowsReminderService? _reminders;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -47,12 +48,15 @@ public partial class App : Application
             _restrictions = new ApplicationRestrictionService(_viewModel, () => _window.ReturnToFocus());
             _keepAwake = new KeepAwakeService(_viewModel);
             _tray = new TrayIcon(_viewModel, ShowWindow, ExitApplication);
+            try { _reminders = new WindowsReminderService(store, _viewModel, entry => _window.OpenReminder(entry)); }
+            catch (Exception ex) { _viewModel.NotificationStatus = "系统提醒不可用：" + ex.Message; }
             _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _refresh.Tick += (_, _) =>
             {
                 _viewModel.Tick();
                 _restrictions.CheckForeground();
                 _tray.Update($"一刻专注 · {_viewModel.StateText} {_viewModel.TimerText}");
+                _reminders?.Tick();
             };
             _refresh.Start();
             _window.Show();
@@ -116,6 +120,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _refresh?.Stop();
+        _reminders?.Dispose();
         _keepAwake?.Dispose();
         _viewModel?.Media.Dispose();
         if (_viewModel is not null)

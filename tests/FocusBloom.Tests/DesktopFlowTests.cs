@@ -26,19 +26,21 @@ using Xunit;
 
 namespace FocusBloom.Tests;
 
+[Collection("Desktop UI")]
 public sealed class DesktopFlowTests
 {
     [Fact]
+    [Trait("DesktopMode", "Interactive")]
     public void WindowBindingsOrganizeProjectsSwitchAppearanceAndRunBothTimerModes()
     {
         Exception? failure = null;
-        var thread = new Thread(() =>
+        WpfTestHost.Run(() =>
         {
             var directory = Path.Combine(Path.GetTempPath(), "FocusBloomUiTests", Guid.NewGuid().ToString());
             MainWindow? window = null;
             try
             {
-                var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                var application = Application.Current;
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary
                 {
                     Source = new Uri("/FocusBloom;component/Resources/Theme.xaml", UriKind.Relative)
@@ -199,7 +201,7 @@ public sealed class DesktopFlowTests
                 Assert.Equal(Visibility.Collapsed, fullscreen.Visibility);
                 Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("WorkspaceView")).Visibility);
                 Assert.Equal("00:01:00", viewModel.TimerText);
-                tabs.SelectedIndex = 4;
+                tabs.SelectedItem = window.FindName("PreferencesTab");
                 content.UpdateLayout();
                 FlushBindings();
                 var palettes = (ListBox)window.FindName("PaletteSelector");
@@ -253,11 +255,11 @@ public sealed class DesktopFlowTests
                 Assert.Single(reopened.Folders, f => f.Name == "工作" && f.Projects.Count == 0);
                 viewModel.SelectedPalette = viewModel.Palettes[0];
                 viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(m => m.Mode == AppearanceMode.Light);
-                tabs.SelectedIndex = 3;
+                tabs.SelectedItem = window.FindName("RecordsTab");
                 content.UpdateLayout();
                 FlushBindings();
                 SavePreview(content, window.Background, "records-page.png");
-                VerifyRecordGridTheme(window, viewModel, content);
+                VerifyRecordTimelineTheme(window, viewModel, content);
                 tabs.SelectedIndex = 0;
                 content.Measure(new Size(1000, 630));
                 content.Arrange(new Rect(0, 0, 1000, 630));
@@ -345,7 +347,6 @@ public sealed class DesktopFlowTests
                 ((Button)window.FindName("EnterFullscreenButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.Close();
                 Assert.Equal(resizedLayout, JsonSerializer.Deserialize<WindowLayout>(store.GetSetting(WindowLayout.SettingKey)!));
-                application.Shutdown();
             }
             catch (Exception ex) { failure = ex; }
             finally
@@ -355,9 +356,6 @@ public sealed class DesktopFlowTests
                 if (Directory.Exists(directory)) Directory.Delete(directory, true);
             }
         });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
@@ -416,37 +414,24 @@ public sealed class DesktopFlowTests
         }
     }
 
-    private static void VerifyRecordGridTheme(MainWindow window, MainViewModel viewModel, FrameworkElement content)
+    private static void VerifyRecordTimelineTheme(MainWindow window, MainViewModel viewModel, FrameworkElement content)
     {
-        var grid = (DataGrid)window.FindName("RecordsGrid");
-        var records = viewModel.Records.ToArray();
+        var calendar = (FocusBloom.Desktop.Views.CalendarView)window.FindName("FocusCalendarPage");
+        var date = viewModel.FocusCalendar.Date; var display = viewModel.FocusCalendar.Mode;
         try
         {
-            for (var index = 0; index < 5; index++) viewModel.Records.Add(records[0] with { Project = $"记录 {index + 2}" });
-            foreach (var mode in new[] { AppearanceMode.Dark, AppearanceMode.Light, AppearanceMode.Dark })
+            viewModel.FocusCalendar.Date = DateOnly.FromDateTime(DateTime.Parse(viewModel.Records[0].Started)); viewModel.FocusCalendar.Mode = "时间轴";
+            foreach (var mode in new[] { AppearanceMode.Dark, AppearanceMode.Light })
             {
                 viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == mode);
-                grid.UnselectAll(); content.UpdateLayout(); FlushBindings();
-                for (var index = 0; index < 6; index++)
-                {
-                    var row = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(index);
-                    Assert.NotNull(row);
-                    var expected = (SolidColorBrush)Application.Current.FindResource(row.IsMouseOver ? "HoverBrush" : index % 2 == 0 ? "CardBrush" : "FieldBrush");
-                    Assert.Equal(expected.Color, ((SolidColorBrush)row.Background).Color);
-                    Assert.All(Descendants<DataGridCell>(row), cell => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)cell.Foreground).Color));
-                }
-                grid.SelectedIndex = 1; grid.Focus(); content.UpdateLayout(); FlushBindings();
-                var selectedRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
-                Assert.Equal(((SolidColorBrush)Application.Current.FindResource("SelectedBrush")).Color, ((SolidColorBrush)selectedRow.Background).Color);
-                grid.UnselectAll(); content.UpdateLayout(); FlushBindings();
+                content.UpdateLayout(); FlushBindings(); calendar.Render(); FlushBindings();
+                var cards = Descendants<Button>(calendar).Where(button => button.Tag is FocusBloom.Core.Calendar.CalendarEntry entry && entry.Kind == "专注").ToArray();
+                Assert.NotEmpty(cards);
+                Assert.All(cards, button => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("FieldBrush")).Color, ((SolidColorBrush)button.Background).Color));
                 SavePreview(content, window.Background, mode == AppearanceMode.Dark ? "records-dark.png" : "records-light.png");
             }
         }
-        finally
-        {
-            viewModel.Records.Clear(); foreach (var record in records) viewModel.Records.Add(record);
-            viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
-        }
+        finally { viewModel.FocusCalendar.Date = date; viewModel.FocusCalendar.Mode = display; viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light); }
     }
 
     private static void VerifyDarkThemeSurfaces(MainWindow window, MainViewModel viewModel, FrameworkElement content)
@@ -497,7 +482,7 @@ public sealed class DesktopFlowTests
     {
         var typography = viewModel.Typography;
         var image = viewModel.Media.Background; var quote = viewModel.Media.QuoteText; var timer = viewModel.TimerText;
-        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedIndex = 4;
+        var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedItem = window.FindName("PreferencesTab");
         content.UpdateLayout(); FlushBindings();
         var settings = (FocusFontSettingsView)((Border)window.FindName("FocusFontSettingsCard")).Child;
         Assert.Same(typography, settings.DataContext);
@@ -886,7 +871,7 @@ public sealed class DesktopFlowTests
         Assert.Equal(folderOrder, restored.Folders.Select(item => item.Name)); Assert.Equal(projectOrder, restored.FolderProjects.Select(item => item.Id)); restored.Media.Dispose();
         Assert.True(model.RenameFolder(folder, "排序一改名")); Assert.Equal("排序一改名", model.Folders[0].Name);
         model.NewProjectName = "新项目"; model.AddProjectCommand.Execute(null); Assert.Equal("新项目", model.FolderProjects.Last().Name);
-        tabs.SelectedIndex = 4; window.UpdateLayout(); FlushBindings();
+        tabs.SelectedItem = window.FindName("PreferencesTab"); window.UpdateLayout(); FlushBindings();
         var settings = (FocusMediaSettingsView)((Border)window.FindName("FocusMediaSettingsCard")).Child;
         var media = model.Media; media.SelectedBackground = media.Images[0].Asset; media.SelectedQuote = media.Quotes[0].Quote; media.SelectedSound = media.Sounds[0].Asset;
         model.StartCommand.Execute(null); var scene = media.Background; var quote = media.QuoteText;
@@ -1193,7 +1178,7 @@ public sealed class DesktopFlowTests
         media.ImportImages([invalidPath]);
         Assert.DoesNotContain(media.Images, image => image.Asset.File == invalidPath);
 
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("PreferencesTab");
         var content = (FrameworkElement)window.Content;
         content.Measure(new Size(1240, 750)); content.Arrange(new Rect(0, 0, 1240, 750)); content.UpdateLayout(); FlushBindings();
         var settings = (FocusMediaSettingsView)((Border)window.FindName("FocusMediaSettingsCard")).Child;
@@ -1358,7 +1343,7 @@ public sealed class DesktopFlowTests
         media.RemoveImage(media.Images[0]); Assert.Equal(7, media.Images.Count);
         media.RemoveSound(media.Sounds[0]); Assert.Equal(5, media.Sounds.Count);
         quoteLibrary.IsExpanded = true; backgroundLibrary.IsExpanded = false; soundLibrary.IsExpanded = false;
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("PreferencesTab");
         content.UpdateLayout(); FlushBindings();
         Assert.All(FindButtons((ItemsControl)settings.FindName("QuoteCards")).Where(button => button.Content?.ToString() is "编辑" or "删除" && button.DataContext is FocusQuoteCard { Custom: false }), button => Assert.Equal(Visibility.Collapsed, button.Visibility));
         var styled = new QuoteAttributionText { Quote = originalQuote };
@@ -1444,7 +1429,7 @@ public sealed class DesktopFlowTests
         content.UpdateLayout(); FlushBindings();
         Assert.InRange(((FrameworkElement)window.FindName("NewFolderArea")).ActualHeight, 0, 40);
         SavePreview(content, window.Background, "projects-compact-dark.png");
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("PreferencesTab");
         viewModel.SelectedAppearanceMode = viewModel.AppearanceModes.Single(choice => choice.Mode == AppearanceMode.Light);
         Assert.All(favoriteCheckBoxes(settings), box => Assert.Equal(((SolidColorBrush)Application.Current.FindResource("TextBrush")).Color, ((SolidColorBrush)box.Foreground).Color));
         static IEnumerable<CheckBox> favoriteCheckBoxes(DependencyObject root) => Descendants<CheckBox>(root).Where(box => box.Content?.ToString()?.Contains("收藏") == true);
@@ -2077,7 +2062,7 @@ public sealed class DesktopFlowTests
     private static void VerifyPomodoro(MainWindow window, MainViewModel model, SqliteFocusStore store, ManualClock clock)
     {
         var tabs = (TabControl)window.FindName("MainTabs");
-        tabs.SelectedIndex = 4;
+        tabs.SelectedItem = window.FindName("PreferencesTab");
         model.DefaultTimerMode = model.TimerModes.Single(mode => mode.Mode == TimerMode.Pomodoro);
         model.DefaultRestrictionMode = model.RestrictionModes.Single(mode => mode.Strict);
         model.PomodoroFocusMinutes = "0.2";
@@ -2170,7 +2155,7 @@ public sealed class DesktopFlowTests
 
     private static void VerifyTimerPreferences(MainWindow window, MainViewModel viewModel, SqliteFocusStore store, ManualClock clock)
     {
-        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 4;
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("PreferencesTab");
         ((FrameworkElement)window.Content).UpdateLayout();
         FlushBindings();
         var defaultTimer = (ComboBox)window.FindName("DefaultTimerModeSelector");

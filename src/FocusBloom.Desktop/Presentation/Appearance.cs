@@ -13,6 +13,7 @@ public sealed record ThemePalette(string Id, string Name, string Swatch, string 
 
 public static class Appearance
 {
+    public static event EventHandler? Changed;
     public static bool IsDark { get; private set; }
     public static IReadOnlyList<ThemePalette> Palettes { get; } = new[]
     {
@@ -61,6 +62,7 @@ public static class Appearance
         resources["HeroMiddleColor"] = Mix(card, accent, dark ? 0.08 : 0.11);
         resources["HeroEndColor"] = Mix(card, accent, dark ? 0.04 : 0.05);
         foreach (Window window in Application.Current.Windows) WindowAppearance.Apply(window);
+        Changed?.Invoke(null, EventArgs.Empty);
     }
 
     private static bool IsSystemDark()

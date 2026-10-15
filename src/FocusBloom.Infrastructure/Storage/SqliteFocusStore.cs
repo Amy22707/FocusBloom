@@ -38,6 +38,13 @@ public sealed partial class SqliteFocusStore : IFocusStore
                 PRIMARY KEY(session_id, ordinal)
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS date_events (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS calendar_plans (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS school_courses (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS course_changes (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS focus_goals (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS habits (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS habit_checkins (habit_id TEXT NOT NULL REFERENCES habits(id), date TEXT NOT NULL, PRIMARY KEY(habit_id,date));
             CREATE TABLE IF NOT EXISTS project_folders (name TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS todo_categories (name TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS todo_folders (

@@ -17,6 +17,7 @@ public partial class OutcomeEditorWindow : Window
         var record = main.GetRecord(id)!;
         var row = main.Records.Single(row => row.Id == id);
         RecordHeading.Text = $"{row.Project}" + (row.Todo.Length > 0 ? $" · {row.Todo}" : "") + $"\n{row.Started} · 有效专注 {row.Duration}";
+        TimingDetails.Text = $"{row.Started} — {row.Ended}\n{row.Mode} · {row.RestrictionMode}模式 · {row.Reason}" + (record.Strict ? $"\n拦截次数：{row.Interceptions}" : "");
         var outcome = main.GetOutcome(id) ?? new FocusOutcome(id, NextStep: record.TodoId is { } todoId ? main.Todos.Items.FirstOrDefault(item => item.Id == todoId)?.Item.ResumeNote ?? "" : "");
         SummaryInput.Text = outcome.Summary; QuantityInput.Text = outcome.Quantity?.ToString(CultureInfo.CurrentCulture) ?? "";
         UnitInput.Text = outcome.Unit; NextInput.Text = outcome.NextStep;

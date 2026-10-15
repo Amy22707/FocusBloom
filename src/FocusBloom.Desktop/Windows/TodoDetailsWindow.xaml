@@ -13,6 +13,6 @@
             <StackPanel Margin="0,0,0,18" Visibility="{Binding HasNotes, Converter={StaticResource BoolVisibility}}"><TextBlock Text="备注" Style="{StaticResource Caption}" /><TextBlock x:Name="DetailNotes" Text="{Binding Notes}" /></StackPanel>
             <StackPanel Visibility="{Binding HasResumeNote, Converter={StaticResource BoolVisibility}}"><TextBlock Text="做到哪里 / 下一步" Style="{StaticResource Caption}" /><TextBlock Text="{Binding ResumeText}" /></StackPanel>
         </StackPanel></ScrollViewer>
-        <DockPanel Grid.Row="2" Margin="0,20,0,0"><Button x:Name="EditButton" DockPanel.Dock="Left" Content="编辑" Click="Edit_Click" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="关闭" IsCancel="True" Margin="0,0,10,0" /><Button x:Name="FocusButton" Content="开始专注" Click="Focus_Click" Style="{StaticResource PrimaryButton}" /></StackPanel></DockPanel>
+        <DockPanel Grid.Row="2" Margin="0,20,0,0"><Button x:Name="EditButton" DockPanel.Dock="Left" Content="编辑" Click="Edit_Click" /><Button DockPanel.Dock="Left" Content="安排时间" Click="Plan_Click" Padding="10,11" Margin="8,0,0,0" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="关闭" IsCancel="True" Margin="0,0,10,0" /><Button x:Name="FocusButton" Content="开始专注" Click="Focus_Click" Style="{StaticResource PrimaryButton}" /></StackPanel></DockPanel>
     </Grid>
 </Window>

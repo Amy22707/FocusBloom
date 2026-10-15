@@ -93,4 +93,10 @@ public partial class TodosView : UserControl
     { Library.MoveFolder((TodoFolder)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as TodoFolder); e.Handled = true; }
     private void ItemOrder_Requested(object sender, RoutedEventArgs e)
     { Library.MoveItem((TodoRow)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as TodoRow); e.Handled = true; }
+    private void QuadrantItemOrder_Requested(object sender, RoutedEventArgs e)
+    {
+        var item = (TodoRow)((ReorderButton)sender).DataContext;
+        var quadrant = Library.Quadrants.Single(group => group.Important == item.Item.Important && group.Urgent == item.Item.Urgent);
+        Library.MoveItem(item, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as TodoRow, quadrant); e.Handled = true;
+    }
 }

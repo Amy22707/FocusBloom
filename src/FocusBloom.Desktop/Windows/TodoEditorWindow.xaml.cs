@@ -4,6 +4,8 @@ using System.Linq;
 using System.Windows;
 using FocusBloom.Core.Todos;
 using FocusBloom.Desktop.ViewModels;
+using FocusBloom.Desktop.Views;
+using FocusBloom.Core.Calendar;
 
 namespace FocusBloom.Desktop.Windows;
 
@@ -14,6 +16,7 @@ public partial class TodoEditorWindow : Window
     private sealed record PriorityChoice(TodoPriority Value, string Name);
     private readonly MainViewModel _main;
     private readonly TodoItem? _item;
+    private readonly ReminderSettingsControl _reminder;
     public TodoEditorWindow(MainViewModel main, TodoItem? item = null, bool important = false, bool urgent = false)
     {
         InitializeComponent(); WindowAppearance.Attach(this); _main = main; _item = item;
@@ -30,7 +33,11 @@ public partial class TodoEditorWindow : Window
         NotesInput.Text = item?.Notes ?? ""; ResumeInput.Text = item?.ResumeNote ?? "";
         DeleteButton.Visibility = item is null ? Visibility.Collapsed : Visibility.Visible;
         ImportantInput.IsChecked = item?.Important ?? important; UrgentInput.IsChecked = item?.Urgent ?? urgent;
+        _reminder = new(item is null ? new ReminderOptions() : main.Calendar.Store.GetReminderOptions("待办", item.Id)); ReminderArea.Children.Add(_reminder);
+        DueDateInput.SelectedDateChanged += (_, _) => ReminderPreview(); DueTimeInput.TextChanged += (_, _) => ReminderPreview(); ReminderPreview();
     }
+    private void ReminderPreview() => _reminder.SetOccurrence(DueDateInput.SelectedDate is { } date ? DateOnly.FromDateTime(date) : null,
+        TimeOnly.TryParseExact(DueTimeInput.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time) ? time : null);
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         if (FolderSelector.SelectedItem is not FolderChoice folder) { ValidationMessage.Text = "请选择文件夹。"; return; }
@@ -51,7 +58,8 @@ public partial class TodoEditorWindow : Window
             DueDateInput.SelectedDate is { } date ? DateOnly.FromDateTime(date) : null, dueTime,
             NotesInput.Text.Trim(), estimate, ResumeInput.Text.Trim(), _item?.PreferredProjectId,
             ImportantInput.IsChecked == true, UrgentInput.IsChecked == true);
-        if (_main.Todos.SaveItem(item)) DialogResult = true;
+        if (!_reminder.TryGetOptions(out var reminder)) { ValidationMessage.Text = "请填写有效的提醒设置。"; return; }
+        if (_main.Todos.SaveItem(item)) { _main.Calendar.Store.SaveReminderOptions("待办", item.Id, reminder); _main.ReloadCalendarData(); DialogResult = true; }
         else ValidationMessage.Text = _main.StatusMessage;
     }
     private void Delete_Click(object sender, RoutedEventArgs e)

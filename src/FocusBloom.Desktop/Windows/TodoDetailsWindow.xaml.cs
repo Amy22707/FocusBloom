@@ -35,4 +35,5 @@ public partial class TodoDetailsWindow : Window
         var minutes = int.TryParse(((Button)sender).Tag?.ToString(), out var value) ? value : (int?)null;
         if (new TodoStartWindow(_main, Row.Item, minutes) { Owner = this }.ShowDialog() == true) DialogResult = true;
     }
+    private void Plan_Click(object sender, RoutedEventArgs e) => new CalendarPlanWindow(_main, DateOnly.FromDateTime(DateTime.Today), todoId: _id) { Owner = this }.ShowDialog();
 }

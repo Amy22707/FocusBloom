@@ -211,8 +211,11 @@ public sealed class TodoLibraryViewModel : ObservableObject
     {
         if (CollectionOrder.Move(Folders, folder, direction, targetItem: target)) SaveOrder();
     }
-    public void MoveItem(TodoRow item, OrderMove direction, TodoRow? target = null)
-    { if (CollectionOrder.Move(Items, item, direction, VisibleItems, target)) { RefreshItems(); SaveOrder(); Changed?.Invoke(this, EventArgs.Empty); } }
+    public void MoveItem(TodoRow item, OrderMove direction, TodoRow? target = null, TodoQuadrant? quadrant = null)
+    {
+        var shown = (quadrant?.Items ?? VisibleItems).Where(row => row.Completed == item.Completed).ToArray();
+        if (CollectionOrder.Move(Items, item, direction, shown, target)) { RefreshItems(); SaveOrder(); Changed?.Invoke(this, EventArgs.Empty); }
+    }
     private void SaveOrder()
     {
         _order = new(Categories.ToList(), Folders.Select(folder => folder.Id).ToList(), Items.Select(item => item.Id).ToList());

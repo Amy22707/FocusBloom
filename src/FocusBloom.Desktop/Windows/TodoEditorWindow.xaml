@@ -18,6 +18,7 @@
             <TextBlock Text="预计投入 / 分钟（可选）" Style="{StaticResource Caption}" /><TextBox x:Name="EstimateInput" Margin="0,0,0,14" />
             <TextBlock Text="备注" Style="{StaticResource Caption}" /><TextBox x:Name="NotesInput" AcceptsReturn="True" TextWrapping="Wrap" Height="85" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14" />
             <TextBlock Text="做到哪里 / 下一步" Style="{StaticResource Caption}" /><TextBox x:Name="ResumeInput" AcceptsReturn="True" TextWrapping="Wrap" Height="72" VerticalScrollBarVisibility="Auto" />
+            <StackPanel x:Name="ReminderArea" Margin="0,16,0,0" />
             <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource AccentTextBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
         </StackPanel></ScrollViewer>
         <DockPanel Grid.Row="2" Margin="0,20,0,0"><Button x:Name="DeleteButton" Content="删除" Click="Delete_Click" DockPanel.Dock="Left" />
