@@ -288,11 +288,12 @@
                                 </StackPanel>
                             </Border></Expander>
                             <Expander x:Name="FontSettingsSection" Header="专注字体" Style="{StaticResource SettingsSection}"><Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border></Expander>
-                            <Expander x:Name="FloatSettingsSection" Header="桌面计时浮窗" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                            <Expander x:Name="FloatSettingsSection" Header="桌面浮窗与组件" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
                                     <CheckBox Content="显示计时浮窗" IsChecked="{Binding TimerFloatVisible}" />
                                     <TextBlock Text="共用当前计时，主窗口进入托盘后继续显示。在浮窗设置里选择置顶、背景和透明度；关闭浮窗不会结束专注。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
+                                    <views:DesktopWidgetSettingsView x:Name="DesktopWidgetSettings" DataContext="{Binding Widgets}" />
                                 </StackPanel>
                             </Border></Expander>
                             <Expander x:Name="SizeSettingsSection" Header="事项块大小" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
@@ -350,6 +351,7 @@
                                     <Button x:Name="SaveTimerPreferencesButton" Content="保存偏好" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Border></Expander>
+                            <Expander x:Name="BackupSettingsSection" Header="数据备份与恢复" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><views:BackupSettingsView x:Name="BackupSettings" /></Border></Expander>
                             <Expander x:Name="RestrictionSettingsSection" Header="严格模式规则" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
@@ -402,6 +404,7 @@
             <TabItem x:Name="BrowserTab">
                 <TabItem.Style><Style TargetType="TabItem"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border Visibility="Collapsed" /></ControlTemplate></Setter.Value></Setter></Style></TabItem.Style>
             </TabItem>
+            <TabItem x:Name="ReflectionTab"><views:ReflectionView x:Name="ReflectionPage" DataContext="{Binding Reflection}" /></TabItem>
         </TabControl>
         <TextBlock x:Name="StatusDisplay" Grid.Row="2" Text="{Binding StatusMessage}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="210,0,28,0" VerticalAlignment="Center" />
     </Grid>

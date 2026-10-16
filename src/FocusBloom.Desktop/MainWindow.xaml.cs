@@ -18,6 +18,8 @@ using System.Collections.Generic;
 using FocusBloom.Desktop.Views;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Core.Calendar;
+using FocusBloom.Infrastructure.Backup;
+using FocusBloom.Infrastructure.Storage;
 
 namespace FocusBloom.Desktop;
 
@@ -45,12 +47,16 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly IFocusStore _store;
     private TimerFloatWindow? _timerFloat;
+    private readonly DesktopWidgetManager _desktopWidgets;
+    public DesktopWidgetManager DesktopWidgets => _desktopWidgets;
     private readonly StudyBrowserView _studyBrowser;
     private double _preferencesScrollOffset;
     private bool _restoringPreferencesScroll;
     private readonly Dictionary<string, TabItem> _navigationTabs = new();
     private readonly List<(Expander Section, string Key, string Keywords)> _settingsSections = new();
     private bool _filteringSettings;
+    public BackupSettingsViewModel? Backups { get; }
+    public event Action<PreparedRestore>? BackupRestoreRequested;
 
     public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null)
     {
@@ -58,7 +64,7 @@ public partial class MainWindow : Window
         WindowAppearance.Attach(this);
         _viewModel = viewModel;
         _store = store;
-        foreach (var (key, tab) in new[] { ("focus", FocusTab), ("projects", ProjectsTab), ("todos", TodoTab), ("calendar", CalendarTab), ("dates", DateEventsTab), ("records", RecordsTab), ("settings", PreferencesTab), ("goals", GoalsTab) }) _navigationTabs.Add(key, tab);
+        foreach (var (key, tab) in new[] { ("focus", FocusTab), ("projects", ProjectsTab), ("todos", TodoTab), ("calendar", CalendarTab), ("dates", DateEventsTab), ("records", RecordsTab), ("settings", PreferencesTab), ("goals", GoalsTab), ("reflection", ReflectionTab) }) _navigationTabs.Add(key, tab);
         viewModel.Navigation.NavigateRequested += NavigateToSection;
         NavigationCollapsed = store.GetSetting("ui.navigation.collapsed") == "True";
         _studyBrowser = browserUserDataFolder is null ? new StudyBrowserView() : new StudyBrowserView(browserUserDataFolder);
@@ -66,6 +72,13 @@ public partial class MainWindow : Window
         _studyBrowser.ReturnToFocusRequested += BrowserReturnToFocusRequested;
         _studyBrowser.FullscreenRequested += BrowserFullscreenRequested;
         DataContext = viewModel;
+        if (store is SqliteFocusStore sqlite)
+        {
+            Backups = new(new LocalBackupService(sqlite.DatabasePath), store, viewModel); BackupSettings.DataContext = Backups;
+            BackupSettings.RestoreRequested += prepared => { if (BackupRestoreRequested is { } restore) restore(prepared); else prepared.Dispose(); };
+        }
+        _desktopWidgets = new DesktopWidgetManager(viewModel, store, OpenDesktopWidget, OpenReminder);
+        Loaded += (_, _) => _desktopWidgets.Start();
         RememberToggle(ProjectSidebarToggle, "ui.projects.sidebarCollapsed");
         RememberToggle((System.Windows.Controls.Primitives.ToggleButton)TodoPage.FindName("TodoSidebarToggle"), "ui.todos.sidebarCollapsed");
         var mediaSettings = (FocusMediaSettingsView)FocusMediaSettingsCard.Child;
@@ -75,8 +88,9 @@ public partial class MainWindow : Window
         foreach (var (section, key, words) in new[] {
             (NavigationSettingsSection, "navigation", "导航 显示 展示 顺序 排序 功能"), (AppearanceSettingsSection, "appearance", "外观 颜色 配色 明暗 深色 浅色"),
             (SizeSettingsSection, "size", "大小 缩放 卡片 预览"), (TimerSettingsSection, "timer", "计时 正计时 倒计时 番茄 循环 暂停 休息"),
-            (FloatSettingsSection, "float", "浮窗 置顶 透明"), (FontSettingsSection, "fonts", "字体 中文 英文 数字"),
+            (FloatSettingsSection, "float", "浮窗 组件 置顶 透明 专注时长 待办 日期事项 习惯 心情"), (FontSettingsSection, "fonts", "字体 中文 英文 数字"),
             (MediaSettingsSection, "media", "专注 图文 背景 图片 视频 GIF 声音 音乐 句子 文字 收藏"), (ReminderSettingsSection, "reminders", "日历 提醒 Outlook 同步"),
+            (BackupSettingsSection, "backup", "数据 备份 恢复 迁移 导入 自动备份 文件"),
             (RestrictionSettingsSection, "restrictions", "严格 应用 网站 浏览器 黑名单 白名单 限制") })
         { var settingKey = "ui.settings.expanded." + key; _settingsSections.Add((section, settingKey, section.Header + " " + words)); RememberExpansion(section, settingKey); }
         var settingsPanel = (Panel)NavigationSettingsSection.Parent;
@@ -86,7 +100,7 @@ public partial class MainWindow : Window
         FocusCalendarPage.EntryRequested += OpenCalendarEntry;
         viewModel.PropertyChanged += OnFocusStateChanged;
         viewModel.FocusDurationRejected += OnFocusDurationRejected;
-        Closed += (_, _) => { viewModel.Navigation.NavigateRequested -= NavigateToSection; viewModel.PropertyChanged -= OnFocusStateChanged; viewModel.FocusDurationRejected -= OnFocusDurationRejected; _timerFloat?.CloseForExit(); _studyBrowser.Dispose(); };
+        Closed += (_, _) => { _desktopWidgets.Dispose(); if (Backups is { } backups) _ = backups.StopAsync(); viewModel.Navigation.NavigateRequested -= NavigateToSection; viewModel.PropertyChanged -= OnFocusStateChanged; viewModel.FocusDurationRejected -= OnFocusDurationRejected; _timerFloat?.CloseForExit(); _studyBrowser.Dispose(); };
         var savedJson = store.GetSetting(WindowLayout.SettingKey);
         var savedLayout = savedJson is null ? null : JsonSerializer.Deserialize<WindowLayout>(savedJson);
         SourceInitialized += (_, _) => { RestoreWindowLayout(savedLayout); UpdateTimerFloatVisibility(); };
@@ -115,6 +129,27 @@ public partial class MainWindow : Window
     }
 
     public event EventHandler? ExitRequested;
+    public void CloseDesktopWidgetsForExit() => _desktopWidgets.Dispose();
+    private void OpenDesktopWidget(DesktopWidgetKind kind, Guid? id, DateOnly? day)
+    {
+        if (_fullscreen) ToggleFullscreen(); ShowFromTray();
+        switch (kind)
+        {
+            case DesktopWidgetKind.Focus:
+                NavigateToSection("records"); _viewModel.RecordPage = "统计"; var option = _viewModel.Widgets[kind];
+                _viewModel.Statistics.Range = option.Period; _viewModel.Statistics.Anchor = (day ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue);
+                _viewModel.Statistics.SelectedFolder = _viewModel.Statistics.FolderChoices[0];
+                _viewModel.Statistics.SelectedProject = _viewModel.Statistics.ProjectChoices.FirstOrDefault(item => item.Id == option.ProjectId) ?? _viewModel.Statistics.ProjectChoices[0]; _viewModel.Statistics.SelectedTodo = _viewModel.Statistics.TodoChoices[0];
+                break;
+            case DesktopWidgetKind.Todos:
+                NavigateToSection("todos"); if (id is { } todo) OpenCalendarEntry(new("待办", todo, "", day ?? DateOnly.FromDateTime(DateTime.Today))); break;
+            case DesktopWidgetKind.Dates:
+                NavigateToSection("dates"); if (id is { } date) OpenCalendarEntry(new("日期事项", date, "", day ?? DateOnly.FromDateTime(DateTime.Today))); break;
+            case DesktopWidgetKind.Habits: NavigateToSection("goals"); break;
+            case DesktopWidgetKind.Calendar: NavigateToSection("calendar"); _viewModel.Calendar.Date = day ?? DateOnly.FromDateTime(DateTime.Today); _viewModel.Calendar.Mode = _viewModel.Widgets[kind].View; break;
+            case DesktopWidgetKind.Mood: NavigateToSection("reflection"); _viewModel.Reflection.Date = (day ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue); break;
+        }
+    }
     private void NavigateToSection(string key) { MainTabs.SelectedItem = _navigationTabs[key]; _viewModel.Navigation.SetActive(key); KeepNavigationVisible(); }
     private void KeepNavigationVisible()
     {
@@ -224,6 +259,7 @@ public partial class MainWindow : Window
         if (_fullscreen) ToggleFullscreen();
         ShowFromTray();
         if (target.Kind == "习惯") { MainTabs.SelectedItem = GoalsTab; OpenCalendarEntry(target); return; }
+        if (target.Kind == "心情") { MainTabs.SelectedItem = ReflectionTab; OpenCalendarEntry(target); return; }
         var focus = target.Kind == "专注" || target.Kind == "安排" && _viewModel.Calendar.Store.GetCalendarPlans().Any(plan => plan.Id == target.Id && plan.ProjectId is not null);
         MainTabs.SelectedItem = focus ? RecordsTab : CalendarTab;
         var model = focus ? _viewModel.FocusCalendar : _viewModel.Calendar;
@@ -235,6 +271,10 @@ public partial class MainWindow : Window
     {
         switch (entry.Kind)
         {
+            case "心情":
+                NavigateToSection("reflection"); _viewModel.Reflection.Date = entry.Date.ToDateTime(TimeOnly.MinValue);
+                if (_viewModel.Reflection.CanEdit) new ReflectionEditorWindow(_viewModel, entry.Date) { Owner = this }.ShowDialog();
+                break;
             case "待办":
                 var todo = _viewModel.Todos.Items.FirstOrDefault(item => item.Id == entry.Id);
                 if (todo is not null && new TodoDetailsWindow(_viewModel, todo) { Owner = this }.ShowDialog() == true) ReturnToFocus();

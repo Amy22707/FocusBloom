@@ -73,7 +73,7 @@ public sealed partial class SqliteFocusStore
     {
         using var connection = Open(); using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent
+            SELECT id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent,completed_at
             FROM todo_items WHERE deleted=0 OR $all=1 ORDER BY rowid
             """;
         command.Parameters.AddWithValue("$all", includeDeleted ? 1 : 0);
@@ -83,17 +83,19 @@ public sealed partial class SqliteFocusStore
             reader.IsDBNull(5) ? null : DateOnly.ParseExact(reader.GetString(5), "yyyy-MM-dd", CultureInfo.InvariantCulture),
             reader.IsDBNull(6) ? null : TimeOnly.ParseExact(reader.GetString(6), "HH:mm", CultureInfo.InvariantCulture), reader.GetString(7),
             reader.IsDBNull(8) ? null : reader.GetInt32(8), reader.GetString(9),
-            reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.GetInt32(11) != 0, reader.GetInt32(12) != 0));
+            reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.GetInt32(11) != 0, reader.GetInt32(12) != 0,
+            reader.IsDBNull(13) ? null : DateTimeOffset.Parse(reader.GetString(13), CultureInfo.InvariantCulture)));
         return todos;
     }
     public void SaveTodo(TodoItem todo)
     {
         using var connection = Open(); using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO todo_items (id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent)
-            VALUES ($id,$folder,$title,$status,$priority,$date,$time,$notes,$estimate,$resume,$project,$important,$urgent)
+            INSERT INTO todo_items (id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent,completed_at)
+            VALUES ($id,$folder,$title,$status,$priority,$date,$time,$notes,$estimate,$resume,$project,$important,$urgent,$completed)
             ON CONFLICT(id) DO UPDATE SET folder_id=$folder,title=$title,status=$status,priority=$priority,
-                due_date=$date,due_time=$time,notes=$notes,estimated_minutes=$estimate,resume_note=$resume,preferred_project_id=$project,important=$important,urgent=$urgent;
+                due_date=$date,due_time=$time,notes=$notes,estimated_minutes=$estimate,resume_note=$resume,preferred_project_id=$project,important=$important,urgent=$urgent,
+                completed_at=CASE WHEN $status<>2 THEN NULL WHEN todo_items.status=2 THEN todo_items.completed_at ELSE $completed END;
             """;
         command.Parameters.AddWithValue("$id", todo.Id.ToString()); command.Parameters.AddWithValue("$folder", todo.FolderId.ToString());
         command.Parameters.AddWithValue("$title", todo.Title); command.Parameters.AddWithValue("$status", (int)todo.Status);
@@ -104,6 +106,7 @@ public sealed partial class SqliteFocusStore
         command.Parameters.AddWithValue("$resume", todo.ResumeNote);
         command.Parameters.AddWithValue("$project", (object?)todo.PreferredProjectId?.ToString() ?? DBNull.Value);
         command.Parameters.AddWithValue("$important", todo.Important ? 1 : 0); command.Parameters.AddWithValue("$urgent", todo.Urgent ? 1 : 0);
+        command.Parameters.AddWithValue("$completed", todo.Status == TodoStatus.Completed ? Format(todo.CompletedAt ?? DateTimeOffset.Now) : DBNull.Value);
         command.ExecuteNonQuery();
     }
     public void DeleteTodo(Guid id)

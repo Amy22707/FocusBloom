@@ -49,7 +49,8 @@ public sealed class WindowsReminderService : IDisposable
             var today = DateOnly.FromDateTime(DateTime.Today);
             var lower = _scheduled.Where(item => item.At <= DateTimeOffset.Now && !_store.IsReminderHandled(item.Key)).Select(item => DateOnly.FromDateTime(item.Occurrence.HappensAt.LocalDateTime)).Append(today.AddDays(-7)).Min();
             _occurrences = ReminderRules.Build(_store.GetTodos(), _store.GetDateEvents(), _store.GetCalendarPlans(), _store.GetSchoolTerm(), _store.GetCourses(), _store.GetCourseChanges(), _store.GetReminderOptions, today, lower)
-                .Concat(FocusBloom.Core.Goals.HabitReminders.Build(_store.GetHabits(), _store.GetHabitCheckIns(), today)).OrderBy(item => item.At).ToArray();
+                .Concat(FocusBloom.Core.Goals.HabitReminders.Build(_store.GetHabits(), _store.GetHabitCheckIns(), today))
+                .Concat(FocusBloom.Core.Reflection.ReflectionReminders.Build(_main.Reflection.Reminder, _store.GetDailyReflections(), today)).OrderBy(item => item.At).ToArray();
             var native = _notifier.GetScheduledToastNotifications().Where(item => item.Group == "FocusBloom").ToDictionary(item => item.Tag);
             var now = DateTimeOffset.Now;
             var desired = _occurrences.Where(item => item.At > now && !_store.IsReminderHandled(item.Key)).ToDictionary(item => item.Key);

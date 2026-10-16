@@ -10,6 +10,8 @@ using FocusBloom.Infrastructure.Storage;
 using Microsoft.Win32;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Core.Focus;
+using FocusBloom.Infrastructure.Backup;
+using System.Diagnostics;
 
 namespace FocusBloom.Desktop;
 
@@ -24,6 +26,7 @@ public partial class App : Application
     private KeepAwakeService? _keepAwake;
     private FocusState _lastFocusState;
     private WindowsReminderService? _reminders;
+    private PreparedRestore? _restore;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -45,6 +48,7 @@ public partial class App : Application
             MainWindow = _window;
             _window.Closing += HideToTray;
             _window.ExitRequested += (_, _) => ExitApplication();
+            _window.BackupRestoreRequested += prepared => { _restore = prepared; ExitApplication(); };
             _restrictions = new ApplicationRestrictionService(_viewModel, () => _window.ReturnToFocus());
             _keepAwake = new KeepAwakeService(_viewModel);
             _tray = new TrayIcon(_viewModel, ShowWindow, ExitApplication);
@@ -61,6 +65,7 @@ public partial class App : Application
             _refresh.Start();
             _window.Show();
             loadingWindow.Close();
+            _window.Backups?.StartAutomatic();
         }
         catch (Exception ex)
         {
@@ -82,12 +87,27 @@ public partial class App : Application
         _window!.ShowFromTray();
     }
 
-    private void ExitApplication()
+    private async void ExitApplication()
     {
-        if (!_viewModel!.PrepareExit()) { ShowWindow(); return; }
+        if (_exiting) return;
+        if (_restore is not null)
+        {
+            var otherInstance = false;
+            foreach (var process in Process.GetProcessesByName("FocusBloom")) using (process) if (process.Id != Environment.ProcessId) otherInstance = true;
+            if (otherInstance)
+            {
+                _restore.Dispose(); _restore = null;
+                _window!.Backups!.ReportError(new InvalidOperationException("请先退出其他正在运行的一刻专注实例，再恢复备份。"));
+                ConfirmDeletionWindow.ShowNotice(_window, "请先从托盘退出其他正在运行的一刻专注实例，再恢复备份。", "暂时不能恢复"); return;
+            }
+        }
+        if (!_viewModel!.PrepareExit()) { _restore?.Dispose(); _restore = null; ShowWindow(); return; }
+        _exiting = true; _refresh?.Stop();
+        foreach (Window window in Windows) window.IsEnabled = false;
         _restrictions?.Dispose();
         _restrictions = null;
-        _exiting = true;
+        if (_window?.Backups is { } backups) await backups.StopAsync();
+        _window?.CloseDesktopWidgetsForExit();
         Shutdown();
     }
 
@@ -117,8 +137,13 @@ public partial class App : Application
         _lastFocusState = state;
     }
 
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e); if (!e.Cancel) _window?.CloseDesktopWidgetsForExit();
+    }
     protected override void OnExit(ExitEventArgs e)
     {
+        _window?.CloseDesktopWidgetsForExit();
         _refresh?.Stop();
         _reminders?.Dispose();
         _keepAwake?.Dispose();
@@ -132,6 +157,14 @@ public partial class App : Application
         _window?.DisposeBrowser();
         SystemEvents.UserPreferenceChanged -= OnSystemAppearanceChanged;
         _tray?.Dispose();
+        if (_restore is { } restore)
+        {
+            try { _window!.Backups!.Service.ApplyRestore(restore); }
+            catch (Exception error) { MessageBox.Show("恢复未完成，当前数据已保留。恢复前备份位于：\n" + _window!.Backups!.LastBackup + "\n\n" + error.Message, "恢复备份", MessageBoxButton.OK, MessageBoxImage.Information); }
+            finally { restore.Dispose(); }
+            try { Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true }); }
+            catch (Exception error) { MessageBox.Show("请重新打开一刻专注。\n" + error.Message, "重新启动", MessageBoxButton.OK, MessageBoxImage.Information); }
+        }
         base.OnExit(e);
     }
 }

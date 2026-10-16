@@ -17,12 +17,12 @@ public partial class TodoEditorWindow : Window
     private readonly MainViewModel _main;
     private readonly TodoItem? _item;
     private readonly ReminderSettingsControl _reminder;
-    public TodoEditorWindow(MainViewModel main, TodoItem? item = null, bool important = false, bool urgent = false)
+    public TodoEditorWindow(MainViewModel main, TodoItem? item = null, bool important = false, bool urgent = false, Guid? initialFolderId = null)
     {
         InitializeComponent(); WindowAppearance.Attach(this); _main = main; _item = item;
         EditorHeading.Text = item is null ? "新建待办" : "编辑待办";
         FolderSelector.ItemsSource = main.Todos.Folders.Select(folder => new FolderChoice(folder.Id, folder.Name)).ToArray();
-        FolderSelector.SelectedItem = FolderSelector.Items.Cast<FolderChoice>().FirstOrDefault(folder => folder.Id == (item?.FolderId ?? main.Todos.SelectedFolder?.Id));
+        FolderSelector.SelectedItem = FolderSelector.Items.Cast<FolderChoice>().FirstOrDefault(folder => folder.Id == (item?.FolderId ?? initialFolderId ?? main.Todos.SelectedFolder?.Id));
         StatusSelector.ItemsSource = new[] { new StatusChoice(TodoStatus.Pending, "待办"), new StatusChoice(TodoStatus.InProgress, "进行中"), new StatusChoice(TodoStatus.Completed, "已完成") };
         PrioritySelector.ItemsSource = new[] { new PriorityChoice(TodoPriority.Low, "低"), new PriorityChoice(TodoPriority.Normal, "普通"), new PriorityChoice(TodoPriority.High, "高") };
         StatusSelector.SelectedItem = StatusSelector.Items.Cast<StatusChoice>().Single(choice => choice.Value == (item?.Status ?? TodoStatus.Pending));

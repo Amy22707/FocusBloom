@@ -6,6 +6,7 @@
     <ScaleTransform x:Key="GoalsCardTransform" />
     <sys:Int32 x:Key="GoalsCardColumns">3</sys:Int32>
     <sys:Double x:Key="FocusCalendarCardScale">1</sys:Double>
+    <sys:Double x:Key="MoodCardScale">1</sys:Double>
     <ScaleTransform x:Key="ProjectCardTransform" />
     <sys:Double x:Key="ProjectCardScale">1</sys:Double>
     <sys:Double x:Key="ProjectCardHeight">120</sys:Double>
@@ -261,9 +262,9 @@
                             <ScrollViewer x:Name="NavigationViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
                                 <ItemsControl x:Name="NavigationItems" ItemsSource="{Binding Navigation.VisibleItems}"><ItemsControl.ItemTemplate><DataTemplate>
                                     <Button Command="{Binding OpenCommand}" ToolTip="{Binding Name}" Margin="0,0,0,10">
-                                        <Button.Style><Style TargetType="Button"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="16,14" />
-                                            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="NavigationSurface" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Left" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavigationSurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
-                                            <Style.Triggers><DataTrigger Binding="{Binding Active}" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /></DataTrigger><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Padding" Value="12,12" /></DataTrigger></Style.Triggers>
+                                        <Button.Style><Style TargetType="Button"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="16,14" /><Setter Property="HorizontalContentAlignment" Value="Left" />
+                                            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="NavigationSurface" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavigationSurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+                                            <Style.Triggers><DataTrigger Binding="{Binding Active}" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /></DataTrigger><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Padding" Value="0,12" /><Setter Property="HorizontalContentAlignment" Value="Center" /></DataTrigger></Style.Triggers>
                                         </Style></Button.Style>
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Icon}" FontFamily="Segoe MDL2 Assets" Style="{DynamicResource NavigationIcon}" /><TextBlock Text="{Binding Name}" Style="{DynamicResource NavigationLabel}" /></StackPanel>
                                     </Button>
@@ -274,7 +275,7 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                            <Setter TargetName="NavigationColumn" Property="Width" Value="64" /><Setter TargetName="NavigationPanel" Property="Margin" Value="8,16,8,24" /><Setter TargetName="NavigationFooter" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="NavigationColumn" Property="Width" Value="80" /><Setter TargetName="NavigationPanel" Property="Margin" Value="8,16,8,24" /><Setter TargetName="NavigationFooter" Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding ContentFullscreen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter TargetName="NavigationColumn" Property="Width" Value="0" /><Setter TargetName="NavigationPanel" Property="Visibility" Value="Collapsed" /><Setter TargetName="PART_SelectedContentHost" Property="Margin" Value="24,48,24,18" />

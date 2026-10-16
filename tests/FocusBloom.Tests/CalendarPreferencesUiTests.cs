@@ -68,7 +68,7 @@ public sealed class CalendarPreferencesUiTests
                 window = new(main, store, Path.Combine(directory, "browser")) { Width = 1200, Height = 820 }; window.Show(); Flush();
                 var tabs = (TabControl)window.FindName("MainTabs");
                 var navigationToggle = (ToggleButton)tabs.Template.FindName("NavigationCollapseToggle", tabs); navigationToggle.IsChecked = true; Flush(); window.UpdateLayout();
-                Assert.True(window.NavigationCollapsed); Assert.Equal(64, ((ColumnDefinition)tabs.Template.FindName("NavigationColumn", tabs)).ActualWidth);
+                Assert.True(window.NavigationCollapsed); Assert.Equal(80, ((ColumnDefinition)tabs.Template.FindName("NavigationColumn", tabs)).ActualWidth);
                 foreach (var button in Descendants<Button>(tabs).Where(button => button.DataContext is NavigationOption && button.Content is StackPanel))
                 {
                     var header = (StackPanel)button.Content; Assert.Equal(Visibility.Collapsed, ((TextBlock)header.Children[1]).Visibility); Assert.NotNull(button.ToolTip);
@@ -193,7 +193,7 @@ public sealed class CalendarPreferencesUiTests
                 Assert.True(change.ShowDialog()); Assert.Equal(secondId, Assert.Single(store.GetCourseChanges()).MeetingId);
                 var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedItem = window.FindName("PreferencesTab"); Flush();
                 ((Expander)window.FindName("SizeSettingsSection")).IsExpanded = true; Flush();
-                var selector = (ComboBox)window.FindName("CardSizeSelector"); Assert.Equal(9, selector.Items.Count);
+                var selector = (ComboBox)window.FindName("CardSizeSelector"); Assert.Equal(10, selector.Items.Count);
                 var slider = (Slider)window.FindName("CardSizeSlider"); slider.Value = 70; Flush(); Assert.Equal(70, main.CardSizing.Options[0].Percentage);
                 tabs.SelectedIndex = 1; Flush(); window.UpdateLayout();
                 var projects = (ListBox)window.FindName("ProjectList"); Assert.True(projects.Items.Count > 0);

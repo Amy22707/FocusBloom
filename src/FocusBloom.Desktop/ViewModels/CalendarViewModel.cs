@@ -9,14 +9,14 @@ using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
-public sealed class CalendarViewModel(IFocusStore store, bool focusOnly = false) : ObservableObject
+public sealed class CalendarViewModel(IFocusStore store, bool focusOnly = false, string? settingsPrefix = null) : ObservableObject
 {
     private DateOnly _date = DateOnly.FromDateTime(DateTime.Today);
-    private string _mode = store.GetSetting(focusOnly ? "focus.calendar.view" : "calendar.view") is { } saved && (!focusOnly || saved != "课程表") ? saved : focusOnly ? "时间轴" : "月";
+    private string _mode = store.GetSetting((settingsPrefix ?? (focusOnly ? "focus.calendar" : "calendar")) + ".view") is { } saved && (!focusOnly || saved != "课程表") ? saved : focusOnly ? "时间轴" : "月";
     private string _filter = "全部";
-    private string _dayLayout = store.GetSetting(focusOnly ? "focus.calendar.dayLayout" : "calendar.dayLayout") ?? "双列";
+    private string _dayLayout = store.GetSetting((settingsPrefix ?? (focusOnly ? "focus.calendar" : "calendar")) + ".dayLayout") ?? "双列";
     public IReadOnlyList<string> DayLayouts { get; } = new[] { "单列", "双列" };
-    public string DayLayout { get => _dayLayout; set { if (_dayLayout == value) return; _dayLayout = value; store.SaveSetting(focusOnly ? "focus.calendar.dayLayout" : "calendar.dayLayout", value); Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
+    public string DayLayout { get => _dayLayout; set { if (_dayLayout == value) return; _dayLayout = value; store.SaveSetting((settingsPrefix ?? (focusOnly ? "focus.calendar" : "calendar")) + ".dayLayout", value); Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
     public bool ShowDayLayout => Mode == "日";
     public IFocusStore Store => store;
     public bool FocusOnly => focusOnly;
@@ -30,7 +30,7 @@ public sealed class CalendarViewModel(IFocusStore store, bool focusOnly = false)
     public int SelectedYear { get => Date.Year; set { if (value > 0 && value != Date.Year) Date = new(value, Date.Month, Math.Min(Date.Day, DateTime.DaysInMonth(value, Date.Month))); } }
     public int SelectedMonth { get => Date.Month; set { if (value > 0 && value != Date.Month) Date = new(Date.Year, value, Math.Min(Date.Day, DateTime.DaysInMonth(Date.Year, value))); } }
     public DateOnly Date { get => _date; set { _date = value; Notify(); Notify(nameof(SelectedYear)); Notify(nameof(SelectedMonth)); Notify(nameof(Heading)); Changed?.Invoke(this, EventArgs.Empty); } }
-    public string Mode { get => _mode; set { _mode = value; if (value == "课程表") { _filter = "全部"; Notify(nameof(Filter)); } store.SaveSetting(focusOnly ? "focus.calendar.view" : "calendar.view", value); Notify(); Notify(nameof(Heading)); Notify(nameof(ShowDayLayout)); Changed?.Invoke(this, EventArgs.Empty); } }
+    public string Mode { get => _mode; set { _mode = value; if (value == "课程表") { _filter = "全部"; Notify(nameof(Filter)); } store.SaveSetting((settingsPrefix ?? (focusOnly ? "focus.calendar" : "calendar")) + ".view", value); Notify(); Notify(nameof(Heading)); Notify(nameof(ShowDayLayout)); Changed?.Invoke(this, EventArgs.Empty); } }
     public string Filter { get => _filter; set { _filter = value; Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
     public string Heading => Mode switch
     {

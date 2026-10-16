@@ -24,6 +24,13 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     public bool RestrictionsActive => IsActive && _options?.Strict == true;
     public bool IsStrictSession => _options?.Strict == true;
     public TimeSpan Elapsed => ElapsedAt(_clock.GetUtcNow());
+    public FocusRecord? CaptureCurrentRecord()
+    {
+        if (!IsActive) return null;
+        var now = _clock.GetUtcNow();
+        var intervals = _intervals.Append(new FocusInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, _phaseStartedAt, now)).ToArray();
+        return new(_sessionId, _options!.ProjectId, _options.Mode, _startedAt, now, EndReason.Manual, intervals, _options.Strict, _options.TodoId, InterceptionCount);
+    }
     public TimeSpan DisplayTime => IsPomodoro && State == FocusState.Resting ? PhaseRemaining
         : _options?.Mode is TimerMode.Countdown or TimerMode.Pomodoro
         ? MaxZero(_options.Duration - Elapsed)

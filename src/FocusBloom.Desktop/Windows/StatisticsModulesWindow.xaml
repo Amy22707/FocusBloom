@@ -1,0 +1,9 @@
+<Window x:Class="FocusBloom.Desktop.Windows.StatisticsModulesWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:present="clr-namespace:FocusBloom.Desktop.Presentation" Title="统计模块" Width="420" Height="490" MinWidth="360" MinHeight="340" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Style="{StaticResource {x:Type Window}}">
+    <DockPanel Margin="24">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16"><TextBlock Text="统计模块" FontSize="21" FontWeight="SemiBold" /><TextBlock Text="勾选要显示的模块，拖动右侧手柄调整顺序。选择即时保存。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" /></StackPanel>
+        <Button DockPanel.Dock="Bottom" Content="完成" IsCancel="True" HorizontalAlignment="Right" Style="{StaticResource PrimaryButton}" Margin="0,16,0,0" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsControl x:Name="StatisticsModuleList" ItemsSource="{Binding Modules}" present:ReorderButton.EnableDrop="True"><ItemsControl.ItemTemplate><DataTemplate>
+            <Border Background="{DynamicResource FieldBrush}" CornerRadius="9" Padding="12,8" Margin="0,0,0,7"><DockPanel><present:ReorderButton DockPanel.Dock="Right" ReorderRequested="Order_Requested" /><CheckBox Content="{Binding Name}" IsChecked="{Binding Visible}" VerticalAlignment="Center" /></DockPanel></Border>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+    </DockPanel>
+</Window>

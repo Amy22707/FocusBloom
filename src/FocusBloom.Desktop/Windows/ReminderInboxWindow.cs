@@ -18,7 +18,8 @@ public sealed class ReminderInboxWindow : CalendarFormWindow
         var items = store.GetSetting("notifications.missed") is { } json ? JsonSerializer.Deserialize<List<ReminderOccurrence>>(json)! : new();
         if (items.Count > 0) { Caption("最近错过的提醒"); foreach (var item in items) Add(item); }
         var future = ReminderRules.Build(store.GetTodos(), store.GetDateEvents(), store.GetCalendarPlans(), store.GetSchoolTerm(), store.GetCourses(), store.GetCourseChanges(), store.GetReminderOptions, DateOnly.FromDateTime(DateTime.Today))
-            .Concat(FocusBloom.Core.Goals.HabitReminders.Build(store.GetHabits(), store.GetHabitCheckIns(), DateOnly.FromDateTime(DateTime.Today))).OrderBy(item => item.At).Where(item => item.At > DateTimeOffset.Now).Take(60).ToArray();
+            .Concat(FocusBloom.Core.Goals.HabitReminders.Build(store.GetHabits(), store.GetHabitCheckIns(), DateOnly.FromDateTime(DateTime.Today)))
+            .Concat(FocusBloom.Core.Reflection.ReflectionReminders.Build(main.Reflection.Reminder, store.GetDailyReflections(), DateOnly.FromDateTime(DateTime.Today))).OrderBy(item => item.At).Where(item => item.At > DateTimeOffset.Now).Take(60).ToArray();
         Caption("接下来的提醒"); foreach (var item in future) Add(item);
         if (future.Length == 0) Caption("没有已开启的未来提醒。");
         void Add(ReminderOccurrence item)

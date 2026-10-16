@@ -37,23 +37,100 @@ public partial class StatisticsView : UserControl
         {
             StatisticsContent.Children.Clear();
             if (!_model.IsValid) return;
-            if (_model.ReviewMode) { DrawReview(); DrawGoalProgress(); return; }
-            var row = new Grid(); row.ColumnDefinitions.Add(new() { Width = new GridLength(1.6, GridUnitType.Star) }); row.ColumnDefinitions.Add(new() { Width = new GridLength(10) }); row.ColumnDefinitions.Add(new());
-            var bars = Card("投入趋势", out var barBody); var metric = new ComboBox { Width = 86, ItemsSource = _model.ChartMetrics, SelectedItem = _model.ChartMetric, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
-            metric.SelectionChanged += (_, _) => { if (metric.SelectedItem is string value) _model.ChartMetric = value; }; barBody.Children.Add(metric);
-            barBody.Children.Add(Bars(_model.Trend, Math.Max(280, (StatisticsViewport.ActualWidth - 62) * .615), true)); row.Children.Add(bars);
-            var shares = Card("投入占比", out var shareBody); Grid.SetColumn(shares, 2); row.Children.Add(shares);
-            var grouping = new ComboBox { Width = 98, ItemsSource = _model.ShareModes, SelectedItem = _model.ShareMode, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
-            grouping.SelectionChanged += (_, _) => { if (grouping.SelectedItem is string value) _model.ShareMode = value; }; shareBody.Children.Add(grouping); DrawShares(shareBody);
-            StatisticsContent.Children.Add(row);
-            var activity = Card("活跃时间段", out var hours); hours.Children.Add(Bars(_model.Hours, Math.Max(300, StatisticsViewport.ActualWidth - 42), false)); StatisticsContent.Children.Add(activity);
-            var yearly = Card("年度投入", out var annual); var yearSelector = new ComboBox { Width = 90, ItemsSource = _model.HeatmapYears, SelectedItem = _model.HeatmapYear, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 6) };
-            yearSelector.SelectionChanged += (_, _) => { if (yearSelector.SelectedItem is int year) _model.HeatmapYear = year; }; annual.Children.Add(yearSelector);
-            annual.Children.Add(Text("按当前项目／待办筛选展示全年，点击日期查看明细。", 11, true)); annual.Children.Add(Heatmap(Math.Max(300, StatisticsViewport.ActualWidth - 42))); StatisticsContent.Children.Add(yearly);
-            DrawGoalProgress();
-            if (_model.Snapshot.Sessions.Count == 0) StatisticsContent.Children.Insert(0, Text("这个范围还没有专注记录，可以调整日期或筛选。", 12, true));
+            if (_model.ReviewMode) { StatisticsContent.Children.Add(Overview()); DrawReview(); StatisticsContent.Children.Add(GoalProgressCard()); return; }
+            var modules = _model.Modules.Where(item => item.Visible).ToArray(); var width = StatisticsViewport.ActualWidth;
+            for (var index = 0; index < modules.Length; index++)
+            {
+                var option = modules[index];
+                var next = index + 1 < modules.Length ? modules[index + 1] : null;
+                var compactPair = next is not null && (option.Key == "concentration" && next.Key == "shares" || option.Key == "shares" && next.Key == "concentration");
+                if (next is not null && width >= 620 && (compactPair || option.Key == "trend" && next.Key == "shares" || option.Key == "shares" && next.Key == "trend"))
+                {
+                    var firstWeight = option.Key == "trend" ? 1.6 : 1; var secondWeight = next.Key == "trend" ? 1.6 : 1; var totalWeight = firstWeight + secondWeight;
+                    var row = new Grid(); row.ColumnDefinitions.Add(new() { Width = new GridLength(firstWeight, GridUnitType.Star) }); row.ColumnDefinitions.Add(new() { Width = new GridLength(10) }); row.ColumnDefinitions.Add(new() { Width = new GridLength(secondWeight, GridUnitType.Star) });
+                    var first = Module(option, (width - 10) * firstWeight / totalWeight); var secondOption = modules[++index]; var second = Module(secondOption, (width - 10) * secondWeight / totalWeight);
+                    row.Children.Add(first); Grid.SetColumn(second, 2); row.Children.Add(second); StatisticsContent.Children.Add(row);
+                }
+                else if (option.Key == "concentration" && width >= 620)
+                {
+                    var row = new Grid(); row.ColumnDefinitions.Add(new()); row.ColumnDefinitions.Add(new() { Width = new GridLength(10) }); row.ColumnDefinitions.Add(new());
+                    row.Children.Add(Module(option, (width - 10) / 2)); StatisticsContent.Children.Add(row);
+                }
+                else StatisticsContent.Children.Add(Module(option, width));
+            }
+            if (modules.Length == 0) StatisticsContent.Children.Add(Text("尚未选择统计模块，点击上方‘模块’选择要展示的内容。", 12, true));
+            else if (_model.Snapshot.Sessions.Count == 0) StatisticsContent.Children.Insert(0, Text("这个范围还没有专注记录，可以调整日期或筛选。", 12, true));
         }
         finally { _rendering = false; }
+    }
+    private void Modules_Click(object sender, RoutedEventArgs args) => new StatisticsModulesWindow(_model!) { Owner = Window.GetWindow(this) }.ShowDialog();
+    private FrameworkElement Overview()
+    {
+        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 10) };
+        foreach (var metric in _model!.Metrics)
+        {
+            var body = new StackPanel(); body.Children.Add(Text(metric.Name, 11, true)); var value = Text(metric.Value, 20); value.FontWeight = FontWeights.SemiBold; value.Margin = new Thickness(0, 6, 0, 0); value.TextTrimming = TextTrimming.CharacterEllipsis; value.ToolTip = metric.Tooltip; body.Children.Add(value);
+            var card = new Border { Child = body, CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), Padding = new Thickness(14), Margin = new Thickness(0, 0, 8, 0) }; card.SetResourceReference(Border.BackgroundProperty, "CardBrush"); card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush"); grid.Children.Add(card);
+        }
+        return grid;
+    }
+    private FrameworkElement Module(StatisticsModuleOption option, double width)
+    {
+        FrameworkElement result;
+        switch (option.Key)
+        {
+            case "overview": result = Overview(); break;
+            case "trend":
+                var bars = Card("投入趋势", out var barBody); var metric = new ComboBox { Width = 86, ItemsSource = _model!.ChartMetrics, SelectedItem = _model.ChartMetric, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
+                metric.SelectionChanged += (_, _) => { if (metric.SelectedItem is string value) _model.ChartMetric = value; }; barBody.Children.Add(metric); barBody.Children.Add(Bars(_model.Trend, Math.Max(200, width - 32), true)); result = bars; break;
+            case "shares":
+                var shares = Card("投入占比", out var shareBody); var grouping = new ComboBox { Width = 98, ItemsSource = _model!.ShareModes, SelectedItem = _model.ShareMode, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
+                grouping.SelectionChanged += (_, _) => { if (grouping.SelectedItem is string value) _model.ShareMode = value; }; shareBody.Children.Add(grouping); DrawShares(shareBody); result = shares; break;
+            case "activity": var activity = Card("活跃时间段", out var hours); hours.Children.Add(Bars(_model!.Hours, Math.Max(200, width - 32), false)); result = activity; break;
+            case "annual":
+                var yearly = Card("年度投入", out var annual); var yearSelector = new ComboBox { Width = 90, ItemsSource = _model!.HeatmapYears, SelectedItem = _model.HeatmapYear, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 6) };
+                yearSelector.SelectionChanged += (_, _) => { if (yearSelector.SelectedItem is int year) _model.HeatmapYear = year; }; annual.Children.Add(yearSelector); annual.Children.Add(Text("按当前项目／待办筛选展示全年，点击日期查看明细。", 11, true)); annual.Children.Add(Heatmap(Math.Max(200, width - 32))); result = yearly; break;
+            case "goals": result = GoalProgressCard(); break;
+            default: result = ConcentrationCard(); break;
+        }
+        result.Tag = option; return result;
+    }
+    private FrameworkElement ConcentrationCard()
+    {
+        var card = Card("专注程度", out var body); var data = _model!.Interceptions;
+        var layout = new Grid { Margin = new Thickness(0, 0, 0, 8) }; layout.ColumnDefinitions.Add(new() { Width = new GridLength(128) }); layout.ColumnDefinitions.Add(new() { Width = new GridLength(12) }); layout.ColumnDefinitions.Add(new()); body.Children.Add(layout);
+        var ring = new Canvas { Width = 128, Height = 128 };
+        var track = new Ellipse { Width = 112, Height = 112, StrokeThickness = 12 }; track.SetResourceReference(Shape.StrokeProperty, "BorderBrush"); Canvas.SetLeft(track, 8); Canvas.SetTop(track, 8); ring.Children.Add(track);
+        Shape? fill = null;
+        if (data.ZeroRatio is >= 1) { fill = new Ellipse { Width = 112, Height = 112, StrokeThickness = 12 }; Canvas.SetLeft(fill, 8); Canvas.SetTop(fill, 8); }
+        else if (data.ZeroRatio is > 0 and < 1)
+        {
+            var angle = data.ZeroRatio.Value * Math.PI * 2 - Math.PI / 2; var geometry = new StreamGeometry();
+            using (var drawing = geometry.Open()) { drawing.BeginFigure(new(64, 8), false, false); drawing.ArcTo(new(64 + 56 * Math.Cos(angle), 64 + 56 * Math.Sin(angle)), new(56, 56), 0, data.ZeroRatio > .5, SweepDirection.Clockwise, true, false); }
+            fill = new Path { Data = geometry, StrokeThickness = 12, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+        }
+        if (fill is not null) { fill.SetResourceReference(Shape.StrokeProperty, "AccentBrush"); ring.Children.Add(fill); }
+        var percentage = Text(data.ZeroRatio is { } ratio ? ratio.ToString("P0") : "—", 24); percentage.Width = 128; percentage.TextAlignment = TextAlignment.Center; percentage.FontWeight = FontWeights.SemiBold; Canvas.SetTop(percentage, 39); ring.Children.Add(percentage);
+        var caption = Text(data.ZeroRatio is null ? "暂无数据" : "零拦截场次", 10, true); caption.Width = 128; caption.TextAlignment = TextAlignment.Center; Canvas.SetTop(caption, 76); ring.Children.Add(caption);
+        var chart = new Button { Content = ring, Tag = "interception-ratio", ToolTip = $"零拦截 {data.ZeroSessions} / 已统计严格专注 {data.CountedSessions} 次\n未统计记录不计入比例。" }; chart.SetResourceReference(StyleProperty, "StatisticsHit"); chart.Click += (_, _) => InterceptionDetails(null); layout.Children.Add(chart);
+        var legend = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(legend, 2); layout.Children.Add(legend);
+        legend.Children.Add(Text("每专注小时拦截", 10, true));
+        var frequency = Text(_model.InterceptionRateText, 17); frequency.FontWeight = FontWeights.SemiBold; frequency.Margin = new Thickness(0, 3, 0, 4); frequency.ToolTip = "拦截总次数 ÷ 对应已统计严格专注的有效小时数，数值越低，触发拦截越少。有效时长排除暂停和休息。"; legend.Children.Add(frequency);
+        var comparison = Text(_model.InterceptionComparisonText, 10, true); comparison.ToolTip = _model.InterceptionComparisonTooltip; comparison.Margin = new Thickness(0, 0, 0, 5); legend.Children.Add(comparison);
+        foreach (var (name, count, zero) in new[] { ("零拦截", data.ZeroSessions, true), ("有拦截", data.AffectedSessions, false) })
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) }; var dot = new Ellipse { Width = 7, Height = 7, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center }; dot.SetResourceReference(Shape.FillProperty, zero ? "AccentBrush" : "BorderBrush"); row.Children.Add(dot); row.Children.Add(Text($"{name} {count} 次", 11));
+            var button = new Button { Content = row, Tag = zero ? "zero-interceptions" : "with-interceptions", ToolTip = "查看对应严格模式记录" }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => InterceptionDetails(zero); legend.Children.Add(button);
+        }
+        body.Children.Add(Text(data.CountedSessions == 0 ? data.StrictSessions == 0 ? "所选范围暂无严格模式记录" : "所选记录尚未保存拦截次数" : $"样本 {data.CountedSessions} 次 · 有效专注 {StatisticsViewModel.Duration(data.CountedDuration)} · 拦截 {data.Total} 次", 10, true));
+        if (data.UnknownSessions > 0) body.Children.Add(Text($"{data.UnknownSessions} 次旧记录未统计，不计入比例", 10, true));
+        return card;
+    }
+    private void InterceptionDetails(bool? zero)
+    {
+        var snapshot = _model!.Snapshot;
+        var records = snapshot.Sessions.Where(item => item.EndedInRange && item.Record.Strict && (zero is null || zero == true && item.Record.InterceptionCount == 0 || zero == false && item.Record.InterceptionCount > 0)).Select(item => item.Record);
+        Details(FocusStatistics.Build(records, snapshot.Filter), zero is null ? "严格模式专注" : zero == true ? "零拦截专注" : "有拦截的专注");
     }
     private TextBlock Text(string value, double size = 12, bool muted = false)
     { var result = new TextBlock { Text = value, FontSize = size, TextWrapping = TextWrapping.Wrap }; result.SetResourceReference(TextBlock.ForegroundProperty, muted ? "MutedBrush" : "TextBrush"); return result; }
@@ -150,11 +227,9 @@ public partial class StatisticsView : UserControl
         }
         var legend = Text("浅色投入少，深色投入多", 10, true); Canvas.SetLeft(legend, 26); Canvas.SetTop(legend, 24 + cell * 7); chart.Children.Add(legend); return chart;
     }
-    private void DrawGoalProgress()
+    private FrameworkElement GoalProgressCard()
     {
-        if (_model!.GoalProgress.Count > 0)
-        {
-            var goals = Card($"目标进度 · 截至{_model.GoalDate:M月d日}", out var goalBody);
+            var goals = Card($"目标进度 · 截至{_model!.GoalDate:M月d日}", out var goalBody);
             goalBody.Children.Add(Text("按目标自身的项目与周期累计，点击查看或调整目标。", 11, true));
             foreach (var goal in _model.GoalProgress)
             {
@@ -162,8 +237,8 @@ public partial class StatisticsView : UserControl
                 content.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = goal.Ratio, Height = 5, Margin = new Thickness(0, 6, 0, 0), Foreground = (Brush)FindResource("AccentBrush"), Background = (Brush)FindResource("SubtleBrush") });
                 var button = new Button { Content = content, Tag = goal.Id }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => new GoalEditorWindow(Main, goal.Progress.Goal) { Owner = Window.GetWindow(this) }.ShowDialog(); goalBody.Children.Add(button);
             }
-            StatisticsContent.Children.Add(goals);
-        }
+            if (_model.GoalProgress.Count == 0) goalBody.Children.Add(Text("所选范围暂无关联目标。", 12, true));
+            return goals;
     }
     private void DrawReview()
     {

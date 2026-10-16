@@ -7,4 +7,4 @@ public sealed record TodoItem(Guid Id, Guid FolderId, string Title,
     TodoStatus Status = TodoStatus.Pending, TodoPriority Priority = TodoPriority.Normal,
     DateOnly? DueDate = null, TimeOnly? DueTime = null, string Notes = "",
     int? EstimatedMinutes = null, string ResumeNote = "", Guid? PreferredProjectId = null,
-    bool Important = false, bool Urgent = false);
+    bool Important = false, bool Urgent = false, DateTimeOffset? CompletedAt = null);

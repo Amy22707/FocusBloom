@@ -128,16 +128,19 @@ public sealed partial class MainViewModel : ObservableObject
         Navigation = new NavigationViewModel(store);
         Statistics = new StatisticsViewModel(store);
         Goals = new GoalsViewModel(store, ReportStatus);
-        Goals.Changed += (_, _) => { Statistics.Reload(); CalendarDataChanged?.Invoke(this, EventArgs.Empty); };
+        Reflection = new ReflectionViewModel(store);
+        Reflection.Changed += (_, _) => CalendarDataChanged?.Invoke(this, EventArgs.Empty);
+        Goals.Changed += (_, _) => { Statistics.Reload(); Reflection.Reload(); CalendarDataChanged?.Invoke(this, EventArgs.Empty); };
         _recordPage = store.GetSetting("records.page") ?? "时间轴"; Statistics.ReviewMode = _recordPage == "复盘";
         _softwareRemindersEnabled = store.GetSetting("reminders.enabled") != "False";
         _outlookSyncRequested = store.GetSetting("outlook.sync.requested") == "True";
         DateEvents = new DateEventsViewModel(store); DateEvents.Reload();
-        CardSizing = new CardSizingViewModel(store, () => { Calendar.Reload(); FocusCalendar.Reload(); Statistics.RequestRedraw(); });
+        CardSizing = new CardSizingViewModel(store, () => { Calendar.Reload(); FocusCalendar.Reload(); Statistics.RequestRedraw(); Reflection.RequestRedraw(); });
         Todos.Changed += (_, _) => { RefreshTodoChoices(); LoadRecords(); ReloadCalendarData(); };
         var savedTodo = store.GetSetting("focus.todo");
         RefreshTodoChoices(Guid.TryParse(savedTodo, out var todoId) ? todoId : null);
         SaveProjectSelection();
+        Widgets = new DesktopWidgetsViewModel(store);
     }
 
     public ObservableCollection<FocusProject> Projects { get; }
@@ -669,7 +672,7 @@ public sealed partial class MainViewModel : ObservableObject
                 FormatOutcome(outcome), outcome?.NextStep ?? "", categories.GetValueOrDefault(record.ProjectId, "未分类"), record.Strict ? record.InterceptionCount?.ToString(CultureInfo.CurrentCulture) ?? "未统计" : "—"));
         }
         Notify(nameof(RecordSummary));
-        Calendar?.Reload(); FocusCalendar?.Reload(); Statistics?.Reload(); Goals?.Reload();
+        Calendar?.Reload(); FocusCalendar?.Reload(); Statistics?.Reload(); Goals?.Reload(); Reflection?.Reload();
     }
 
     private void Refresh()

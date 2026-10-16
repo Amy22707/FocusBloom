@@ -21,7 +21,7 @@ public sealed record ReviewOutcome(Guid Id, string Project, string Todo, string 
 public sealed record StatisticsMetric(string Name, string Value, string Hint) { public string Tooltip => Value + "\n" + Hint; }
 public sealed record StatisticsShare(string Name, string Color, TimeSpan Duration, int Count, IReadOnlySet<Guid> Projects);
 
-public sealed class StatisticsViewModel : ObservableObject
+public sealed partial class StatisticsViewModel : ObservableObject
 {
     private readonly IFocusStore _store;
     private IReadOnlyList<FocusRecord> _records = Array.Empty<FocusRecord>();
@@ -67,7 +67,9 @@ public sealed class StatisticsViewModel : ObservableObject
     public string ChartMetric { get => _chartMetric; set { _chartMetric = value; _store.SaveSetting("statistics.metric", value); Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
     public string ShareMode { get => _shareMode; set { _shareMode = value; _store.SaveSetting("statistics.share", value); Notify(); Refresh(); } }
     public int HeatmapYear { get => _heatmapYear; set { if (value < 1 || _heatmapYear == value) return; _heatmapYear = value; Notify(); Refresh(); } }
-    public bool ReviewMode { get => _reviewMode; set { if (_reviewMode == value) return; _reviewMode = value; Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
+    public bool ReviewMode { get => _reviewMode; set { if (_reviewMode == value) return; _reviewMode = value; Notify(); Notify(nameof(IsStatistics)); Changed?.Invoke(this, EventArgs.Empty); } }
+    public bool IsStatistics => !ReviewMode;
+    public InterceptionStatistics Interceptions { get; private set; } = new(0, 0, 0, 0);
     public string RangeLabel => $"{Snapshot.Filter.From:yyyy-MM-dd} — {Snapshot.Filter.To:yyyy-MM-dd}";
     public string ValidationText => IsCustom && CustomTo < CustomFrom ? "结束日期不能早于开始日期。" : "";
     public bool IsValid => ValidationText.Length == 0;
@@ -87,7 +89,7 @@ public sealed class StatisticsViewModel : ObservableObject
             _customFrom = _customTo = DateTime.Today; _heatmapYear = DateTime.Today.Year;
             Notify(nameof(CustomFrom)); Notify(nameof(CustomTo)); Refresh();
         });
-        Reload();
+        LoadModules(); Reload();
     }
     public void Move(int direction)
     {
@@ -135,6 +137,8 @@ public sealed class StatisticsViewModel : ObservableObject
         if (_updatingChoices) return;
         if (!HeatmapYears.Contains(HeatmapYear)) { var years = HeatmapYears.Append(HeatmapYear); HeatmapYears = Enumerable.Range(years.Min(), years.Max() - years.Min() + 1).ToArray(); Notify(nameof(HeatmapYears)); }
         var dates = Dates(); Snapshot = FocusStatistics.Build(_records, new(dates.From, dates.To, ProjectFilter(), SelectedTodo?.Id));
+        Interceptions = InterceptionStatistics.Build(Snapshot);
+        RefreshInterceptionComparison();
         Annual = FocusStatistics.Build(_records, new(new(HeatmapYear, 1, 1), new(HeatmapYear, 12, 31), ProjectFilter(), SelectedTodo?.Id));
         var goalProjects = ProjectFilter(); var habits = _store.GetHabits(true).ToDictionary(item => item.Id); var checks = _store.GetHabitCheckIns();
         Guid? GoalProject(FocusGoal goal) => goal.ProjectId ?? (goal.HabitId is { } habit ? habits.GetValueOrDefault(habit)?.ProjectId : null);

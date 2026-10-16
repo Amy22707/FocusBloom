@@ -42,7 +42,7 @@ public sealed class StartupPageTests
             {
                 var store = new SqliteFocusStore(Path.Combine(directory, "test.db"));
                 store.SaveSetting("ui.navigation.items", """[{"Key":"focus","Visible":false},{"Key":"todos","Visible":true},{"Key":"projects","Visible":true},{"Key":"calendar","Visible":true},{"Key":"dates","Visible":true},{"Key":"records","Visible":true},{"Key":"settings","Visible":true}]""");
-                main = new(store); Assert.Equal("settings", main.Navigation.Items[^1].Key); Assert.Equal("goals", main.Navigation.Items[^2].Key); Assert.Equal("todos", main.Navigation.VisibleItems[0].Key);
+                main = new(store); Assert.Equal("settings", main.Navigation.Items[^1].Key); Assert.Equal("reflection", main.Navigation.Items[^2].Key); Assert.Equal("goals", main.Navigation.Items[^3].Key); Assert.Equal("todos", main.Navigation.VisibleItems[0].Key);
                 window = new(main, store, Path.Combine(directory, "browser")); window.Show(); Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout();
                 var tabs = (TabControl)window.FindName("MainTabs"); var expected = (TabItem)window.FindName("TodoTab"); var host = (ContentPresenter)tabs.Template.FindName("PART_SelectedContentHost", tabs);
                 Assert.Same(expected, tabs.SelectedItem); Assert.Same(expected.Content, host.Content); Assert.True(((FrameworkElement)expected.Content).IsVisible);

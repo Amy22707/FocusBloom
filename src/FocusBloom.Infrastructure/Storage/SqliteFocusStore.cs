@@ -10,10 +10,12 @@ namespace FocusBloom.Infrastructure.Storage;
 public sealed partial class SqliteFocusStore : IFocusStore
 {
     private readonly string _connectionString;
+    public string DatabasePath { get; }
     public static readonly Guid DefaultProjectId = Guid.Parse("6c02cad7-dd19-4f50-9c75-567b3eac38d9");
 
     public SqliteFocusStore(string databasePath)
     {
+        DatabasePath = Path.GetFullPath(databasePath);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(databasePath))!);
         _connectionString = new SqliteConnectionStringBuilder
         {
@@ -44,6 +46,7 @@ public sealed partial class SqliteFocusStore : IFocusStore
             CREATE TABLE IF NOT EXISTS course_changes (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS focus_goals (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS habits (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS daily_reflections (date TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS habit_checkins (habit_id TEXT NOT NULL REFERENCES habits(id), date TEXT NOT NULL, PRIMARY KEY(habit_id,date));
             CREATE TABLE IF NOT EXISTS project_folders (name TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS todo_categories (name TEXT PRIMARY KEY);
@@ -54,7 +57,7 @@ public sealed partial class SqliteFocusStore : IFocusStore
                 id TEXT PRIMARY KEY, folder_id TEXT NOT NULL REFERENCES todo_folders(id), title TEXT NOT NULL,
                 status INTEGER NOT NULL, priority INTEGER NOT NULL, due_date TEXT, due_time TEXT, notes TEXT NOT NULL,
                 estimated_minutes INTEGER, resume_note TEXT NOT NULL, preferred_project_id TEXT REFERENCES projects(id),
-                deleted INTEGER NOT NULL DEFAULT 0, important INTEGER NOT NULL DEFAULT 0, urgent INTEGER NOT NULL DEFAULT 0
+                deleted INTEGER NOT NULL DEFAULT 0, important INTEGER NOT NULL DEFAULT 0, urgent INTEGER NOT NULL DEFAULT 0, completed_at TEXT
             );
             CREATE TABLE IF NOT EXISTS session_outcomes (
                 session_id TEXT PRIMARY KEY REFERENCES sessions(id), summary TEXT NOT NULL, quantity REAL,
@@ -100,6 +103,7 @@ public sealed partial class SqliteFocusStore : IFocusStore
             columns.CommandText = $"ALTER TABLE todo_items ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0";
             columns.ExecuteNonQuery();
         }
+        if (!todoColumns.Contains("completed_at")) { columns.CommandText = "ALTER TABLE todo_items ADD COLUMN completed_at TEXT"; columns.ExecuteNonQuery(); }
         columns.CommandText = "PRAGMA table_info(projects)";
         var hasDeleted = false;
         using (var reader = columns.ExecuteReader())

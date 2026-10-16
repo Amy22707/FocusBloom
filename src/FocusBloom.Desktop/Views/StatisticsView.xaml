@@ -15,6 +15,7 @@
                 <Button Content="今天" Command="{Binding TodayCommand}" Style="{StaticResource StatisticsTool}" Margin="6,0,8,0" />
                 <DatePicker x:Name="StatisticsAnchorDate" SelectedDate="{Binding Anchor}" Width="150" Margin="0,0,8,0" ToolTip="跳转日期" Visibility="{Binding ShowAnchor, Converter={StaticResource BoolVisibility}}" />
                 <Button x:Name="ExportStatisticsButton" Content="导出摘要" Click="Export_Click" Style="{StaticResource StatisticsTool}" IsEnabled="{Binding IsValid}" />
+                <Button x:Name="ConfigureStatisticsModulesButton" Content="模块" Click="Modules_Click" Style="{StaticResource StatisticsTool}" Margin="6,0,0,0" Visibility="{Binding IsStatistics, Converter={StaticResource BoolVisibility}}" ToolTip="选择统计模块与显示顺序" />
             </WrapPanel>
             <WrapPanel Visibility="{Binding IsCustom, Converter={StaticResource BoolVisibility}}" Margin="0,6,0,0"><TextBlock Text="起止日期" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0" /><DatePicker x:Name="StatisticsFromDate" SelectedDate="{Binding CustomFrom}" Width="145" /><TextBlock Text="—" VerticalAlignment="Center" Margin="8,0" /><DatePicker x:Name="StatisticsToDate" SelectedDate="{Binding CustomTo}" Width="145" /></WrapPanel>
             <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -26,9 +27,8 @@
         </StackPanel>
         <ScrollViewer x:Name="StatisticsViewport" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" SizeChanged="Viewport_SizeChanged">
             <StackPanel>
-                <ItemsControl ItemsSource="{Binding Metrics}" Margin="0,0,0,10"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="{DynamicResource CardBrush}" CornerRadius="14" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14" Margin="0,0,8,0"><StackPanel><TextBlock Text="{Binding Name}" Foreground="{DynamicResource MutedBrush}" FontSize="11" /><TextBlock Text="{Binding Value}" FontSize="20" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tooltip}" /></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                 <StackPanel x:Name="StatisticsContent" />
-                <Expander Header="统计口径" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,12"><TextBlock Text="统计已保存记录，当前会话结束后自动加入。时长按实际日期拆分，排除暂停和休息；次数按会话结束日计算，平均时长按这些会话的完整有效时长计算。成果按会话结束日汇总，不同单位分别合计。待办完成状态展示当前状态，预估比较使用累计投入。" TextWrapping="Wrap" Margin="0,8,0,0" /></Expander>
+                <Expander Header="统计口径" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,12"><TextBlock Text="统计已保存记录，当前会话结束后自动加入。时长按实际日期拆分，排除暂停和休息；次数按会话结束日计算，平均时长按这些会话的完整有效时长计算。拦截次数仅统计范围内结束的严格模式记录，未统计的旧记录不按零次计算。成果按会话结束日汇总，不同单位分别合计。待办完成状态展示当前状态，预估比较使用累计投入。" TextWrapping="Wrap" Margin="0,8,0,0" /></Expander>
             </StackPanel>
         </ScrollViewer>
     </Grid>

@@ -24,7 +24,8 @@ public sealed class CardSizingViewModel : ObservableObject
             new CardSizeOption(store, "Timetable", "课程表", 1, refreshCalendar),
             new CardSizeOption(store, "DateEvent", "日期事项", 2),
             new CardSizeOption(store, "Media", "背景、文字与声音", 3),
-            new CardSizeOption(store, "Goals", "目标与习惯", 3)
+            new CardSizeOption(store, "Goals", "目标与习惯", 3),
+            new CardSizeOption(store, "Mood", "心情月历", 1, refreshCalendar)
         };
         PreviewOption = Options[0];
     }
@@ -40,11 +41,11 @@ public sealed class CardSizeOption : ObservableObject
     public string Name { get; }
     public string PercentageText => $"{Percentage:0}%";
     public ScaleTransform PreviewTransform => new(Percentage / 100, Percentage / 100);
-    public double PreviewHeight => _key switch { "Quadrant" => 32, "DateEvent" => 150, "Media" => 180, "Calendar" => 80, "Timetable" => 86, _ => 120 };
-    public double PreviewWidth => _key switch { "Quadrant" => 240, "DateEvent" => 240, "Media" => 180, "FocusCalendar" => 240, _ => 220 };
-    public Thickness PreviewPadding => _key == "Quadrant" ? new(8, 0, 8, 0) : new(12);
-    public string PreviewTitle => _key switch { "Project" => "示例项目", "Todo" or "Quadrant" => "完成课程实验", "DateEvent" => "期末考试", "Media" => "湖光与山影", "Timetable" => "示例课程", _ => "复习课程笔记" };
-    public string PreviewDetail => _key switch { "Project" => "学习", "Todo" => "截止 10月22日 · 待办", "DateEvent" => "还有 30 天", "Media" => "默认 · 背景素材", "Timetable" => "第1—2节 · 教室101", _ => "14:00—15:00 · 1小时" };
+    public double PreviewHeight => _key switch { "Quadrant" => 32, "DateEvent" => 150, "Media" => 180, "Calendar" => 80, "Timetable" => 86, "Mood" => 60, _ => 120 };
+    public double PreviewWidth => _key switch { "Quadrant" => 240, "DateEvent" => 240, "Media" => 180, "FocusCalendar" => 240, "Mood" => 64, _ => 220 };
+    public Thickness PreviewPadding => _key == "Quadrant" ? new(8, 0, 8, 0) : _key == "Mood" ? new(4) : new(12);
+    public string PreviewTitle => _key switch { "Project" => "示例项目", "Todo" or "Quadrant" => "完成课程实验", "DateEvent" => "期末考试", "Media" => "湖光与山影", "Timetable" => "示例课程", "Mood" => "16", _ => "复习课程笔记" };
+    public string PreviewDetail => _key switch { "Project" => "学习", "Todo" => "截止 10月22日 · 待办", "DateEvent" => "还有 30 天", "Media" => "默认 · 背景素材", "Timetable" => "第1—2节 · 教室101", "Mood" => "🙂 不错", _ => "14:00—15:00 · 1小时" };
     public bool ShowPreviewDetail => _key != "Quadrant";
     public string PreviewDescription => _columns == 1 || _key == "Media" ? "示例随滑块实时缩放" : $"每行 {ColumnsForPreview} 个 · 示例随滑块实时缩放";
     private int ColumnsForPreview => Percentage <= 80 ? _columns + 1 : Percentage >= 120 ? _columns - 1 : _columns;

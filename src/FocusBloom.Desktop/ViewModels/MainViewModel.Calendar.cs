@@ -22,7 +22,7 @@ public sealed partial class MainViewModel
     public string OutlookSyncStatus => OutlookSyncRequested ? "已保存同步偏好，账号连接尚未接入；当前仍使用本地日历。" : "不同步到 Windows／Outlook，保留本地日历。";
     private DateOnly _calendarDay = DateOnly.FromDateTime(DateTime.Today);
     private void RefreshCalendarDay()
-    { var day = DateOnly.FromDateTime(DateTime.Today); if (day != _calendarDay) { _calendarDay = day; ReloadCalendarData(); Goals.Reload(); Statistics.Reload(); } }
+    { var day = DateOnly.FromDateTime(DateTime.Today); if (day != _calendarDay) { _calendarDay = day; ReloadCalendarData(); Goals.Reload(); Statistics.Reload(); Reflection.Reload(); } }
     private string _notificationStatus = "系统提醒正在初始化";
     public string NotificationStatus { get => _notificationStatus; set { _notificationStatus = value; Notify(); } }
     public event EventHandler? CalendarDataChanged;

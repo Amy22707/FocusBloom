@@ -34,7 +34,7 @@ public sealed class NavigationViewModel : ObservableObject
     public NavigationViewModel(IFocusStore store)
     {
         _store = store; _loading = true;
-        var defaults = new[] { ("focus", "专注时刻", "\uE916"), ("projects", "项目库", "\uE8B7"), ("todos", "待办事项", "\uE73A"), ("calendar", "日历与课表", "\uE787"), ("dates", "日期事项", "\uE916"), ("records", "专注记录", "\uE9D9"), ("goals", "目标与习惯", "\uE734"), ("settings", "偏好设置", "\uE713") }
+        var defaults = new[] { ("focus", "专注时刻", "\uE916"), ("projects", "项目库", "\uE8B7"), ("todos", "待办事项", "\uE73A"), ("calendar", "日历与课表", "\uE787"), ("dates", "日期事项", "\uE916"), ("records", "专注记录", "\uE9D9"), ("goals", "目标与习惯", "\uE734"), ("reflection", "心情与复盘", "\uE76E"), ("settings", "偏好设置", "\uE713") }
             .Select(item => new NavigationOption(item.Item1, item.Item2, item.Item3, Save, key => NavigateRequested?.Invoke(key))).ToArray();
         var saved = store.GetSetting("ui.navigation.items") is { } json ? JsonSerializer.Deserialize<SavedOption[]>(json) ?? Array.Empty<SavedOption>() : Array.Empty<SavedOption>();
         foreach (var option in saved) { var item = defaults.FirstOrDefault(item => item.Key == option.Key); if (item is null || Items.Contains(item)) continue; item.Visible = option.Visible; Items.Add(item); }

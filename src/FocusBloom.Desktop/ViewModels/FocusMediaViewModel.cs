@@ -552,7 +552,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         CollectionOrder.Apply(QuoteChoices, new[] { "" }.Concat(Quotes.Select(quote => quote.Quote.Id)).ToArray(), quote => quote.Id);
         CollectionOrder.Apply(SoundChoices, new[] { "" }.Concat(Sounds.Select(sound => sound.Asset.Id)).ToArray(), asset => asset.Id);
     }
-    private void Save()
+    public void Save()
     {
         if (_loading) return;
         _preferences.ImageOrder = Images.Select(image => image.Asset.Id).ToList();

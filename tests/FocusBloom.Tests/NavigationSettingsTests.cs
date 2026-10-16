@@ -35,7 +35,7 @@ public sealed class NavigationSettingsTests
                 groups[0].IsExpanded = true; Flush(); var settingsItems = (ItemsControl)window.FindName("NavigationSettingsItems");
                 var record = main.Navigation.Items.Single(item => item.Key == "records");
                 var recordCheck = Descendants<CheckBox>(settingsItems).Single(box => box.DataContext == record); recordCheck.IsChecked = false; Flush();
-                var sidebar = (ItemsControl)tabs.Template.FindName("NavigationItems", tabs); Assert.Equal(7, sidebar.Items.Count);
+                var sidebar = (ItemsControl)tabs.Template.FindName("NavigationItems", tabs); Assert.Equal(8, sidebar.Items.Count);
                 Assert.False(Descendants<CheckBox>(settingsItems).Single(box => box.DataContext is NavigationOption item && item.Key == "settings").IsEnabled);
                 var handle = Descendants<ReorderButton>(settingsItems).Single(button => button.DataContext == record);
                 handle.RaiseEvent(new ReorderEventArgs(OrderMove.First)); Flush(); Assert.Same(record, main.Navigation.Items[0]); recordCheck.IsChecked = true; Flush(); Assert.Same(record, sidebar.Items[0]);
@@ -53,7 +53,7 @@ public sealed class NavigationSettingsTests
                 Assert.Equal("records", main.Navigation.Items[0].Key); Assert.False(main.Navigation.Items.Single(item => item.Key == "focus").Visible); Assert.True(main.Navigation.Items.Single(item => item.Key == "settings").Visible);
                 Assert.True(((Expander)window.FindName("FontSettingsSection")).IsExpanded); Assert.True(((Expander)window.FindName("SizeSettingsSection")).IsExpanded); Assert.False(((Expander)window.FindName("TimerSettingsSection")).IsExpanded);
                 main.Navigation.Items.Single(item => item.Key == "focus").Visible = true; main.Navigation.Move(main.Navigation.Items.Single(item => item.Key == "settings"), OrderMove.First);
-                var reopened = new NavigationViewModel(new SqliteFocusStore(path)); Assert.Equal("settings", reopened.Items[0].Key); Assert.Equal(8, reopened.VisibleItems.Count);
+                var reopened = new NavigationViewModel(new SqliteFocusStore(path)); Assert.Equal("settings", reopened.Items[0].Key); Assert.Equal(9, reopened.VisibleItems.Count);
             }
             finally { window?.DisposeBrowser(); window?.Close(); main?.Media.Dispose(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }
         });

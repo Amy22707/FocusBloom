@@ -54,6 +54,9 @@ public interface IFocusStore
     void DeleteHabit(Guid id);
     IReadOnlyList<FocusBloom.Core.Goals.HabitCheckIn> GetHabitCheckIns();
     void SetHabitCheckIn(Guid habitId, DateOnly date, bool completed);
+    IReadOnlyList<FocusBloom.Core.Reflection.DailyReflection> GetDailyReflections();
+    void SaveDailyReflection(FocusBloom.Core.Reflection.DailyReflection item);
+    void DeleteDailyReflection(DateOnly date);
     string? GetSetting(string key);
     void SaveSetting(string key, string value);
 }
