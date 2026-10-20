@@ -18,11 +18,11 @@
                 <Button x:Name="ConfigureStatisticsModulesButton" Content="模块" Click="Modules_Click" Style="{StaticResource StatisticsTool}" Margin="6,0,0,0" Visibility="{Binding IsStatistics, Converter={StaticResource BoolVisibility}}" ToolTip="选择统计模块与显示顺序" />
             </WrapPanel>
             <WrapPanel Visibility="{Binding IsCustom, Converter={StaticResource BoolVisibility}}" Margin="0,6,0,0"><TextBlock Text="起止日期" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0" /><DatePicker x:Name="StatisticsFromDate" SelectedDate="{Binding CustomFrom}" Width="145" /><TextBlock Text="—" VerticalAlignment="Center" Margin="8,0" /><DatePicker x:Name="StatisticsToDate" SelectedDate="{Binding CustomTo}" Width="145" /></WrapPanel>
-            <Grid Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Expander x:Name="StatisticsFilters" Header="{Binding FilterSummary}" ToolTip="{Binding SelectionLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,6,0,0"><Expander.HeaderTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" /></DataTemplate></Expander.HeaderTemplate><Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                 <ComboBox x:Name="StatisticsFolderSelector" ItemsSource="{Binding FolderChoices}" SelectedItem="{Binding SelectedFolder}" DisplayMemberPath="Name" ToolTip="计时文件夹" />
                 <ComboBox x:Name="StatisticsProjectSelector" Grid.Column="2" ItemsSource="{Binding ProjectChoices}" SelectedItem="{Binding SelectedProject}" DisplayMemberPath="Name" ToolTip="专注项目" />
                 <ComboBox x:Name="StatisticsTodoSelector" Grid.Column="4" ItemsSource="{Binding TodoChoices}" SelectedItem="{Binding SelectedTodo}" DisplayMemberPath="Name" ToolTip="关联待办" />
-            </Grid>
+            </Grid></Expander>
             <TextBlock Text="{Binding ValidationText}" Foreground="{DynamicResource AccentTextBrush}" FontSize="11" />
         </StackPanel>
         <ScrollViewer x:Name="StatisticsViewport" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" SizeChanged="Viewport_SizeChanged">

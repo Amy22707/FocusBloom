@@ -68,6 +68,12 @@ public sealed partial class LocalBackupService
             if (row.Payload["coverPath"]?.GetValue<string>() is not { } old || !paths.TryGetValue(old, out var path)) continue;
             row.Payload["coverPath"] = path; using var command = connection.CreateCommand(); command.CommandText = "UPDATE date_events SET payload=$payload WHERE id=$id"; command.Parameters.AddWithValue("$payload", row.Payload.ToJsonString()); command.Parameters.AddWithValue("$id", row.Id); command.ExecuteNonQuery();
         }
+        foreach (var row in ReflectionPayloads(connection))
+        {
+            if (row.Payload["photos"] is not JsonArray photos) continue;
+            for (var index = 0; index < photos.Count; index++) if (photos[index]?.GetValue<string>() is { } old && paths.TryGetValue(old, out var path)) photos[index] = path;
+            using var command = connection.CreateCommand(); command.CommandText = "UPDATE daily_reflections SET payload=$payload WHERE date=$date"; command.Parameters.AddWithValue("$payload", row.Payload.ToJsonString()); command.Parameters.AddWithValue("$date", row.Date); command.ExecuteNonQuery();
+        }
         foreach (var pair in settings.Where(pair => pair.Key.StartsWith("widgets.", StringComparison.Ordinal) && pair.Value.TrimStart().StartsWith('{')))
         {
             if (JsonNode.Parse(pair.Value) is not JsonObject widget || widget["BackgroundImage"]?.GetValue<string>() is not { } old || !paths.TryGetValue(old, out var path)) continue;

@@ -14,8 +14,15 @@ public static class DatePickerNavigation
     private static void Changed(DependencyObject target, DependencyPropertyChangedEventArgs args)
     {
         if (target is not DatePicker picker) return;
-        if ((bool)args.NewValue) picker.CalendarOpened += Opened;
-        else picker.CalendarOpened -= Opened;
+        if ((bool)args.NewValue) { picker.CalendarOpened += Opened; picker.Loaded += CenterText; }
+        else { picker.CalendarOpened -= Opened; picker.Loaded -= CenterText; }
+    }
+    private static void CenterText(object sender, RoutedEventArgs args)
+    {
+        var picker = (DatePicker)sender;
+        if (picker.Template.FindName("PART_TextBox", picker) is not DatePickerTextBox field) return;
+        field.SetCurrentValue(TextBox.TextAlignmentProperty, TextAlignment.Center);
+        field.SetCurrentValue(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center);
     }
     private static void Opened(object? sender, RoutedEventArgs args)
     {

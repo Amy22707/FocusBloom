@@ -15,7 +15,7 @@ namespace FocusBloom.Tests;
 public sealed class NavigationLayoutTests
 {
     [Fact]
-    public void CollapsedIconsFitBesideScrollbarAtShortAndTallWindowHeights()
+    public void CollapsedIconsFitAtShortAndTallWindowHeights()
     {
         WpfTestHost.Run(() =>
         {
@@ -27,8 +27,7 @@ public sealed class NavigationLayoutTests
                 foreach (var height in new[] { 560d, 900d })
                 {
                     window.Height = height; Flush(); window.UpdateLayout();
-                    if (height == 560) Assert.Equal(Visibility.Visible, viewport.ComputedVerticalScrollBarVisibility);
-                    else Assert.Equal(Visibility.Collapsed, viewport.ComputedVerticalScrollBarVisibility);
+                    Assert.Equal(Visibility.Collapsed, viewport.ComputedVerticalScrollBarVisibility);
                     var presenter = (FrameworkElement)viewport.Template.FindName("PART_ScrollContentPresenter", viewport);
                     foreach (var button in Descendants<Button>(items).ToArray())
                     {

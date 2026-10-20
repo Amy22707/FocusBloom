@@ -39,18 +39,18 @@ public static class Appearance
         IsDark = dark;
         var accent = Parse(dark ? palette.DarkAccent : palette.LightAccent);
         var card = Parse(dark ? "#242832" : "#FFFFFF");
-        var background = dark ? Parse("#191D25") : Mix(card, accent, 0.06);
+        var background = dark ? Parse("#191D25") : Mix(card, accent, 0.035);
         var resources = Application.Current.Resources;
         var colors = new Dictionary<string, Color>
         {
             ["BackgroundBrush"] = background,
             ["CardBrush"] = card,
             ["TextBrush"] = Parse(dark ? "#E5E9F0" : "#303944"),
-            ["MutedBrush"] = Parse(dark ? "#A0A7B5" : "#838A95"),
+            ["MutedBrush"] = Parse(dark ? "#A6AFBE" : "#76808D"),
             ["AccentBrush"] = accent,
-            ["AccentTextBrush"] = accent,
+            ["AccentTextBrush"] = dark ? accent : Mix(accent, Parse("#303944"), 0.12),
             ["PrimaryTextBrush"] = Parse(dark ? "#1B2430" : "#FFFFFF"),
-            ["BorderBrush"] = Mix(card, accent, dark ? 0.23 : 0.16),
+            ["BorderBrush"] = Mix(card, accent, dark ? 0.23 : 0.13),
             ["FieldBrush"] = Mix(card, accent, dark ? 0.06 : 0.035),
             ["SubtleBrush"] = Mix(card, accent, 0.08),
             ["HoverBrush"] = Mix(card, accent, 0.12),

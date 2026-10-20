@@ -41,8 +41,11 @@ public partial class CalendarView : UserControl
     private void Previous_Click(object sender, RoutedEventArgs e) => _model?.Move(-1);
     private void Next_Click(object sender, RoutedEventArgs e) => _model?.Move(1);
     private void Today_Click(object sender, RoutedEventArgs e) { if (_model is not null) _model.Date = DateOnly.FromDateTime(DateTime.Today); }
+    private void JumpMenu_Click(object sender, RoutedEventArgs e) => CalendarDatePopup.IsOpen = !CalendarDatePopup.IsOpen;
+    private void CloseJump_Click(object sender, RoutedEventArgs e) => CalendarDatePopup.IsOpen = false;
+    private void More_Click(object sender, RoutedEventArgs e) { CalendarMoreButton.ContextMenu.PlacementTarget = CalendarMoreButton; CalendarMoreButton.ContextMenu.IsOpen = true; }
     private void JumpDate_Changed(object sender, SelectionChangedEventArgs e) { if (_model is not null && JumpDate.SelectedDate is { } date && DateOnly.FromDateTime(date) != _model.Date) _model.Date = DateOnly.FromDateTime(date); }
-    private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e) { if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 1 || _model?.Mode == "月") Render(); }
+    private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e) { if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 1 || Math.Abs(e.NewSize.Height - e.PreviousSize.Height) > 1) Render(); }
     private void Viewport_MouseDown(object sender, MouseButtonEventArgs e) { _press = e.GetPosition(CalendarViewport); _pressed = true; }
     private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
     { if (!_pressed) return; _pressed = false; var delta = e.GetPosition(CalendarViewport) - _press; if (Math.Abs(delta.X) > 80 && Math.Abs(delta.X) > Math.Abs(delta.Y) * 1.5) { _model?.Move(delta.X < 0 ? 1 : -1); e.Handled = true; } }
@@ -72,7 +75,7 @@ public partial class CalendarView : UserControl
         _rendering = true;
         try
         {
-            var reset = _lastMode != _model.Mode; CalendarContent.Children.Clear(); _initialOffset = 0;
+            var reset = _lastMode != _model.Mode; CalendarContent.Children.Clear(); CalendarDayHeader.Content = null; _initialOffset = 0;
             if (_model.Mode == "时间轴") DrawRecordTimeline();
             else if (_model.Mode == "月") DrawMonth(_model.Date);
             else if (_model.Mode == "年") DrawYear();
@@ -90,7 +93,7 @@ public partial class CalendarView : UserControl
     private Button EntryButton(CalendarEntry entry, bool compact)
     {
         var factor = (double)(TryFindResource(_model?.Mode == "课程表" ? "TimetableCardScale" : _model?.FocusOnly == true ? "FocusCalendarCardScale" : "CalendarCardScale") ?? 1d);
-        var panel = new StackPanel(); var heading = Label((compact ? "" : entry.Kind + " · ") + entry.Title, (compact ? 10 : 11) * factor); heading.FontWeight = FontWeights.SemiBold;
+        var panel = new StackPanel(); var heading = Label(entry.Title, (compact ? 10 : 11) * factor); heading.FontWeight = FontWeights.SemiBold;
         heading.TextTrimming = TextTrimming.CharacterEllipsis;
         heading.LineStackingStrategy = LineStackingStrategy.BlockLineHeight; heading.LineHeight = (compact ? 12 : 14) * factor;
         heading.MaxHeight = heading.LineHeight * 2; panel.Children.Add(heading);
@@ -113,26 +116,33 @@ public partial class CalendarView : UserControl
     {
         var first = new DateOnly(date.Year, date.Month, 1); var from = CalendarRules.Monday(first);
         var entries = _model!.Entries(from, from.AddDays(41)).GroupBy(entry => entry.Date).ToDictionary(group => group.Key, group => group.ToArray());
-        var weekdays = new UniformGrid { Columns = 7, Margin = new Thickness(0, 0, 0, 8) }; foreach (var name in Weekdays) weekdays.Children.Add(Label(name, 11, true)); CalendarContent.Children.Add(weekdays);
-        var grid = new UniformGrid { Columns = 7, Rows = 6, Height = Math.Max(240, CalendarViewport.ActualHeight - 24) };
+        var weekdays = new UniformGrid { Columns = 7, Margin = new Thickness(4, 4, 4, 6) }; foreach (var name in Weekdays) { var label = Label(name, 11, true); label.TextAlignment = TextAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center; weekdays.Children.Add(label); } CalendarDayHeader.Content = weekdays;
+        var factor = (double)(TryFindResource(_model.FocusOnly ? "FocusCalendarCardScale" : "CalendarCardScale") ?? 1d);
+        var grid = new UniformGrid { Columns = 7, Rows = 6, Height = Math.Max(Math.Max(360, 6 * (34 + 22 * factor)), CalendarViewport.ActualHeight - 2) };
+        var entryHeight = 22 * factor; var slots = Math.Max(1, (int)Math.Floor((grid.Height / 6 - 32) / (entryHeight + 2)));
         for (var index = 0; index < 42; index++)
         {
             var day = from.AddDays(index); var panel = new StackPanel();
             var daily = entries.GetValueOrDefault(day) ?? Array.Empty<CalendarEntry>();
             var heading = new DockPanel();
-            if (daily.Length > 1) { var counter = Label($"{daily.Length}项", 9, true); counter.VerticalAlignment = VerticalAlignment.Center; DockPanel.SetDock(counter, Dock.Right); heading.Children.Add(counter); }
-            var number = new Button { Content = day.Day.ToString(), Padding = new Thickness(3, 0, 3, 0), FontSize = 13, HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent };
-            if (day == DateOnly.FromDateTime(DateTime.Today)) number.SetResourceReference(Control.BackgroundProperty, "SelectedBrush");
+            if (daily.Length > slots) { var more = new Button { Content = $"＋{daily.Length - slots}", FontSize = 9, Padding = new Thickness(2, 0, 2, 0), Height = 24, ToolTip = "查看当天全部事项" }; more.SetResourceReference(StyleProperty, "QuietTool"); DockPanel.SetDock(more, Dock.Right); more.Click += (_, _) => { _model.Date = day; _model.Mode = _model.FocusOnly ? "时间轴" : "日"; }; heading.Children.Add(more); }
+            var number = new Button { Content = day.Day.ToString(), Padding = new Thickness(0), Width = 24, Height = 24, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent };
+            if (day == DateOnly.FromDateTime(DateTime.Today)) { number.SetResourceReference(Control.BackgroundProperty, "AccentBrush"); number.SetResourceReference(Control.ForegroundProperty, "PrimaryTextBrush"); }
             if (day.Month != date.Month) number.Opacity = 0.45;
             number.Click += (_, _) => { _model.Date = day; _model.Mode = _model.FocusOnly ? "时间轴" : "日"; }; heading.Children.Add(number); panel.Children.Add(heading);
-            if (daily.Length > 0)
-            {
-                var item = EntryButton(daily[0], true); item.Padding = new Thickness(3, 0, 3, 0); item.Margin = new Thickness(0, 2, 0, 0);
-                if (item.Content is StackPanel content && content.Children[0] is TextBlock text) text.TextWrapping = TextWrapping.NoWrap; panel.Children.Add(item);
-            }
+            foreach (var entry in daily.Take(slots)) panel.Children.Add(MonthEntryButton(entry, factor, entryHeight));
             var cell = Cell(panel); cell.Padding = new Thickness(3); cell.ClipToBounds = true; grid.Children.Add(cell);
         }
         CalendarContent.Children.Add(grid);
+    }
+    private Button MonthEntryButton(CalendarEntry entry, double factor, double height)
+    {
+        var content = new DockPanel();
+        if (entry.Start is { } time) { var at = Label(time.ToString("HH:mm"), 9 * factor, true); at.TextWrapping = TextWrapping.NoWrap; at.Margin = new Thickness(4, 0, 0, 0); at.VerticalAlignment = VerticalAlignment.Center; DockPanel.SetDock(at, Dock.Right); content.Children.Add(at); }
+        var title = Label(entry.Title, 12 * factor); title.TextWrapping = TextWrapping.NoWrap; title.TextTrimming = TextTrimming.CharacterEllipsis; content.Children.Add(title);
+        var button = new Button { Content = content, Tag = entry, Height = height, Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(0, 1, 1, 1), BorderThickness = new Thickness(0), ToolTip = $"{entry.Kind} · {entry.Title}\n{entry.Start?.ToString("HH:mm")} {entry.Detail}" };
+        button.SetResourceReference(StyleProperty, "CalendarEntryButton"); button.SetResourceReference(BackgroundProperty, entry.Kind == "待办" || entry.Kind == "专注" ? "AccentSoftBrush" : "SelectedBrush"); if (entry.Completed) button.Opacity = .5;
+        button.Click += (_, _) => EntryRequested?.Invoke(entry); return button;
     }
     private void DrawYear()
     {
@@ -220,9 +230,10 @@ public partial class CalendarView : UserControl
         for (var day = 0; day < count; day++)
         {
             header.ColumnDefinitions.Add(new()); var label = Label(hours == 12 ? $"{firstHour:00}:00 — {firstHour + 12:00}:00" : $"{Weekdays[((int)from.AddDays(day).DayOfWeek + 6) % 7]} {from.AddDays(day):M/d}", 11);
+            label.TextAlignment = TextAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(label, day + 1); header.Children.Add(label);
         }
-        target.Children.Add(header);
+        if (target == CalendarContent && count == 7) { header.Width = double.NaN; header.HorizontalAlignment = HorizontalAlignment.Stretch; header.Margin = new Thickness(0, 0, 18, 0); CalendarDayHeader.Content = header; } else target.Children.Add(header);
         var allDay = new Grid { Width = width, HorizontalAlignment = HorizontalAlignment.Left }; allDay.ColumnDefinitions.Add(new() { Width = new GridLength(labelWidth) }); allDay.Children.Add(Label("全天", 10, true));
         for (var day = 0; day < count; day++)
         {
@@ -259,7 +270,7 @@ public partial class CalendarView : UserControl
                 }
                 else { top = (entry.Start!.Value.ToTimeSpan().TotalMinutes / 60 - firstHour) * rowHeight; bottom = ((entry.EndMinutes ?? entry.End?.ToTimeSpan().TotalMinutes ?? entry.Start.Value.ToTimeSpan().TotalMinutes) / 60 - firstHour) * rowHeight; }
                 var shortBlock = bottom - top < 54;
-                var button = EntryButton(entry, shortBlock); if (shortBlock && button.Content is StackPanel panel && panel.Children[0] is TextBlock text) { text.Text = entry.Kind + " · " + entry.Title; text.TextWrapping = TextWrapping.NoWrap; }
+                var button = EntryButton(entry, shortBlock); if (shortBlock && button.Content is StackPanel panel && panel.Children[0] is TextBlock text) text.TextWrapping = TextWrapping.NoWrap;
                 button.Width = Math.Max(20, dayWidth / placement.Columns - 5); button.Height = Math.Max(28, bottom - top - 3);
                 Canvas.SetLeft(button, labelWidth + day * dayWidth + placement.Column * dayWidth / placement.Columns); Canvas.SetTop(button, top); canvas.Children.Add(button);
             }

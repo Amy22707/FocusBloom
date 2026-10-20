@@ -74,6 +74,7 @@ public sealed partial class StatisticsViewModel : ObservableObject
     public string ValidationText => IsCustom && CustomTo < CustomFrom ? "结束日期不能早于开始日期。" : "";
     public bool IsValid => ValidationText.Length == 0;
     public string SelectionLabel => string.Join(" · ", new[] { SelectedFolder?.Name, SelectedProject?.Name, SelectedTodo?.Name }.Where(name => name is not null));
+    public string FilterSummary => SelectedFolder?.Folder is null && SelectedProject?.Id is null && SelectedTodo?.Id is null ? "筛选范围 · 全部项目" : "筛选范围 · " + SelectionLabel;
     public string TaskSummary => $"关联待办当前状态：{Tasks.Count(task => task.Status == "已完成")} / {Tasks.Count} 已完成";
     public string QuantitySummary { get; private set; } = "";
     public string OutcomeSummary => $"本范围内结束的专注 · {Outcomes.Count} 条成果";
@@ -151,7 +152,7 @@ public sealed partial class StatisticsViewModel : ObservableObject
             .Select((group, index) => new StatisticsShare(group.Key, colors[index % colors.Length], TimeSpan.FromTicks(group.Sum(item => item.Duration.Ticks)), group.Sum(item => item.Count), group.Select(item => item.ProjectId).ToHashSet())).ToArray()
             : Snapshot.Projects.Select((item, index) => new StatisticsShare(projectNames.GetValueOrDefault(item.ProjectId)?.Name ?? "已删除项目", colors[index % colors.Length], item.Duration, item.Count, new HashSet<Guid> { item.ProjectId })).ToArray();
         BuildReview();
-        foreach (var name in new[] { nameof(Metrics), nameof(RangeLabel), nameof(ValidationText), nameof(IsValid), nameof(SelectionLabel), nameof(HeatmapYear), nameof(TaskSummary), nameof(QuantitySummary), nameof(OutcomeSummary) }) Notify(name);
+        foreach (var name in new[] { nameof(Metrics), nameof(RangeLabel), nameof(ValidationText), nameof(IsValid), nameof(SelectionLabel), nameof(FilterSummary), nameof(HeatmapYear), nameof(TaskSummary), nameof(QuantitySummary), nameof(OutcomeSummary) }) Notify(name);
         Changed?.Invoke(this, EventArgs.Empty);
     }
     private void BuildReview()

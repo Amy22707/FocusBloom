@@ -19,6 +19,7 @@ public sealed class TodoRow(TodoItem item, TimeSpan invested) : ObservableObject
     public string PriorityText => Item.Priority switch { TodoPriority.High => "高优先级", TodoPriority.Low => "低优先级", _ => "普通优先级" };
     public string QuadrantText => (Item.Important ? "重要" : "不重要") + " · " + (Item.Urgent ? "紧急" : "不紧急");
     public string DueText => Item.DueDate is { } date ? $"截止 {date:yyyy-MM-dd}" + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "无截止日期";
+    public string DueDisplayText => Item.DueDate is { } date ? "截止 " + (date.Year == DateTime.Today.Year ? date.ToString("M月d日") : date.ToString("yyyy/M/d")) + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "";
     public bool HasDueDate => Item.DueDate is not null;
     public string DueCompactText => Item.DueDate is { } date ? $"{date:MM-dd}" + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "";
     public bool Overdue => !Completed && Item.DueDate is { } date &&
@@ -28,7 +29,7 @@ public sealed class TodoRow(TodoItem item, TimeSpan invested) : ObservableObject
     public bool HasResumeNote => Item.ResumeNote.Length > 0;
     public string ResumeText => string.IsNullOrEmpty(Item.ResumeNote) ? "" : "下一步：" + Item.ResumeNote;
     public string InvestmentText => $"已投入 {(int)invested.TotalHours:00}:{invested.Minutes:00}:{invested.Seconds:00}" + (Item.EstimatedMinutes is { } estimate ? $" · 预计 {estimate} 分钟" : "");
-    public void RefreshDeadline() => Notify(nameof(Overdue));
+    public void RefreshDeadline() { Notify(nameof(Overdue)); Notify(nameof(DueDisplayText)); }
 }
 
 public sealed class TodoQuadrant(bool important, bool urgent, string hint) : ObservableObject
@@ -45,6 +46,26 @@ public sealed class TodoQuadrant(bool important, bool urgent, string hint) : Obs
     public void Refresh() { Notify(nameof(CountText)); Notify(nameof(IsEmpty)); }
 }
 
+public sealed class TodoFolderGroup : ObservableObject
+{
+    private readonly IFocusStore _store;
+    private bool _completedExpanded;
+    public TodoFolder Folder { get; }
+    public string Name => Folder.Name;
+    public IReadOnlyList<TodoRow> Pending { get; }
+    public IReadOnlyList<TodoRow> Completed { get; }
+    public string CountText => $"{Pending.Count + Completed.Count} 项";
+    public string CompletedLabel => $"已完成 · {Completed.Count}";
+    public bool HasCompleted => Completed.Count > 0;
+    public bool IsEmpty => Pending.Count + Completed.Count == 0;
+    public bool CompletedExpanded { get => _completedExpanded; set { _completedExpanded = value; _store.SaveSetting("ui.todos.completedExpanded." + Folder.Id, value.ToString()); Notify(); } }
+    public TodoFolderGroup(TodoFolder folder, IEnumerable<TodoRow> items, IFocusStore store, bool completedOnly)
+    {
+        _store = store; Folder = folder; var rows = items.ToArray(); Pending = rows.Where(item => !item.Completed).ToArray(); Completed = rows.Where(item => item.Completed).ToArray();
+        _completedExpanded = completedOnly || store.GetSetting("ui.todos.completedExpanded." + folder.Id) == "True";
+    }
+}
+
 public sealed class TodoLibraryViewModel : ObservableObject
 {
     private sealed record TodoOrder(List<string> Categories, List<Guid> Folders, List<Guid> Items);
@@ -59,11 +80,13 @@ public sealed class TodoLibraryViewModel : ObservableObject
     private long _deadlineMinute = -1;
     private string _viewMode;
     private string _quadrantScope;
+    private string _listScope;
     public event EventHandler? Changed;
     public ObservableCollection<string> Categories { get; } = [];
     public ObservableCollection<TodoFolder> Folders { get; } = [];
     public ObservableCollection<TodoRow> Items { get; } = [];
     public ObservableCollection<TodoRow> VisibleItems { get; } = [];
+    public ObservableCollection<TodoFolderGroup> FolderGroups { get; } = [];
     public IReadOnlyList<TodoQuadrant> Quadrants { get; } = new[]
     {
         new TodoQuadrant(true, true, "优先处理"), new TodoQuadrant(true, false, "安排时间"),
@@ -75,7 +98,7 @@ public sealed class TodoLibraryViewModel : ObservableObject
         get => _viewMode;
         set
         {
-            _viewMode = value; RefreshItems(); Notify(); Notify(nameof(ShowList)); Notify(nameof(ShowQuadrants)); Notify(nameof(Heading));
+            _viewMode = value; RefreshItems(); Notify(); Notify(nameof(ShowList)); Notify(nameof(ShowQuadrants)); Notify(nameof(Heading)); Notify(nameof(Scope));
             try { _store.SaveSetting("todos.view", value); } catch (Exception ex) { _report($"视图偏好保存失败：{ex.Message}"); }
         }
     }
@@ -87,11 +110,19 @@ public sealed class TodoLibraryViewModel : ObservableObject
         get => _quadrantScope;
         set
         {
-            _quadrantScope = value; RefreshItems(); Notify(); Notify(nameof(Heading));
+            _quadrantScope = value; RefreshItems(); Notify(); Notify(nameof(Heading)); Notify(nameof(Scope));
             try { _store.SaveSetting("todos.quadrantScope", value); } catch (Exception ex) { _report($"象限范围保存失败：{ex.Message}"); }
         }
     }
-    public bool ShowAllFolders => ShowQuadrants && QuadrantScope == "全部文件夹";
+    public string ListScope
+    {
+        get => _listScope;
+        set { _listScope = value; _store.SaveSetting("todos.listScope", value); RefreshItems(); Notify(); Notify(nameof(Scope)); Notify(nameof(Heading)); }
+    }
+    public string Scope { get => ShowQuadrants ? QuadrantScope : ListScope; set { if (ShowQuadrants) QuadrantScope = value; else ListScope = value; } }
+    public bool ShowAllFolders => Scope == "全部文件夹";
+    public bool ShowGroupedList => ShowList && ShowAllFolders;
+    public bool ShowFlatList => ShowList && !ShowAllFolders;
     public IReadOnlyList<string> Filters { get; } = new[] { "全部", "待办", "进行中", "已完成" };
     public string? SelectedCategory { get => _category; set { _category = value; Notify(); } }
     public TodoFolder? SelectedFolder { get => _folder; set { _folder = value; RefreshItems(); Notify(); Notify(nameof(Heading)); SaveSelection(); } }
@@ -106,6 +137,7 @@ public sealed class TodoLibraryViewModel : ObservableObject
         _store = store; _report = report; _canDelete = canDelete;
         _viewMode = store.GetSetting("todos.view") == "四象限" ? "四象限" : "列表";
         _quadrantScope = store.GetSetting("todos.quadrantScope") == "当前文件夹" ? "当前文件夹" : "全部文件夹";
+        _listScope = store.GetSetting("todos.listScope") == "全部文件夹" ? "全部文件夹" : "当前文件夹";
         var json = store.GetSetting("todos.order");
         _order = json is null ? new([], [], []) : JsonSerializer.Deserialize<TodoOrder>(json)!;
         var savedFolder = store.GetSetting("todos.folder");
@@ -134,7 +166,14 @@ public sealed class TodoLibraryViewModel : ObservableObject
         VisibleItems.Clear();
         foreach (var item in Items.Where(item => (ShowAllFolders || item.Item.FolderId == _folder?.Id) && (_filter == "全部" || item.StatusText == _filter)
             && (string.IsNullOrWhiteSpace(_search) || item.Title.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase) || item.Notes.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase))).OrderBy(item => item.Completed)) VisibleItems.Add(item);
-        Notify(nameof(Summary)); Notify(nameof(IsEmpty));
+        FolderGroups.Clear();
+        foreach (var folder in Folders)
+        {
+            var rows = VisibleItems.Where(item => item.Item.FolderId == folder.Id).ToArray();
+            if (!string.IsNullOrWhiteSpace(_search) && rows.Length == 0) continue;
+            FolderGroups.Add(new(folder, rows, _store, _filter == "已完成"));
+        }
+        Notify(nameof(Summary)); Notify(nameof(IsEmpty)); Notify(nameof(ShowAllFolders)); Notify(nameof(ShowGroupedList)); Notify(nameof(ShowFlatList));
         foreach (var quadrant in Quadrants)
         {
             quadrant.Items.Clear();
@@ -193,6 +232,15 @@ public sealed class TodoLibraryViewModel : ObservableObject
         catch (Exception ex) { _report($"待办保存失败：{ex.Message}"); return false; }
     }
     public bool CanDeleteItem(Guid id) => _canDelete(id);
+    public bool MoveToFolder(TodoRow row, TodoFolder folder) => SaveMovedItem(row.Item with { FolderId = folder.Id });
+    public bool MoveToQuadrant(TodoRow row, TodoQuadrant quadrant) => SaveMovedItem(row.Item with { Important = quadrant.Important, Urgent = quadrant.Urgent });
+    private bool SaveMovedItem(TodoItem item)
+    {
+        var folderId = SelectedFolder?.Id;
+        if (!SaveItem(item)) return false;
+        if (Folders.FirstOrDefault(folder => folder.Id == folderId) is { } previous) SelectedFolder = previous;
+        return true;
+    }
     public bool CanDeleteFolder(TodoFolder folder) => Items.Where(item => item.Item.FolderId == folder.Id).All(item => _canDelete(item.Id));
     public bool CanDeleteCategory(string category) => Folders.Where(folder => folder.Category == category).All(CanDeleteFolder);
     public bool DeleteItem(Guid id) => Delete(() => _store.DeleteTodo(id), _canDelete(id));
@@ -209,7 +257,7 @@ public sealed class TodoLibraryViewModel : ObservableObject
     { if (CollectionOrder.Move(Categories, category, direction, targetItem: target)) SaveOrder(); }
     public void MoveFolder(TodoFolder folder, OrderMove direction, TodoFolder? target = null)
     {
-        if (CollectionOrder.Move(Folders, folder, direction, targetItem: target)) SaveOrder();
+        if (CollectionOrder.Move(Folders, folder, direction, targetItem: target)) { RefreshItems(); SaveOrder(); }
     }
     public void MoveItem(TodoRow item, OrderMove direction, TodoRow? target = null, TodoQuadrant? quadrant = null)
     {

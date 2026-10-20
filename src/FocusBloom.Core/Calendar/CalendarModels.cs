@@ -7,7 +7,7 @@ public sealed record ReminderOptions(bool Enabled = true, int MinutesBefore = 30
 public sealed record DateEvent(Guid Id, string Title, DateOnly Date, TimeOnly? Time = null,
     DateCountMode Mode = DateCountMode.Countdown, DateRepeat Repeat = DateRepeat.None, DateOnly? RepeatUntil = null,
     string Notes = "", string? CoverPath = null, bool Pinned = false, Guid? ProjectId = null, Guid? TodoId = null,
-    ReminderOptions? Reminder = null);
+    ReminderOptions? Reminder = null, string Group = "未分组");
 public sealed record CalendarPlan(Guid Id, string Title, DateOnly Date, TimeOnly Start, int Minutes = 30,
     Guid? TodoId = null, Guid? ProjectId = null, string Notes = "", ReminderOptions? Reminder = null);
 public sealed record ClassPeriod(int Number, TimeOnly Start, TimeOnly End);

@@ -31,8 +31,8 @@ public sealed class RestrictionSettingsViewModel : ObservableObject
     {
         _store = store;
         _report = report;
-        _whiteApplications = new(Read<AllowedApplication>("restrictions.applications"));
-        _blackApplications = new(Read<AllowedApplication>("restrictions.applications.blacklist"));
+        _whiteApplications = new(Read<AllowedApplication>("restrictions.applications").DistinctBy(app => ApplicationRuleIdentity.Key(app.ExecutablePath), StringComparer.OrdinalIgnoreCase));
+        _blackApplications = new(Read<AllowedApplication>("restrictions.applications.blacklist").DistinctBy(app => ApplicationRuleIdentity.Key(app.ExecutablePath), StringComparer.OrdinalIgnoreCase));
         _whiteWebsites = new(Read<WebsiteRule>("restrictions.websites"));
         _blackWebsites = new(Read<WebsiteRule>("restrictions.websites.blacklist"));
         _applicationMode = ListModes.First(m => m.Mode.ToString() == (store.GetSetting("restrictions.applicationMode") ?? "Whitelist"));
@@ -103,7 +103,12 @@ public sealed class RestrictionSettingsViewModel : ObservableObject
 
     public void AddApplication(AllowedApplication application)
     {
-        if (Applications.Any(a => a.ExecutablePath.Equals(application.ExecutablePath, StringComparison.OrdinalIgnoreCase))) return;
+        var existing = Applications.FirstOrDefault(app => ApplicationRuleIdentity.Matches(app.ExecutablePath, application.ExecutablePath));
+        if (existing is not null)
+        {
+            if (existing != application) { Applications[Applications.IndexOf(existing)] = application; Save(ApplicationSettingKey, Applications); }
+            SelectedApplication = existing == application ? existing : application; return;
+        }
         Applications.Add(application);
         SelectedApplication = application;
         Save(ApplicationSettingKey, Applications);

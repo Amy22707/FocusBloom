@@ -7,7 +7,28 @@ public sealed partial class SqliteFocusStore
 {
     private static readonly JsonSerializerOptions CalendarJson = new(JsonSerializerDefaults.Web);
     public IReadOnlyList<DateEvent> GetDateEvents() => ReadCalendarRows<DateEvent>("date_events");
-    public void SaveDateEvent(DateEvent item) => WriteCalendarRow("date_events", item.Id, item);
+    public void SaveDateEvent(DateEvent item) { SaveDateGroup(item.Group); WriteCalendarRow("date_events", item.Id, item); }
+    public IReadOnlyList<string> GetDateGroups()
+    {
+        using var connection = Open(); using var command = connection.CreateCommand(); command.CommandText = "SELECT name FROM date_groups ORDER BY rowid";
+        using var reader = command.ExecuteReader(); var names = new List<string>(); while (reader.Read()) names.Add(reader.GetString(0));
+        return names.Concat(GetDateEvents().Select(item => item.Group)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+    public void SaveDateGroup(string name)
+    {
+        using var connection = Open(); using var command = connection.CreateCommand(); command.CommandText = "INSERT OR IGNORE INTO date_groups(name) VALUES($name)"; command.Parameters.AddWithValue("$name", name); command.ExecuteNonQuery();
+    }
+    public void RenameDateGroup(string name, string newName) { if (name != newName) MoveDateGroup(name, newName); }
+    public void DeleteDateGroup(string name) => MoveDateGroup(name, "未分组");
+    private void MoveDateGroup(string name, string destination)
+    {
+        if (name == "未分组") throw new InvalidOperationException("默认分组保留，事项可以移入其他分组。");
+        var items = GetDateEvents().Where(item => string.Equals(item.Group, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+        using var connection = Open(); using var transaction = connection.BeginTransaction(); using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = "INSERT OR IGNORE INTO date_groups(name) VALUES($destination)"; command.Parameters.AddWithValue("$destination", destination); command.ExecuteNonQuery(); command.Parameters.Clear();
+        foreach (var item in items) { command.CommandText = "UPDATE date_events SET payload=$payload WHERE id=$id"; command.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(item with { Group = destination }, CalendarJson)); command.Parameters.AddWithValue("$id", item.Id.ToString()); command.ExecuteNonQuery(); command.Parameters.Clear(); }
+        command.CommandText = "DELETE FROM date_groups WHERE name=$name"; command.Parameters.AddWithValue("$name", name); command.ExecuteNonQuery(); transaction.Commit();
+    }
     public void DeleteDateEvent(Guid id) => DeleteCalendarRow("date_events", id);
     public IReadOnlyList<CalendarPlan> GetCalendarPlans() => ReadCalendarRows<CalendarPlan>("calendar_plans");
     public void SaveCalendarPlan(CalendarPlan item) => WriteCalendarRow("calendar_plans", item.Id, item);

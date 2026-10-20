@@ -61,11 +61,23 @@ public sealed class ReorderButton : Button
             finally { GiveFeedback -= follow; drag.Preview?.Dispose(); }
         };
     }
-    private static ItemsControl? ParentItemsControl(DependencyObject item)
+    internal static ItemsControl? ParentItemsControl(DependencyObject item)
     {
         for (var parent = VisualTreeHelper.GetParent(item); parent is not null; parent = VisualTreeHelper.GetParent(parent))
             if (parent is ItemsControl control) return control;
         return null;
+    }
+    internal static object? DraggedItem(IDataObject data) => (data.GetData(DragFormat) as DragItem)?.Handle.DataContext;
+    internal static void LeaveList(IDataObject data)
+    {
+        if (data.GetData(DragFormat) is not DragItem item) return;
+        item.Preview ??= new ReorderPreview(item.Handle, item.Owner, item.Handle._start);
+        item.Preview.LeaveList();
+    }
+    internal static void FinishDrag(IDataObject data)
+    {
+        if (data.GetData(DragFormat) is not DragItem item) return;
+        item.Preview?.Dispose(); item.Preview = null;
     }
     private static void OnEnableDrop(DependencyObject target, DependencyPropertyChangedEventArgs args)
     {
@@ -103,7 +115,9 @@ public sealed class ReorderButton : Button
             if (parent is ScrollViewer found) scroll = found;
         if (scroll is null) return;
         var point = args.GetPosition(scroll);
-        if (point.Y < 28) scroll.LineUp();
+        if (scroll.ScrollableWidth > 0 && point.X < 28) scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset - 36);
+        else if (scroll.ScrollableWidth > 0 && point.X > scroll.ActualWidth - 28) scroll.ScrollToHorizontalOffset(scroll.HorizontalOffset + 36);
+        else if (point.Y < 28) scroll.LineUp();
         else if (point.Y > scroll.ActualHeight - 28) scroll.LineDown();
         else return;
         list.SetValue(LastScrollProperty, Environment.TickCount64);

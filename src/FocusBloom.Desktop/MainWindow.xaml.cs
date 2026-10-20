@@ -80,6 +80,8 @@ public partial class MainWindow : Window
         _desktopWidgets = new DesktopWidgetManager(viewModel, store, OpenDesktopWidget, OpenReminder);
         Loaded += (_, _) => _desktopWidgets.Start();
         RememberToggle(ProjectSidebarToggle, "ui.projects.sidebarCollapsed");
+        RememberExpansion(FocusTodoOptions, "ui.focus.todoLinkExpanded");
+        RememberExpansion((Expander)StatisticsPage.FindName("StatisticsFilters"), "ui.statistics.filtersExpanded");
         RememberToggle((System.Windows.Controls.Primitives.ToggleButton)TodoPage.FindName("TodoSidebarToggle"), "ui.todos.sidebarCollapsed");
         var mediaSettings = (FocusMediaSettingsView)FocusMediaSettingsCard.Child;
         RememberExpansion((Expander)mediaSettings.FindName("BackgroundLibrary"), "ui.media.backgroundExpanded");
@@ -225,6 +227,13 @@ public partial class MainWindow : Window
         _viewModel.MoveFolder((ProjectFolder)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as ProjectFolder);
         e.Handled = true;
     }
+    private void ProjectGroupMove_Requested(object sender, RoutedEventArgs e)
+    {
+        var move = (GroupMoveEventArgs)e;
+        move.Moved = _viewModel.UpdateProject((FocusBloom.Core.Projects.FocusProject)move.Item, ((FocusBloom.Core.Projects.FocusProject)move.Item).Name, (ProjectFolder)move.Target);
+        if (!move.Moved) ConfirmDeletionWindow.ShowNotice(this, _viewModel.StatusMessage, "未能移动");
+        e.Handled = true;
+    }
     private void ProjectOrder_Requested(object sender, RoutedEventArgs e)
     {
         _viewModel.MoveProject((FocusBloom.Core.Projects.FocusProject)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as FocusBloom.Core.Projects.FocusProject);
@@ -348,13 +357,14 @@ public partial class MainWindow : Window
         ContentFullscreen = _fullscreen && !browser && !timer;
         WorkspaceHeader.Visibility = ContentFullscreen ? Visibility.Collapsed : Visibility.Visible;
         StatusDisplay.Visibility = ContentFullscreen ? Visibility.Collapsed : Visibility.Visible;
-        WorkspaceView.RowDefinitions[0].Height = new GridLength(ContentFullscreen ? 0 : 88);
-        WorkspaceView.RowDefinitions[2].Height = new GridLength(ContentFullscreen ? 0 : 42);
+        WorkspaceView.RowDefinitions[0].Height = new GridLength(ContentFullscreen ? 0 : 52);
+        WorkspaceView.RowDefinitions[2].Height = new GridLength(ContentFullscreen ? 0 : 24);
         WorkspaceView.Visibility = timer || browser ? Visibility.Collapsed : Visibility.Visible;
         FullscreenView.Visibility = timer ? Visibility.Visible : Visibility.Collapsed;
         BrowserFullscreenView.Visibility = browser ? Visibility.Visible : Visibility.Collapsed;
         _studyBrowser.SetFullscreenPresentation(browser);
-        EnterFullscreenButton.Content = _fullscreen ? "退出全屏  ↙" : "全屏  ↗";
+        EnterFullscreenButton.Content = _fullscreen ? "↙" : "↗";
+        EnterFullscreenButton.ToolTip = _fullscreen ? "退出全屏（Esc）" : "内容全屏（F11）";
         UpdateTimerFloatVisibility();
     }
 

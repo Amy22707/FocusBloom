@@ -21,7 +21,7 @@ public sealed class ReflectionTests
         Assert.Null(ReflectionRules.Normalize(new(today.AddYears(-10), null, Array.Empty<string>(), Highlights: "以前的一天"), today).Mood);
         Assert.Throws<InvalidOperationException>(() => ReflectionRules.Normalize(new(today, null, Array.Empty<string>()), today));
         Assert.Throws<InvalidOperationException>(() => ReflectionRules.Normalize(new(today.AddDays(1), 3, Array.Empty<string>()), today));
-        Assert.Throws<InvalidOperationException>(() => ReflectionRules.Normalize(new(today, 6, Array.Empty<string>()), today));
+        Assert.Throws<InvalidOperationException>(() => ReflectionRules.Normalize(new(today, 99, Array.Empty<string>()), today));
     }
     [Fact]
     public void DailyReflectionIsUniqueByDateSurvivesReopenAndDeletesWithoutTouchingFocusData()

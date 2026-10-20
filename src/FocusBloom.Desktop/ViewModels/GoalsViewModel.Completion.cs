@@ -18,12 +18,13 @@ public sealed partial class GoalsViewModel
     private IReadOnlyList<FocusRecord> _completionRecords = Array.Empty<FocusRecord>();
     private IReadOnlyList<HabitCheckIn> _completionChecks = Array.Empty<HabitCheckIn>();
     private IReadOnlyList<Habit> _completionHabits = Array.Empty<Habit>();
-    public IReadOnlyList<string> Views { get; } = new[] { "卡片", "周", "月", "年" };
+    public IReadOnlyList<string> Views { get; } = new[] { "日", "卡片", "周", "月", "年" };
     public ObservableCollection<CompletionChoice> CompletionChoices { get; } = new();
-    public string View { get => _view; set { if (_view == value || !Views.Contains(value)) return; _view = value; _store.SaveSetting("goals.view", value); RefreshCompletion(); Notify(); Notify(nameof(ShowCards)); Notify(nameof(ShowCompletion)); } }
+    public string View { get => _view; set { if (_view == value || !Views.Contains(value)) return; _view = value; _store.SaveSetting("goals.view", value); RefreshCompletion(); RefreshDaily(); Notify(); Notify(nameof(ShowCards)); Notify(nameof(ShowDaily)); Notify(nameof(ShowCompletion)); } }
     public bool ShowCards => View == "卡片";
-    public bool ShowCompletion => !ShowCards;
-    public DateTime Anchor { get => _anchor; set { if (_anchor == value.Date) return; _anchor = value.Date; Notify(); RefreshCompletion(); } }
+    public bool ShowDaily => View == "日";
+    public bool ShowCompletion => !ShowCards && !ShowDaily;
+    public DateTime Anchor { get => _anchor; set { if (_anchor == value.Date) return; _anchor = value.Date; Notify(); RefreshCompletion(); RefreshDaily(); } }
     public CompletionChoice? SelectedCompletion { get => _completionChoice; set { if (value is null || _completionChoice == value) return; _completionChoice = value; Notify(); RefreshCompletion(); } }
     public DateOnly CompletionFrom { get; private set; }
     public DateOnly CompletionTo { get; private set; }
@@ -41,11 +42,12 @@ public sealed partial class GoalsViewModel
         foreach (var goal in Goals) CompletionChoices.Add(new("目标 · " + goal.Name, GoalId: goal.Id));
         foreach (var habit in Habits) CompletionChoices.Add(new("习惯 · " + habit.Name, HabitId: habit.Id));
         _completionChoice = CompletionChoices.FirstOrDefault(item => item.GoalId == previous?.GoalId && item.HabitId == previous?.HabitId) ?? CompletionChoices[0];
-        Notify(nameof(SelectedCompletion)); RefreshCompletion();
+        Notify(nameof(SelectedCompletion)); RefreshCompletion(); RefreshDaily();
     }
-    private void MovePeriod(int offset) => Anchor = View == "年" ? Anchor.AddYears(offset) : View == "月" ? Anchor.AddMonths(offset) : Anchor.AddDays(7 * offset);
+    private void MovePeriod(int offset) => Anchor = View == "日" ? Anchor.AddDays(offset) : View == "年" ? Anchor.AddYears(offset) : View == "月" ? Anchor.AddMonths(offset) : Anchor.AddDays(7 * offset);
     private void RefreshCompletion()
     {
+        if (!ShowCompletion) return;
         var anchor = DateOnly.FromDateTime(Anchor);
         CompletionFrom = View == "年" ? new(anchor.Year, 1, 1) : View == "月" ? new(anchor.Year, anchor.Month, 1) : FocusBloom.Core.Calendar.CalendarRules.Monday(anchor);
         CompletionTo = View == "年" ? new(anchor.Year, 12, 31) : View == "月" ? new(anchor.Year, anchor.Month, DateTime.DaysInMonth(anchor.Year, anchor.Month)) : CompletionFrom.AddDays(6);

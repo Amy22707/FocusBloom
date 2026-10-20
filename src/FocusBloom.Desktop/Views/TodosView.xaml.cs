@@ -17,6 +17,20 @@ public partial class TodosView : UserControl
     private MainViewModel Main => (MainViewModel)Window.GetWindow(this).DataContext;
     private TodoLibraryViewModel Library => (TodoLibraryViewModel)DataContext;
     public TodosView() => InitializeComponent();
+    private void GroupMove_Requested(object sender, RoutedEventArgs e)
+    {
+        var move = (GroupMoveEventArgs)e; var row = (TodoRow)move.Item; var offsets = CaptureGroupOffsets();
+        move.Moved = move.Target switch
+        {
+            TodoFolderGroup group => Library.MoveToFolder(row, group.Folder),
+            TodoFolder folder => Library.MoveToFolder(row, folder),
+            TodoQuadrant quadrant => Library.MoveToQuadrant(row, quadrant),
+            _ => false
+        };
+        if (!move.Moved) ConfirmDeletionWindow.ShowNotice(Window.GetWindow(this), Main.StatusMessage, "未能移动");
+        else Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => RestoreGroupOffsets(offsets)));
+        e.Handled = true;
+    }
     private void QuadrantBoard_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (QuadrantAxes is null || QuadrantBoard.ActualWidth <= 0 || QuadrantBoard.ActualHeight <= 0) return;
@@ -47,6 +61,7 @@ public partial class TodosView : UserControl
     { NewTodo(); }
     private void NewQuadrantTodo_Click(object sender, RoutedEventArgs e)
     { var quadrant = (TodoQuadrant)((Button)sender).DataContext; NewTodo(quadrant.Important, quadrant.Urgent); }
+    private void NewInFolder_Click(object sender, RoutedEventArgs e) => new TodoEditorWindow(Main, initialFolderId: ((TodoFolder)((Button)sender).DataContext).Id) { Owner = Window.GetWindow(this) }.ShowDialog();
     private void NewTodo(bool important = false, bool urgent = false)
     {
         if (Library.SelectedFolder is null) Library.SaveFolder(null, "待整理", "未分类");
@@ -62,21 +77,35 @@ public partial class TodosView : UserControl
     {
         var folder = Library.SelectedFolder?.Id;
         var scroll = FindScroll(TodoList); var offset = scroll?.VerticalOffset ?? 0;
+        var groups = CaptureGroupOffsets();
         new TodoEditorWindow(Main, ((TodoRow)((Button)sender).DataContext).Item) { Owner = Window.GetWindow(this) }.ShowDialog();
-        if (Library.SelectedFolder?.Id == folder) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => scroll?.ScrollToVerticalOffset(offset)));
+        if (Library.ShowGroupedList || Library.SelectedFolder?.Id == folder) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { scroll?.ScrollToVerticalOffset(offset); RestoreGroupOffsets(groups); }));
     }
-    private void TodoDetails_Click(object sender, RoutedEventArgs e)
+    private void TodoDetails_Click(object sender, RoutedEventArgs e) => OpenTodoDetails((TodoRow)((Button)sender).DataContext);
+    private void TodoCard_MouseUp(object sender, MouseButtonEventArgs e) { if (!e.Handled) { e.Handled = true; OpenTodoDetails((TodoRow)((Border)sender).DataContext); } }
+    private void OpenTodoDetails(TodoRow item)
     {
         var folder = Library.SelectedFolder?.Id;
         var listScroll = FindScroll(TodoList); var listOffset = listScroll?.VerticalOffset ?? 0;
+        var groups = CaptureGroupOffsets();
         var offsets = Library.Quadrants.ToDictionary(quadrant => quadrant, quadrant => FindQuadrantScroll(QuadrantBoard, quadrant)?.VerticalOffset ?? 0);
-        var dialog = new TodoDetailsWindow(Main, (TodoRow)((Button)sender).DataContext) { Owner = Window.GetWindow(this) };
+        var dialog = new TodoDetailsWindow(Main, item) { Owner = Window.GetWindow(this) };
         if (dialog.ShowDialog() == true) ((MainWindow)Window.GetWindow(this)).ReturnToFocus();
-        if (Library.SelectedFolder?.Id == folder) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        if (Library.ShowGroupedList || Library.SelectedFolder?.Id == folder) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             listScroll?.ScrollToVerticalOffset(listOffset);
+            RestoreGroupOffsets(groups);
             foreach (var pair in offsets) FindQuadrantScroll(QuadrantBoard, pair.Key)?.ScrollToVerticalOffset(pair.Value);
         }));
+    }
+    private System.Collections.Generic.Dictionary<Guid, double> CaptureGroupOffsets() => GroupScrolls(TodoGroupBoard).ToDictionary(scroll => (Guid)scroll.Tag, scroll => scroll.VerticalOffset);
+    private void RestoreGroupOffsets(System.Collections.Generic.Dictionary<Guid, double> offsets)
+    { foreach (var scroll in GroupScrolls(TodoGroupBoard)) if (offsets.TryGetValue((Guid)scroll.Tag, out var offset)) scroll.ScrollToVerticalOffset(offset); }
+    private static System.Collections.Generic.IEnumerable<ScrollViewer> GroupScrolls(DependencyObject parent)
+    {
+        if (parent is ScrollViewer { Tag: Guid } scroll) yield return scroll;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            foreach (var child in GroupScrolls(VisualTreeHelper.GetChild(parent, index))) yield return child;
     }
     private static ScrollViewer? FindQuadrantScroll(DependencyObject parent, TodoQuadrant quadrant)
     {
@@ -88,7 +117,11 @@ public partial class TodosView : UserControl
         if (parent is ScrollViewer scroll) return scroll;
         return Enumerable.Range(0, VisualTreeHelper.GetChildrenCount(parent)).Select(index => FindScroll(VisualTreeHelper.GetChild(parent, index))).FirstOrDefault(item => item is not null);
     }
-    private void Complete_Click(object sender, RoutedEventArgs e) => Library.ToggleCompleted((TodoRow)((CheckBox)sender).DataContext);
+    private void Complete_Click(object sender, RoutedEventArgs e)
+    {
+        var groups = CaptureGroupOffsets(); Library.ToggleCompleted((TodoRow)((CheckBox)sender).DataContext);
+        if (Library.ShowGroupedList) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => RestoreGroupOffsets(groups)));
+    }
     private void FolderOrder_Requested(object sender, RoutedEventArgs e)
     { Library.MoveFolder((TodoFolder)((ReorderButton)sender).DataContext, ((ReorderEventArgs)e).Direction, ((ReorderEventArgs)e).Target as TodoFolder); e.Handled = true; }
     private void ItemOrder_Requested(object sender, RoutedEventArgs e)

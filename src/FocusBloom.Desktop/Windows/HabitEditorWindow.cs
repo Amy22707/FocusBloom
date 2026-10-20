@@ -32,7 +32,7 @@ public sealed class HabitEditorWindow : CalendarFormWindow
         _project = Choice("ProjectSelector", "关联项目（可选）", projects, projects.FirstOrDefault(link => link.Id == item?.ProjectId), "Name");
         _reminder = Check("ReminderToggle", "开启执行日提醒", item?.Reminder ?? false); _time = AddTextInput("ReminderTimeInput", "提醒时间 / HH:mm", (item?.ReminderTime ?? new TimeOnly(20, 0)).ToString("HH:mm")); _time.IsEnabled = _reminder.IsChecked == true;
         _reminder.Checked += (_, _) => _time.IsEnabled = true; _reminder.Unchecked += (_, _) => _time.IsEnabled = false;
-        Caption("习惯提醒受软件提醒总开关控制。打卡限当天计划内，历史日历可查看。"); Finish();
+        Caption("习惯提醒受软件提醒总开关控制。今天或过去的计划执行日都可以打卡。"); Finish();
     }
     protected override void Save()
     {

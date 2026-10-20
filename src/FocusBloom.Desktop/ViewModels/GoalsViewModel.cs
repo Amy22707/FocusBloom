@@ -23,7 +23,8 @@ public sealed record HabitRow(Habit Habit, HabitProgress Progress, bool CheckedT
 {
     public Guid Id => Habit.Id;
     public string Name => Habit.Name;
-    public string Schedule => Habit.Weekdays.Count == 7 ? "每天" : Habit.Weekdays.SequenceEqual(new[] { 1, 2, 3, 4, 5 }) ? "工作日" : string.Join("、", Habit.Weekdays.Select(day => "周" + "一二三四五六日"[day - 1]));
+    public string Schedule => ScheduleFor(Habit);
+    public static string ScheduleFor(Habit habit) => habit.Weekdays.Count == 7 ? "每天" : habit.Weekdays.SequenceEqual(new[] { 1, 2, 3, 4, 5 }) ? "工作日" : string.Join("、", habit.Weekdays.Select(day => "周" + "一二三四五六日"[day - 1]));
     public string Streak => $"连续完成 {Progress.Streak} 个计划日";
     public string Month => $"本月 {Progress.Completed} / {Progress.Planned}" + (Progress.Planned > 0 ? $" · {(double)Progress.Completed / Progress.Planned:P0}" : "");
     public string Reminder => Habit.Reminder ? $"{Habit.ReminderTime ?? new TimeOnly(20, 0):HH:mm} 提醒" : "未开启提醒";
@@ -36,6 +37,7 @@ public sealed partial class GoalsViewModel : ObservableObject
     private readonly IFocusStore _store;
     private readonly Action<string> _report;
     private readonly TimeProvider _clock;
+    private DateOnly _lastToday;
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
     public string TodayText => $"{Today:yyyy年M月d日} · 专注结束后自动更新目标";
     public ObservableCollection<GoalRow> Goals { get; } = new();
@@ -45,12 +47,13 @@ public sealed partial class GoalsViewModel : ObservableObject
     public event EventHandler? Changed;
     public GoalsViewModel(IFocusStore store, Action<string> report, TimeProvider? clock = null)
     {
-        _store = store; _report = report; _clock = clock ?? TimeProvider.System; _anchor = Today.ToDateTime(TimeOnly.MinValue);
-        _view = store.GetSetting("goals.view") is { } view && Views.Contains(view) ? view : "卡片";
+        _store = store; _report = report; _clock = clock ?? TimeProvider.System; _lastToday = Today; _anchor = Today.ToDateTime(TimeOnly.MinValue);
+        _view = store.GetSetting("goals.view") is { } view && Views.Contains(view) ? view : "日";
         PreviousCommand = new(() => MovePeriod(-1)); NextCommand = new(() => MovePeriod(1)); TodayCommand = new(() => Anchor = Today.ToDateTime(TimeOnly.MinValue)); Reload();
     }
     public void Reload()
     {
+        if (Today != _lastToday && Day == _lastToday) { _anchor = Today.ToDateTime(TimeOnly.MinValue); Notify(nameof(Anchor)); } _lastToday = Today;
         var records = _store.GetRecords(); var checks = _store.GetHabitCheckIns(); var habits = _store.GetHabits(true).ToDictionary(item => item.Id); var projects = _store.GetProjects(true).ToDictionary(item => item.Id);
         Goals.Clear(); Habits.Clear();
         foreach (var goal in _store.GetGoals())
@@ -78,8 +81,8 @@ public sealed partial class GoalsViewModel : ObservableObject
         if (habit is null || date > Today || !done && !GoalRules.Due(habit, date)) { _report("请选择今天或过去的计划执行日，未来日期不能打卡。"); return false; }
         _store.SetHabitCheckIn(habitId, date, !done); Updated(); return true;
     }
-    public void MoveGoal(GoalRow row, OrderMove direction, GoalRow? target) { if (CollectionOrder.Move(Goals, row, direction, targetItem: target)) SaveOrder(); }
-    public void MoveHabit(HabitRow row, OrderMove direction, HabitRow? target) { if (CollectionOrder.Move(Habits, row, direction, targetItem: target)) SaveOrder(); }
+    public void MoveGoal(GoalRow row, OrderMove direction, GoalRow? target) { if (CollectionOrder.Move(Goals, row, direction, targetItem: target)) { SaveOrder(); RefreshDaily(); } }
+    public void MoveHabit(HabitRow row, OrderMove direction, HabitRow? target) { if (CollectionOrder.Move(Habits, row, direction, targetItem: target)) { SaveOrder(); RefreshDaily(); } }
     private void SaveOrder() => _store.SaveSetting("goals.order", JsonSerializer.Serialize(new SavedOrder(Goals.Select(item => item.Id).ToArray(), Habits.Select(item => item.Id).ToArray())));
     private void Updated() { Reload(); Changed?.Invoke(this, EventArgs.Empty); }
 }

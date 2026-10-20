@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
 using FocusBloom.Core.Focus;
@@ -23,6 +24,18 @@ public sealed class ReflectionViewModel : ObservableObject
     private IReadOnlyList<HabitCheckIn> _checks = Array.Empty<HabitCheckIn>();
     private IReadOnlyList<FocusOutcome> _outcomes = Array.Empty<FocusOutcome>();
     private bool _summaryExpanded;
+    private string _viewMode;
+    public IReadOnlyList<string> ViewModes { get; } = new[] { "月视图", "每日记录" };
+    public string ViewMode { get => _viewMode; set { if (_viewMode == value) return; _viewMode = value; _store.SaveSetting("reflection.view", value); Notify(); Notify(nameof(IsDailyView)); Notify(nameof(NavigationLabel)); Notify(nameof(JournalIconSize)); RequestRedraw(); } }
+    public bool IsDailyView => ViewMode == "每日记录";
+    public string NavigationLabel => IsDailyView ? DateLabel : MonthLabel;
+    public double JournalIconSize => IsDailyView ? 64 : 44;
+    public ObservableCollection<ReflectionPhoto> Photos { get; } = [];
+    public bool HasPhotos => Photos.Count > 0;
+    public bool HasFeeling => Feeling.Length > 0;
+    public bool HasHighlights => Highlights.Length > 0;
+    public bool HasNextStep => NextStep.Length > 0;
+    public string DaySummaryLabel => "当天投入 · " + FocusText;
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
     public DateTime Date { get => _date; set { if (_date == value.Date) return; _date = value.Date; Notify(); RefreshSelection(); } }
     public DateOnly Day => DateOnly.FromDateTime(Date);
@@ -35,8 +48,11 @@ public sealed class ReflectionViewModel : ObservableObject
     public string MonthLabel => $"{Day:yyyy年M月}";
     public bool CanEdit => Day <= Today;
     public string EditLabel => SelectedEntry is not null ? "编辑这一天" : Day == Today ? "记录今天" : "补记这一天";
-    public string MoodTitle => SelectedEntry?.Mood is { } value ? ReflectionRules.Moods[value - 1].Emoji + " " + ReflectionRules.Moods[value - 1].Name : SelectedEntry is not null ? "这一天的复盘" : CanEdit ? "这一天，还没有留下记录" : "未来的心情，留到那天再写";
+    public int MoodValue => SelectedEntry?.Mood ?? 0;
+    public bool HasMood => SelectedEntry?.Mood is not null;
+    public string MoodTitle => SelectedEntry?.Mood is { } value ? ReflectionRules.Mood(value).Name : SelectedEntry is not null ? "这一天的复盘" : CanEdit ? "这一天，还没有留下记录" : "未来的心情，留到那天再写";
     public string Tags => SelectedEntry is { Tags.Length: > 0 } entry ? string.Join(" · ", entry.Tags) : "";
+    public bool HasTags => Tags.Length > 0;
     public string Feeling => SelectedEntry?.Feeling ?? "";
     public string Highlights => SelectedEntry?.Highlights ?? "";
     public string NextStep => SelectedEntry?.NextStep ?? "";
@@ -64,8 +80,9 @@ public sealed class ReflectionViewModel : ObservableObject
     public ReflectionViewModel(IFocusStore store, TimeProvider? clock = null)
     {
         _store = store; _clock = clock ?? TimeProvider.System; _lastToday = Today; _date = Today.ToDateTime(TimeOnly.MinValue);
+        _viewMode = store.GetSetting("reflection.view") == "每日记录" ? "每日记录" : "月视图";
         Reminder = store.GetSetting("reflection.reminder") is { } json ? JsonSerializer.Deserialize<ReflectionReminder>(json)! : new(); _summaryExpanded = store.GetSetting("reflection.summary.expanded") == "True";
-        PreviousMonthCommand = new(() => Date = Date.AddMonths(-1)); NextMonthCommand = new(() => Date = Date.AddMonths(1)); TodayCommand = new(() => Date = Today.ToDateTime(TimeOnly.MinValue)); Reload();
+        PreviousMonthCommand = new(() => Date = IsDailyView ? Date.AddDays(-1) : Date.AddMonths(-1)); NextMonthCommand = new(() => Date = IsDailyView ? Date.AddDays(1) : Date.AddMonths(1)); TodayCommand = new(() => Date = Today.ToDateTime(TimeOnly.MinValue)); Reload();
     }
     public void Reload()
     {
@@ -75,7 +92,9 @@ public sealed class ReflectionViewModel : ObservableObject
     private void RefreshSelection()
     {
         Summary = ReflectionRules.Summary(Day, _records, _todos, _habits, _checks, _outcomes);
-        foreach (var name in new[] { nameof(DateLabel), nameof(MonthLabel), nameof(CanEdit), nameof(EditLabel), nameof(MoodTitle), nameof(Tags), nameof(Feeling), nameof(Highlights), nameof(NextStep), nameof(FocusText), nameof(SessionText), nameof(TodoText), nameof(HabitText), nameof(Summary), nameof(OutcomeLines), nameof(MonthSummary) }) Notify(name);
+        Photos.Clear(); foreach (var path in SelectedEntry?.Photos ?? Array.Empty<string>()) Photos.Add(new(path));
+        foreach (var name in new[] { nameof(HasPhotos), nameof(HasTags), nameof(HasFeeling), nameof(HasHighlights), nameof(HasNextStep), nameof(NavigationLabel), nameof(DaySummaryLabel) }) Notify(name);
+        foreach (var name in new[] { nameof(DateLabel), nameof(MonthLabel), nameof(CanEdit), nameof(EditLabel), nameof(MoodTitle), nameof(MoodValue), nameof(HasMood), nameof(Tags), nameof(Feeling), nameof(Highlights), nameof(NextStep), nameof(FocusText), nameof(SessionText), nameof(TodoText), nameof(HabitText), nameof(Summary), nameof(OutcomeLines), nameof(MonthSummary) }) Notify(name);
         RequestRedraw();
     }
     public void RequestRedraw() => RedrawRequested?.Invoke(this, EventArgs.Empty);

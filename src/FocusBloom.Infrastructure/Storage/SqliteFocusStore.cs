@@ -41,6 +41,8 @@ public sealed partial class SqliteFocusStore : IFocusStore
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS date_events (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS date_groups (name TEXT PRIMARY KEY);
+            INSERT OR IGNORE INTO date_groups(name) VALUES ('未分组');
             CREATE TABLE IF NOT EXISTS calendar_plans (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS school_courses (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS course_changes (id TEXT PRIMARY KEY, payload TEXT NOT NULL);

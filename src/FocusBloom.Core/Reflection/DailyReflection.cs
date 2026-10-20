@@ -6,21 +6,27 @@ using FocusBloom.Core.Todos;
 
 namespace FocusBloom.Core.Reflection;
 
-public sealed record MoodChoice(int Value, string Emoji, string Name);
-public sealed record DailyReflection(DateOnly Date, int? Mood, string[] Tags, string Feeling = "", string Highlights = "", string NextStep = "");
+public sealed record MoodChoice(int Value, string Name, int Level, string Color);
+public sealed record DailyReflection(DateOnly Date, int? Mood, string[] Tags, string Feeling = "", string Highlights = "", string NextStep = "", string[]? Photos = null);
 public sealed record ReflectionReminder(bool Enabled = false, TimeOnly? Time = null);
 public sealed record ReflectionDaySummary(TimeSpan Duration, int Sessions, IReadOnlyList<TodoItem> CompletedTodos,
     int PlannedHabits, int CheckedHabits, IReadOnlyList<FocusOutcome> Outcomes);
 
 public static class ReflectionRules
 {
-    public static IReadOnlyList<MoodChoice> Moods { get; } = new[] { new MoodChoice(1, "🙁", "低落"), new MoodChoice(2, "😕", "有些疲惫"), new MoodChoice(3, "😐", "平静"), new MoodChoice(4, "🙂", "不错"), new MoodChoice(5, "😄", "愉快") };
+    public static IReadOnlyList<MoodChoice> Moods { get; } = new[]
+    {
+        new MoodChoice(1, "低落", 1, "#9EB8D6"), new MoodChoice(2, "疲惫", 2, "#BAABA4"),
+        new MoodChoice(3, "平静", 3, "#ADC7AB"), new MoodChoice(4, "愉快", 4, "#F0BE96"),
+        new MoodChoice(5, "兴奋", 5, "#EBCB77"), new MoodChoice(6, "烦躁", 1, "#ADA1CD")
+    };
+    public static MoodChoice Mood(int value) => Moods.Single(item => item.Value == value);
     public static DailyReflection Normalize(DailyReflection item, DateOnly today)
     {
         if (item.Date > today) throw new InvalidOperationException("不能记录未来日期的心情，请选择今天或过去的日期。");
-        if (item.Mood is < 1 or > 5) throw new InvalidOperationException("请选择有效的心情。");
-        var normalized = item with { Tags = item.Tags.Select(tag => tag.Trim()).Where(tag => tag.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), Feeling = item.Feeling.Trim(), Highlights = item.Highlights.Trim(), NextStep = item.NextStep.Trim() };
-        if (normalized.Mood is null && normalized.Tags.Length == 0 && normalized.Feeling.Length == 0 && normalized.Highlights.Length == 0 && normalized.NextStep.Length == 0) throw new InvalidOperationException("选一个心情，或写一点今天的感受与复盘。");
+        if (item.Mood is { } value && !Moods.Any(choice => choice.Value == value)) throw new InvalidOperationException("请选择有效的心情。");
+        var normalized = item with { Tags = item.Tags.Select(tag => tag.Trim()).Where(tag => tag.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), Feeling = item.Feeling.Trim(), Highlights = item.Highlights.Trim(), NextStep = item.NextStep.Trim(), Photos = item.Photos?.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() };
+        if (normalized.Mood is null && normalized.Tags.Length == 0 && normalized.Feeling.Length == 0 && normalized.Highlights.Length == 0 && normalized.NextStep.Length == 0 && normalized.Photos is not { Length: > 0 }) throw new InvalidOperationException("选一个心情、添加图片，或写一点今天的感受与复盘。");
         return normalized;
     }
     public static ReflectionDaySummary Summary(DateOnly day, IReadOnlyList<FocusRecord> records, IReadOnlyList<TodoItem> todos,

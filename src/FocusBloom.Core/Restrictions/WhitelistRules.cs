@@ -16,7 +16,8 @@ public static class ApplicationAccess
         IEnumerable<AllowedApplication> applications, AccessListMode mode = AccessListMode.Whitelist)
     {
         if (processId == ownProcessId || SystemApplications.Contains(processName)) return true;
-        var listed = executablePath is not null && applications.Any(app => app.ExecutablePath.Equals(executablePath, StringComparison.OrdinalIgnoreCase));
+        var identity = executablePath is null ? null : ApplicationRuleIdentity.Key(executablePath);
+        var listed = identity is not null && applications.Any(app => ApplicationRuleIdentity.Key(app.ExecutablePath).Equals(identity, StringComparison.OrdinalIgnoreCase));
         return mode == AccessListMode.Blacklist ? !listed : listed;
     }
 }

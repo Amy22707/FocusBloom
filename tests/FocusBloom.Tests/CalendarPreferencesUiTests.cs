@@ -39,7 +39,7 @@ public sealed class CalendarPreferencesUiTests
                     var footerBounds = footer.TransformToAncestor(tabs).TransformBounds(new Rect(footer.RenderSize));
                     var viewportBounds = viewport.TransformToAncestor(tabs).TransformBounds(new Rect(viewport.RenderSize));
                     var preferences = Descendants<Button>(tabs).Single(button => button.DataContext is NavigationOption option && option.Key == "settings"); var itemBounds = preferences.TransformToAncestor(tabs).TransformBounds(new Rect(preferences.RenderSize));
-                    Assert.InRange(tabs.ActualHeight - footerBounds.Bottom, 23, 25);
+                    Assert.InRange(tabs.ActualHeight - footerBounds.Bottom, 15, 17);
                     Assert.True(viewportBounds.Bottom + 15 <= footerBounds.Top);
                     Assert.True(itemBounds.Bottom <= viewportBounds.Bottom + 1);
                     Assert.True(itemBounds.Bottom + 15 <= footerBounds.Top);
@@ -68,7 +68,7 @@ public sealed class CalendarPreferencesUiTests
                 window = new(main, store, Path.Combine(directory, "browser")) { Width = 1200, Height = 820 }; window.Show(); Flush();
                 var tabs = (TabControl)window.FindName("MainTabs");
                 var navigationToggle = (ToggleButton)tabs.Template.FindName("NavigationCollapseToggle", tabs); navigationToggle.IsChecked = true; Flush(); window.UpdateLayout();
-                Assert.True(window.NavigationCollapsed); Assert.Equal(80, ((ColumnDefinition)tabs.Template.FindName("NavigationColumn", tabs)).ActualWidth);
+                Assert.True(window.NavigationCollapsed); Assert.Equal(64, ((ColumnDefinition)tabs.Template.FindName("NavigationColumn", tabs)).ActualWidth);
                 foreach (var button in Descendants<Button>(tabs).Where(button => button.DataContext is NavigationOption && button.Content is StackPanel))
                 {
                     var header = (StackPanel)button.Content; Assert.Equal(Visibility.Collapsed, ((TextBlock)header.Children[1]).Visibility); Assert.NotNull(button.ToolTip);
@@ -247,7 +247,7 @@ public sealed class CalendarPreferencesUiTests
                 main = new(store); window = new(main, store, Path.Combine(directory, "browser")) { Width = 1200, Height = 820 }; window.Show();
                 var tabs = (TabControl)window.FindName("MainTabs"); tabs.SelectedItem = window.FindName("RecordsTab"); main.FocusCalendar.Date = day; main.FocusCalendar.Mode = "时间轴"; Flush(); window.UpdateLayout();
                 var focus = (CalendarView)window.FindName("FocusCalendarPage"); focus.Render(); Flush();
-                Assert.InRange(((FrameworkElement)focus.FindName("CalendarToolbar")).ActualHeight, 60, 84);
+                Assert.InRange(((FrameworkElement)focus.FindName("CalendarToolbar")).ActualHeight, 30, 40);
                 Assert.Single(Descendants<Button>(focus), button => button.Tag is CalendarEntry entry && entry.Kind == "专注");
                 var texts = Descendants<TextBlock>(focus).Select(text => text.Text).ToArray(); Assert.Contains("1 次专注 · 累计 1小时50分钟", texts); Assert.Contains("成果 · 完成实验", texts); Assert.Contains("严格专注 · 拦截 3 次", texts);
                 Save(window, "focus-record-timeline-light.png");
@@ -261,7 +261,7 @@ public sealed class CalendarPreferencesUiTests
                 foreach (var mode in new[] { "日", "周", "月", "年" }) { main.Calendar.Mode = mode; Assert.DoesNotContain(main.Calendar.Entries(day, day), entry => entry.Kind is "课程" or "专注" or "安排"); }
                 main.Calendar.Mode = "日"; Flush(); window.UpdateLayout();
                 var taskCalendar = (CalendarView)window.FindName("CalendarPage");
-                Assert.InRange(((FrameworkElement)taskCalendar.FindName("CalendarToolbar")).ActualHeight, 60, 84);
+                Assert.InRange(((FrameworkElement)taskCalendar.FindName("CalendarToolbar")).ActualHeight, 30, 40);
                 Save(window, "calendar-compact-toolbar.png");
                 Assert.NotNull(main.GetRecord(record.Id));
             }

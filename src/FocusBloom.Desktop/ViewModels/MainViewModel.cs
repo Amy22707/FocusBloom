@@ -44,7 +44,7 @@ public sealed partial class MainViewModel : ObservableObject
     private string _newFolderName = "";
     private ThemePalette _selectedPalette;
     private AppearanceChoice _selectedAppearanceMode;
-    private string _statusMessage = "选择一个项目，开始这一刻。";
+    private string _statusMessage = "";
     private string _newProjectName = "";
     private RestrictionChoice _selectedRestrictionMode;
     private TimerChoice _defaultTimerMode;
@@ -134,7 +134,8 @@ public sealed partial class MainViewModel : ObservableObject
         _recordPage = store.GetSetting("records.page") ?? "时间轴"; Statistics.ReviewMode = _recordPage == "复盘";
         _softwareRemindersEnabled = store.GetSetting("reminders.enabled") != "False";
         _outlookSyncRequested = store.GetSetting("outlook.sync.requested") == "True";
-        DateEvents = new DateEventsViewModel(store); DateEvents.Reload();
+        DateEvents = new DateEventsViewModel(store);
+        DateEvents.Changed += (_, _) => CalendarDataChanged?.Invoke(this, EventArgs.Empty);
         CardSizing = new CardSizingViewModel(store, () => { Calendar.Reload(); FocusCalendar.Reload(); Statistics.RequestRedraw(); Reflection.RequestRedraw(); });
         Todos.Changed += (_, _) => { RefreshTodoChoices(); LoadRecords(); ReloadCalendarData(); };
         var savedTodo = store.GetSetting("focus.todo");
@@ -267,6 +268,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _selectedProject = value;
             Notify();
+            Notify(nameof(SelectedLibraryProject));
             Notify(nameof(ProjectPath));
             Notify(nameof(FocusHeading));
             UpdateResumeNote();
@@ -287,6 +289,7 @@ public sealed partial class MainViewModel : ObservableObject
             Notify(nameof(FolderTitle));
             Notify(nameof(FolderSummary));
             Notify(nameof(IsFolderEmpty));
+            RefreshProjectLibrary();
         }
     }
     private void SaveProjectSelection()
@@ -437,6 +440,7 @@ public sealed partial class MainViewModel : ObservableObject
             StatusMessage = "项目已保存。";
             Notify(nameof(FolderSummary));
             Notify(nameof(IsFolderEmpty));
+            RefreshProjectLibrary();
             return true;
         }
         catch (Exception ex) { StatusMessage = $"项目保存失败：{ex.Message}"; return false; }
@@ -575,11 +579,10 @@ public sealed partial class MainViewModel : ObservableObject
     public void MoveProject(FocusProject project, OrderMove direction, FocusProject? target = null)
     {
         var selected = SelectedProject;
-        if (!CollectionOrder.Move(FolderProjects, project, direction, targetItem: target)) return;
-        var queue = new Queue<Guid>(FolderProjects.Select(item => item.Id));
-        var order = Projects.Select(item => item.Category == project.Category ? queue.Dequeue() : item.Id).ToArray();
-        CollectionOrder.Apply(Projects, order, item => item.Id);
-        if (SelectedFolder is { } folder) CollectionOrder.Apply(folder.Projects, FolderProjects.Select(item => item.Id).ToArray(), item => item.Id);
+        if (!CollectionOrder.Move(Projects, project, direction, ProjectLibraryItems.ToArray(), target)) return;
+        var order = Projects.Select(item => item.Id).ToArray();
+        CollectionOrder.Apply(FolderProjects, order, item => item.Id);
+        foreach (var folder in Folders) CollectionOrder.Apply(folder.Projects, order, item => item.Id);
         SelectedProject = selected;
         SaveProjectOrder();
     }

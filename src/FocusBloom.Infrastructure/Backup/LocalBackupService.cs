@@ -30,6 +30,8 @@ public sealed partial class LocalBackupService
     { var counts = new Dictionary<string, int>(); foreach (var (table, label, where) in CountTables) { using var command = connection.CreateCommand(); command.CommandText = "SELECT COUNT(*) FROM " + table + where; counts[label] = Convert.ToInt32(command.ExecuteScalar()); } return counts; }
     private static IReadOnlyList<(string Id, JsonObject Payload)> DatePayloads(SqliteConnection connection)
     { using var command = connection.CreateCommand(); command.CommandText = "SELECT id,payload FROM date_events"; using var reader = command.ExecuteReader(); var rows = new List<(string, JsonObject)>(); while (reader.Read()) rows.Add((reader.GetString(0), JsonNode.Parse(reader.GetString(1))!.AsObject())); return rows; }
+    private static IReadOnlyList<(string Date, JsonObject Payload)> ReflectionPayloads(SqliteConnection connection)
+    { using var command = connection.CreateCommand(); command.CommandText = "SELECT date,payload FROM daily_reflections"; using var reader = command.ExecuteReader(); var rows = new List<(string, JsonObject)>(); while (reader.Read()) rows.Add((reader.GetString(0), JsonNode.Parse(reader.GetString(1))!.AsObject())); return rows; }
 
     public Task<BackupResult> CreateAsync(string destination, IProgress<BackupProgress>? progress = null, CancellationToken cancellationToken = default) => Task.Run(() => Create(destination, progress, cancellationToken), cancellationToken);
     private BackupResult Create(string destination, IProgress<BackupProgress>? progress, CancellationToken token)
@@ -50,6 +52,7 @@ public sealed partial class LocalBackupService
                 if (media["imageFolders"] is JsonArray imageFolders) foreach (var folder in imageFolders) if (folder?.GetValue<string>() is { Length: > 0 } path) Folder(path);
             }
             foreach (var row in DatePayloads(database)) Add(row.Payload["coverPath"]?.GetValue<string>());
+            foreach (var row in ReflectionPayloads(database)) if (row.Payload["photos"] is JsonArray photos) foreach (var photo in photos) Add(photo?.GetValue<string>());
             foreach (var pair in settings.Where(pair => pair.Key.StartsWith("widgets.", StringComparison.Ordinal) && pair.Value.TrimStart().StartsWith('{'))) if (JsonNode.Parse(pair.Value) is JsonObject widget) Add(widget["BackgroundImage"]?.GetValue<string>());
             var copied = new List<BackupAsset>(); var missing = new List<string>();
             BackupManifest manifest;

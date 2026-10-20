@@ -29,6 +29,10 @@ public interface IFocusStore
     IReadOnlyList<FocusOutcome> GetOutcomes();
     void SaveOutcome(FocusOutcome outcome);
     IReadOnlyList<FocusBloom.Core.Calendar.DateEvent> GetDateEvents();
+    IReadOnlyList<string> GetDateGroups();
+    void SaveDateGroup(string name);
+    void RenameDateGroup(string name, string newName);
+    void DeleteDateGroup(string name);
     void SaveDateEvent(FocusBloom.Core.Calendar.DateEvent item);
     void DeleteDateEvent(Guid id);
     IReadOnlyList<FocusBloom.Core.Calendar.CalendarPlan> GetCalendarPlans();

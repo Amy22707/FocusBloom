@@ -8,11 +8,14 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Input;
+using System.Runtime.InteropServices;
 
 namespace FocusBloom.Desktop.Presentation;
 
 internal sealed class ReorderPreview : IDisposable
 {
+    [StructLayout(LayoutKind.Sequential)] private struct CursorPoint { public int X; public int Y; }
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out CursorPoint point);
     private sealed record ElementState(FrameworkElement Element, Transform Original, double Opacity, TranslateTransform Offset);
     private readonly ItemsControl _owner;
     private readonly object _source;
@@ -23,7 +26,7 @@ internal sealed class ReorderPreview : IDisposable
     private int _targetIndex = -1;
     public object? Target { get; private set; }
 
-    public ReorderPreview(ReorderButton handle, ItemsControl owner, Point grab)
+    public ReorderPreview(FrameworkElement handle, ItemsControl owner, Point grab)
     {
         _owner = owner; _source = handle.DataContext;
         _root = Window.GetWindow(owner)?.Content as FrameworkElement ?? owner;
@@ -87,7 +90,17 @@ internal sealed class ReorderPreview : IDisposable
             Animate(state.Offset, TranslateTransform.YProperty, delta.Y);
         }
     }
-    public void FollowMouse() => _ghost?.Follow(Mouse.GetPosition(_root) - (Vector)_grab);
+    public void FollowMouse()
+    {
+        if (GetCursorPos(out var cursor)) FollowScreenPoint(new Point(cursor.X, cursor.Y));
+    }
+    internal void FollowScreenPoint(Point cursor) => _ghost?.Follow(_root.PointFromScreen(cursor) - (Vector)_grab);
+    public void LeaveList()
+    {
+        if (_targetIndex < 0) return;
+        Target = null; _targetIndex = -1;
+        foreach (var state in _states.Values) { Animate(state.Offset, TranslateTransform.XProperty, 0); Animate(state.Offset, TranslateTransform.YProperty, 0); }
+    }
     private static void Animate(TranslateTransform transform, DependencyProperty property, double target)
         => transform.BeginAnimation(property, new DoubleAnimation(target, TimeSpan.FromMilliseconds(170)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
 
@@ -111,10 +124,12 @@ internal sealed class ReorderPreview : IDisposable
         public void Follow(Point point) { _point = point; InvalidateVisual(); }
         protected override void OnRender(DrawingContext drawingContext)
         {
+            drawingContext.PushClip(new RectangleGeometry(new Rect(AdornedElement.RenderSize)));
             var bounds = new Rect(_point, new Size(_size.Width * 1.025, _size.Height * 1.025));
             var shadow = bounds; shadow.Offset(3, 5);
             drawingContext.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(35, 0, 0, 0)), null, shadow, 12, 12);
             drawingContext.PushOpacity(0.95); drawingContext.DrawImage(_image, bounds); drawingContext.Pop();
+            drawingContext.Pop();
         }
     }
 }

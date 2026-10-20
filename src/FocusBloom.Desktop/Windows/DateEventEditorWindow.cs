@@ -16,13 +16,15 @@ public sealed class DateEventEditorWindow : CalendarFormWindow
     private readonly DateEvent? _item;
     private readonly TextBox _title, _time, _notes, _cover;
     private readonly DatePicker _date, _until;
-    private readonly ComboBox _mode, _repeat, _project, _todo;
+    private readonly ComboBox _mode, _repeat, _project, _todo, _group;
     private readonly CheckBox _pinned;
     private readonly ReminderSettingsControl _reminder;
-    public DateEventEditorWindow(MainViewModel main, DateEvent? item = null) : base(main, item is null ? "新建日期事项" : "编辑日期事项", item is not null)
+    public DateEventEditorWindow(MainViewModel main, DateEvent? item = null, string? initialGroup = null) : base(main, item is null ? "新建日期事项" : "编辑日期事项", item is not null)
     {
         _item = item;
         _title = AddTextInput("TitleInput", "名称", item?.Title ?? "");
+        var group = item?.Group ?? initialGroup ?? main.DateEvents.SelectedGroup?.Name ?? "未分组";
+        _group = Choice("DateGroupSelector", "分组", main.DateEvents.GroupNames, group);
         _mode = Choice("ModeSelector", "计数方式", new[] { "倒数日", "正数日" }, item?.Mode == DateCountMode.CountUp ? "正数日" : "倒数日");
         _date = DateInput("DateInput", "日期", item?.Date ?? DateOnly.FromDateTime(DateTime.Today));
         _time = AddTextInput("TimeInput", "具体时间 / HH:mm（可选）", item?.Time?.ToString("HH:mm") ?? "");
@@ -65,7 +67,7 @@ public sealed class DateEventEditorWindow : CalendarFormWindow
         if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = "请填写有效的提醒设置。"; return; }
         var item = new DateEvent(_item?.Id ?? Guid.NewGuid(), _title.Text.Trim(), date, time, (DateCountMode)_mode.SelectedIndex,
             (DateRepeat)_repeat.SelectedIndex, until, _notes.Text.Trim(), string.IsNullOrWhiteSpace(_cover.Text) ? null : _cover.Text,
-            _pinned.IsChecked == true, ((Link)_project.SelectedItem).Id, ((Link)_todo.SelectedItem).Id, reminder);
+            _pinned.IsChecked == true, ((Link)_project.SelectedItem).Id, ((Link)_todo.SelectedItem).Id, reminder, (string)_group.SelectedItem);
         Commit(() => Main.Calendar.Store.SaveDateEvent(item));
     }
     protected override void Delete()

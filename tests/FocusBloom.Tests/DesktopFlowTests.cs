@@ -1894,10 +1894,10 @@ public sealed class DesktopFlowTests
         Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
         {
             var details = Application.Current.Windows.OfType<TodoDetailsWindow>().Single();
-            Assert.Equal(detailItem.Title, ((TextBlock)details.FindName("DetailTitle")).Text);
-            Assert.Equal(folder.Name, ((TextBlock)details.FindName("FolderLocation")).Text);
-            Assert.Equal("完整备注", ((TextBlock)details.FindName("DetailNotes")).Text);
-            Assert.Contains("2026-10-20", ((TextBlock)details.FindName("DetailDue")).Text);
+            Assert.Equal(detailItem.Title, ((TextBox)details.FindName("DetailTitle")).Text);
+            Assert.Equal(folder.Name, ((TextBox)details.FindName("FolderLocation")).Text);
+            Assert.Equal("完整备注", ((TextBox)details.FindName("DetailNotes")).Text);
+            Assert.Contains("2026-10-20", ((TextBox)details.FindName("DetailDue")).Text);
             Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
             {
                 var editor = Application.Current.Windows.OfType<TodoEditorWindow>().Single();
@@ -1905,7 +1905,7 @@ public sealed class DesktopFlowTests
                 ((Button)editor.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }));
             ((Button)details.FindName("EditButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); FlushBindings();
-            Assert.Equal("修改后的备注", ((TextBlock)details.FindName("DetailNotes")).Text);
+            Assert.Equal("修改后的备注", ((TextBox)details.FindName("DetailNotes")).Text);
             Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
             {
                 var start = Application.Current.Windows.OfType<TodoStartWindow>().Single();
@@ -1944,9 +1944,9 @@ public sealed class DesktopFlowTests
         Assert.InRange(Math.Abs(listBounds[0].Top - listBounds[2].Top), 0, 1);
         Assert.True(listBounds[0].Right <= listBounds[1].Left && listBounds[1].Right <= listBounds[2].Left);
         Assert.True(listBounds[3].Top > listBounds[0].Top);
-        Assert.All(listContainers, container => Assert.InRange(container.ActualHeight, 119, 121));
+        Assert.All(listContainers, container => Assert.InRange(container.ActualHeight, 103, 105));
         var listDeadline = Descendants<TextBlock>(todoList).Single(text => text.Name == "ListDeadline" && text.DataContext is TodoRow row && row.Id == detailItem.Id);
-        Assert.Equal(12, listDeadline.FontSize); Assert.Contains("2026-10-20", listDeadline.Text);
+        Assert.Equal(13, listDeadline.FontSize); Assert.Equal(((TodoRow)listDeadline.DataContext).DueDisplayText, listDeadline.Text);
         SavePreview((FrameworkElement)window.Content, window.Background, "todo-list-cards-dark.png");
         library.ViewMode = "四象限";
         library.Search = "不重要且紧急"; Assert.Single(library.VisibleItems); Assert.Single(library.Quadrants[2].Items);

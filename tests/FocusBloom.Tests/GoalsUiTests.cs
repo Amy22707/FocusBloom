@@ -56,7 +56,7 @@ public sealed class GoalsUiTests
             {
                 var store = new SqliteFocusStore(Path.Combine(directory, "test.db")); var today = DateOnly.FromDateTime(DateTime.Today); var local = today.ToDateTime(new(10, 0)); var start = new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local));
                 store.SaveRecord(new(Guid.NewGuid(), store.GetProjects()[0].Id, TimerMode.CountUp, start, start.AddMinutes(30), EndReason.Manual, new[] { new FocusInterval(IntervalKind.Focus, start, start.AddMinutes(30)) }));
-                var clock = new Clock(start); main = new(store, new FocusTimer(clock)); main.SelectedAppearanceMode = main.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Light); main.SoftwareRemindersEnabled = false;
+                var clock = new Clock(start); main = new(store, new FocusTimer(clock)); main.Goals.View = "卡片"; main.SelectedAppearanceMode = main.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Light); main.SoftwareRemindersEnabled = false;
                 window = new(main, store, Path.Combine(directory, "browser")) { Width = 1240, Height = 820 }; window.Show();
                 main.Navigation.Items.Single(item => item.Key == "goals").OpenCommand.Execute(null); Flush(); var page = (GoalsView)window.FindName("GoalsPage"); Assert.True(page.IsVisible);
                 var habitEditor = new HabitEditorWindow(main) { Owner = window };
@@ -124,7 +124,7 @@ public sealed class GoalsUiTests
     internal static void Save(Window window, string name)
     {
         var content = (FrameworkElement)window.Content; content.UpdateLayout(); var bitmap = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth), (int)Math.Ceiling(content.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        var visual = new DrawingVisual(); using (var drawing = visual.RenderOpen()) { var bounds = new Rect(content.RenderSize); drawing.DrawRectangle(window.Background, null, bounds); drawing.DrawRectangle(new VisualBrush(content), null, bounds); } bitmap.Render(visual);
+        var visual = new DrawingVisual(); using (var drawing = visual.RenderOpen()) { var bounds = new Rect(content.RenderSize); var offset = VisualTreeHelper.GetOffset(content); drawing.DrawRectangle(window.Background, null, bounds); drawing.DrawRectangle(new VisualBrush(content) { ViewboxUnits = BrushMappingMode.Absolute, Viewbox = new Rect(new Point(offset.X, offset.Y), content.RenderSize) }, null, bounds); } bitmap.Render(visual);
         var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/qa", name)); Directory.CreateDirectory(Path.GetDirectoryName(path)!); using var file = File.Create(path); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap)); encoder.Save(file);
     }
 }
