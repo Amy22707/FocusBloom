@@ -1,6 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createModel, start, pause, resume, finish, settle, elapsed, getView, nextDeadline, normalizeWebsite } from '../browser/focus.mjs';
+import { createModel, start, pause, resume, finish, settle, elapsed, getView, nextDeadline, normalizeWebsite, validatePreferences } from '../browser/focus.mjs';
+
+test('countdown accepts ten seconds through twenty-four hours and rejects invalid preferences before start', () => {
+  const model = createModel();
+  for (const durationMinutes of [0.01, 0.1, 1440.01]) {
+    assert.throws(() => validatePreferences({timerMode:'Countdown',durationMinutes}));
+    assert.throws(() => start(model,{timerMode:'Countdown',durationMinutes},0));
+    assert.equal(model.session,null);
+  }
+  for (const durationMinutes of [10/60,1440]) assert.equal(validatePreferences({timerMode:'Countdown',durationMinutes}).durationMinutes,durationMinutes);
+});
+
+test('less than ten effective seconds is discarded and exactly ten seconds counts', () => {
+  for (const [duration,discarded] of [[9999,true],[10000,false]]) {
+    const model=createModel(); start(model,{timerMode:'CountUp'},0); pause(model,8000); resume(model,68000); finish(model,68000+duration-8000);
+    assert.equal(model.session.elapsedMs,duration); assert.equal(model.session.discarded,discarded);
+    assert.equal(getView(model,100000).state.shortFocus,discarded); assert.equal(getView(model,100000).effective,false);
+    if(discarded) assert.match(getView(model,100000).state.phaseText,/未计入/);
+  }
+  const model=createModel(); start(model,{timerMode:'Countdown',durationMinutes:10/60,restMinutes:1},0);
+  finish(model,9000); assert.equal(model.session.state,'Resting'); assert.match(getView(model,9500).state.phaseText,/未计入/);
+  settle(model,70000); assert.equal(getView(model,70000).state.stateText,'本次未计入');
+});
+
+test('count-up ends at twenty-four effective hours, releases websites and preserves a notice across restart', () => {
+  const model=createModel(); const hour=3600000;
+  start(model,{timerMode:'CountUp',restMinutes:15},0); pause(model,23*hour); resume(model,23*hour+60000);
+  assert.equal(nextDeadline(model.session),24*hour+60000);
+  settle(model,30*hour); assert.equal(model.session.state,'Ended'); assert.equal(model.session.elapsedMs,24*hour);
+  assert.equal(getView(model,30*hour).effective,false); assert.equal(model.session.endReason,'DurationLimit');
+  assert.equal(nextDeadline(model.session),null); assert.equal(model.limitNotice,24*hour+60000);
+  const restored=JSON.parse(JSON.stringify(model)); settle(restored,72*hour); assert.equal(restored.session.state,'Ended');
+  assert.equal(getView(restored,72*hour).limitNotice,24*hour+60000);
+  start(restored,{},72*hour); assert.equal(restored.session.elapsedMs,0);
+});
 
 test('count-up is manual, pause excludes time and auto-resume uses the scheduled instant', () => {
   const model = createModel();

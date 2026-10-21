@@ -59,6 +59,6 @@
 
 3项统计规则／数据测试及统计独立界面流程通过，原日历／记录切换界面检查通过。覆盖跨天、暂停、午夜结束计次、完整平均、精度、项目与待办筛选、不同成果单位、累计预估差异、摘要／CSV、自定义日期、空状态、深浅模式、图表明细、补记成果和计时连续性。仅执行直接相关模块。
 
-预览位于`artifacts/qa/statistics-月-light.png`、`statistics-month-dark.png`、`statistics-annual-heatmap.png`、`statistics-review-light.png`及`statistics-review-dark.png`。界面参考本地图片的统计布局思路，使用项目自己的配色和组件。
+界面使用项目统一配色和组件。
 
-专注程度与统计模块的5项规则／数据检查及1项界面流程通过，覆盖结束日期与筛选、零拦截比例、严格／普通／未统计记录、0%／100%／无数据、图例分类明细、显示排序保存及半行／并排／窄窗口布局。界面测试在独立后台桌面运行，活动桌面保持不变；预览为`artifacts/qa/statistics-modules-light.png`、`statistics-modules-dark.png`及`statistics-concentration-narrow.png`。
+专注程度与统计模块的5项规则／数据检查及1项界面流程通过，覆盖结束日期与筛选、零拦截比例、严格／普通／未统计记录、0%／100%／无数据、图例分类明细、显示排序保存及半行／并排／窄窗口布局。界面测试在独立后台桌面运行，活动桌面保持不变。

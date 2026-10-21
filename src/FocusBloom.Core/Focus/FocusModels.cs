@@ -3,7 +3,7 @@ namespace FocusBloom.Core.Focus;
 public enum TimerMode { CountUp, Countdown, Pomodoro }
 public enum FocusState { Ready, Focusing, Paused, Resting, Ended }
 public enum IntervalKind { Focus, Pause }
-public enum EndReason { Manual, CountdownElapsed, ApplicationExit }
+public enum EndReason { Manual, CountdownElapsed, ApplicationExit, Interrupted, DurationLimit }
 
 public sealed record PomodoroOptions(TimeSpan LongRestDuration, int LongRestEvery = 4, int Rounds = 4);
 
@@ -40,3 +40,6 @@ public sealed record FocusRecord(
 
 public sealed record FocusOutcome(Guid SessionId, string Summary = "", double? Quantity = null,
     string Unit = "", string NextStep = "");
+
+public sealed record FocusCheckpoint(FocusOptions Options, FocusState State, int Round, bool IsLongRest,
+    DateTimeOffset CapturedAt, TimeSpan PhaseRemaining, FocusRecord? CurrentRecord, FocusRecord? PendingRecord);

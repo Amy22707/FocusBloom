@@ -2,6 +2,7 @@ namespace FocusBloom.Core.Focus;
 
 public sealed class FocusTimer(TimeProvider? timeProvider = null)
 {
+    public static readonly TimeSpan MaximumCountUpDuration = TimeSpan.FromHours(24);
     private readonly TimeProvider _clock = timeProvider ?? TimeProvider.System;
     private readonly List<FocusInterval> _intervals = [];
     private FocusOptions? _options;
@@ -30,6 +31,35 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
         var now = _clock.GetUtcNow();
         var intervals = _intervals.Append(new FocusInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, _phaseStartedAt, now)).ToArray();
         return new(_sessionId, _options!.ProjectId, _options.Mode, _startedAt, now, EndReason.Manual, intervals, _options.Strict, _options.TodoId, InterceptionCount);
+    }
+    public FocusCheckpoint? CaptureCheckpoint(bool includeLastRecord = false)
+    {
+        if (_options is null || (!IsActive && State != FocusState.Resting && !includeLastRecord)) return null;
+        return new(_options, State, Round, IsLongRest, _clock.GetUtcNow(), PhaseRemaining,
+            CaptureCurrentRecord(), includeLastRecord ? LastRecord : null);
+    }
+
+    public void RestoreCheckpoint(FocusCheckpoint checkpoint)
+    {
+        if (IsActive || State == FocusState.Resting) throw new InvalidOperationException("请先结束当前计时。");
+        var now = _clock.GetUtcNow();
+        _options = checkpoint.Options;
+        State = checkpoint.State;
+        Round = checkpoint.Round;
+        IsLongRest = checkpoint.IsLongRest;
+        LastRecord = checkpoint.PendingRecord;
+        _intervals.Clear();
+        if (checkpoint.CurrentRecord is { } record)
+        {
+            _sessionId = record.Id;
+            _startedAt = record.StartedAt;
+            _intervals.AddRange(record.Intervals);
+            // 自动保存之后到主动恢复之间的时间不计入专注。
+            if (now > record.EndedAt) _intervals.Add(new(IntervalKind.Pause, record.EndedAt, now));
+            InterceptionCount = record.InterceptionCount ?? 0;
+        }
+        _phaseStartedAt = now;
+        _phaseEndsAt = now + checkpoint.PhaseRemaining;
     }
     public TimeSpan DisplayTime => IsPomodoro && State == FocusState.Resting ? PhaseRemaining
         : _options?.Mode is TimerMode.Countdown or TimerMode.Pomodoro
@@ -109,6 +139,14 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
         {
             CloseInterval(IntervalKind.Pause, _phaseEndsAt);
             State = FocusState.Focusing;
+        }
+        if (State == FocusState.Focusing && _options!.Mode == TimerMode.CountUp)
+        {
+            var deadline = _phaseStartedAt + MaxZero(MaximumCountUpDuration - SumFocus());
+            if (now >= deadline)
+            {
+                Complete(deadline, EndReason.DurationLimit, false);
+            }
         }
         if (State == FocusState.Focusing && _options!.Mode is TimerMode.Countdown or TimerMode.Pomodoro)
         {

@@ -10,6 +10,22 @@ let originalDomain = '';
 let websiteSelection = '';
 let preferenceSelection = '';
 
+function showPane(name) {
+  for (const pane of ['focus', 'rules', 'preferences']) byId(pane + 'Pane').hidden = pane !== name;
+  for (const button of document.querySelectorAll('[data-pane]')) {
+    if (button.dataset.pane === name) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+  window.scrollTo(0,0);
+}
+
+function updateSetup() {
+  const countdown = byId('timerMode').value === 'Countdown';
+  byId('durationLabel').hidden = !countdown;
+  byId('quickSetup').textContent = countdown ? `倒计时 · ${byId('durationMinutes').value} 分钟 · 调整` : '正计时 · 调整';
+  if (latest?.state.canConfigure) byId('project').textContent = byId('projectName').value.trim() || latest.state.project;
+}
+
 if (blocked) byId('blockedAddress').textContent = originalUrl;
 if (workspace) { document.body.className = 'workspace'; byId('open').hidden = true; byId('fullscreen').hidden = false; }
 if (!blocked) byId('palette').replaceChildren(...palettes.map(palette => {
@@ -29,6 +45,7 @@ function render(view) {
   const state = view.state;
   applyTheme(view.preferences);
   byId('project').textContent = state.project;
+  byId('project').title = state.project;
   byId('timer').textContent = state.timer;
   byId('state').textContent = state.stateText;
   byId('phase').textContent = state.phaseText;
@@ -55,13 +72,16 @@ function render(view) {
     ? `网站限制生效 · ${state.websiteMode === 'Blacklist' ? '黑名单' : '白名单'}` : '当前不限网站';
   for (const [id, visible] of [['start', state.canConfigure], ['pause', state.state === 'Focusing'], ['resume', state.state === 'Paused'], ['skipRest', state.state === 'Resting']]) byId(id).hidden = !visible;
   for (const control of byId('timerForm').elements) control.disabled = !state.canConfigure;
+  byId('backToFocus').disabled = false;
+  byId('quickSetup').hidden = !state.canConfigure;
+  byId('preferenceNotice').textContent = state.canConfigure ? '' : '当前计时安排保持固定，结束后可调整。';
   const preferences = JSON.stringify(view.preferences);
   if (preferences !== preferenceSelection) {
     preferenceSelection = preferences;
     for (const key of ['timerMode', 'durationMinutes', 'pauseMinutes', 'restMinutes', 'palette', 'appearance']) byId(key).value = view.preferences[key];
     byId('projectName').value = view.preferences.project;
-    byId('durationLabel').hidden = view.preferences.timerMode !== 'Countdown';
   }
+  updateSetup();
   byId('listMode').disabled = !state.canEditRules;
   byId('listMode').value = state.savedWebsiteMode;
   byId('editHint').textContent = state.canEditRules ? '黑白列表分别保存在此浏览器中。' : '本次使用开始时的规则，结束后可以修改。';
@@ -70,6 +90,10 @@ function render(view) {
   const selection = JSON.stringify([state.websites, state.savedWebsiteMode, state.canEditRules]);
   if (selection !== websiteSelection) {
     websiteSelection = selection;
+    byId('websiteCount').textContent = `${state.websites.length} 个网站`;
+    byId('emptyWebsites').hidden = state.websites.length > 0;
+    byId('emptyWebsites').textContent = state.savedWebsiteMode === 'Whitelist'
+      ? '尚未添加网站。开启限制后，普通网站均不可访问。' : '尚未添加网站，当前黑名单不会限制任何网站。';
     byId('websites').replaceChildren(...state.websites.map(rule => {
       const row = document.createElement('div'); row.className = 'website';
       const title = document.createElement('span'); title.textContent = rule.domain + (rule.includeSubdomains ? ' · 含子域名' : '');
@@ -91,11 +115,22 @@ byId('open').onclick = async () => {
 };
 byId('end').onclick = () => message({ type:'end' });
 if (!blocked) {
+  for (const button of document.querySelectorAll('[data-pane]')) button.onclick = () => showPane(button.dataset.pane);
+  byId('settings').onclick = byId('quickSetup').onclick = () => showPane('preferences');
+  byId('backToFocus').onclick = () => showPane('focus');
   const fields = () => ({ project:byId('projectName').value, timerMode:byId('timerMode').value,
     durationMinutes:byId('durationMinutes').value, pauseMinutes:byId('pauseMinutes').value, restMinutes:byId('restMinutes').value });
-  byId('start').onclick = () => { if (byId('timerForm').reportValidity()) message({ type:'start', fields:fields() }); };
-  byId('timerForm').onsubmit = event => { event.preventDefault(); message({ type:'savePreferences', fields:fields() }); };
-  byId('timerMode').onchange = () => { byId('durationLabel').hidden = byId('timerMode').value !== 'Countdown'; };
+  byId('start').onclick = () => {
+    if (!byId('timerForm').checkValidity()) { showPane('preferences'); byId('timerForm').reportValidity(); return; }
+    message({ type:'start', fields:fields() });
+  };
+  byId('timerForm').onsubmit = async event => {
+    event.preventDefault();
+    const result = await message({ type:'savePreferences', fields:fields() });
+    if (!result.error) byId('preferenceNotice').textContent = '默认计时安排已保存。';
+  };
+  byId('timerForm').oninput = updateSetup;
+  byId('timerMode').onchange = updateSetup;
   for (const action of ['pause', 'resume', 'skipRest']) byId(action).onclick = () => message({ type:action });
   byId('enabled').onchange = event => message({ type:'setEnabled', enabled:event.target.checked });
   byId('fullscreen').onclick = async () => {
@@ -121,7 +156,16 @@ if (!blocked) {
     } catch { byId('error').textContent = '请在普通网站的标签页中打开扩展，再添加当前网站。'; }
   };
 }
+function showLimitNotice() {
+  if (blocked || latest?.limitNotice == null || byId('limitNotice').open) return;
+  const noticeAt = latest.limitNotice;
+  const dialog = byId('limitNotice');
+  dialog.addEventListener('close', () => message({type:'ackLimitNotice',noticeAt}), {once:true});
+  dialog.showModal();
+}
 await message({ type:'getView' });
+showLimitNotice();
+window.addEventListener('focus', showLimitNotice);
 const refresh = setInterval(() => message({ type:'getView' }), 1000);
 window.addEventListener('pagehide', () => clearInterval(refresh));
 chrome.storage.onChanged.addListener((changes, area) => { if (area === 'session' && changes.view) { latest = changes.view.newValue; render(latest); } });

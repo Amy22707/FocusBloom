@@ -65,6 +65,8 @@ public partial class App : Application
             _refresh.Start();
             _window.Show();
             loadingWindow.Close();
+            _window.ShowFocusRecovery();
+            _window.ShowLimitNotice();
             _window.Backups?.StartAutomatic();
         }
         catch (Exception ex)
@@ -131,7 +133,7 @@ public partial class App : Application
     {
         if (e.PropertyName != nameof(MainViewModel.State) || _viewModel is null || _lastFocusState == _viewModel.State) return;
         var state = _viewModel.State;
-        if (_lastFocusState is FocusState.Focusing or FocusState.Paused && state is FocusState.Resting or FocusState.Ended)
+        if ((_lastFocusState is FocusState.Focusing or FocusState.Paused) && (state is FocusState.Resting or FocusState.Ended) && !_viewModel.EndedAtDurationLimit)
             _viewModel.Media.PlayReminder(false);
         else if (_lastFocusState == FocusState.Resting && state is FocusState.Ready or FocusState.Focusing) _viewModel.Media.PlayReminder(true);
         _lastFocusState = state;

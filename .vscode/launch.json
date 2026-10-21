@@ -7,7 +7,7 @@
       "request": "launch",
       "preLaunchTask": "FocusBloom: build",
       "program": "${workspaceFolder}/.tools/dotnet/dotnet.exe",
-      "args": ["${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows/FocusBloom.dll"],
+      "args": ["${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows10.0.19041.0/FocusBloom.dll"],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole"
     },
@@ -16,7 +16,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "FocusBloom: build",
-      "program": "${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows/FocusBloom.dll",
+      "program": "${workspaceFolder}/src/FocusBloom.Desktop/bin/Debug/net10.0-windows10.0.19041.0/FocusBloom.dll",
       "cwd": "${workspaceFolder}",
       "console": "internalConsole"
     }

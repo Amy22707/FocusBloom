@@ -3,6 +3,9 @@ export const defaultPreferences = {
   palette: 'fog-blue', appearance: 'System'
 };
 
+const minimumFocusMs = 10000;
+const maximumFocusMs = 24 * 60 * 60 * 1000;
+
 export function createModel() {
   return { enabled: true, preferences: { ...defaultPreferences }, websiteMode: 'Whitelist',
     lists: { Whitelist: [], Blacklist: [] }, session: null };
@@ -18,8 +21,8 @@ export function elapsed(session, now) {
 
 export function nextDeadline(session) {
   if (!session) return null;
-  if (session.state === 'Focusing') return session.timerMode === 'Countdown'
-    ? session.phaseStartedAt + Math.max(0, session.durationMs - session.elapsedMs) : null;
+  if (session.state === 'Focusing') return session.phaseStartedAt
+    + Math.max(0, (session.timerMode === 'Countdown' ? session.durationMs : maximumFocusMs) - session.elapsedMs);
   return ['Paused', 'Resting'].includes(session.state) ? session.deadline : null;
 }
 
@@ -31,7 +34,8 @@ export function settle(model, now) {
   }
   const due = nextDeadline(session);
   if (session?.state === 'Focusing' && due !== null && now >= due) {
-    finish(model, due); changed = true;
+    finish(model, due, session.timerMode === 'CountUp' ? 'DurationLimit' : 'CountdownElapsed');
+    changed = true;
   }
   if (session?.state === 'Resting' && now >= session.deadline) {
     session.state = 'Ended'; session.deadline = null; changed = true;
@@ -46,7 +50,10 @@ export function validatePreferences(fields, previous = defaultPreferences) {
     preferences[key] = Number(preferences[key]);
     if (!Number.isFinite(preferences[key]) || preferences[key] < 0 || (key !== 'restMinutes' && preferences[key] === 0))
       throw new Error('专注与暂停时长需大于零；休息时长可以为零。');
+    if (preferences[key] > 1440) throw new Error('计时、暂停与休息时长最多为1440分钟（24小时）。');
   }
+  if (preferences.timerMode === 'Countdown' && preferences.durationMinutes * 60000 < minimumFocusMs)
+    throw new Error('倒计时的专注时长不能少于10秒，请重新设置。');
   preferences.project = String(preferences.project).trim();
   return preferences;
 }
@@ -73,12 +80,15 @@ export function resume(model, now) {
   model.session.state = 'Focusing'; model.session.phaseStartedAt = now; model.session.deadline = null;
 }
 
-export function finish(model, now) {
+export function finish(model, now, reason = 'Manual') {
   if (!isActive(model.session)) throw new Error('当前没有可结束的专注。');
   const session = model.session;
   session.elapsedMs = elapsed(session, now); session.endedAt = now;
-  session.state = session.restMs > 0 ? 'Resting' : 'Ended';
-  session.deadline = session.restMs > 0 ? now + session.restMs : null;
+  session.discarded = session.elapsedMs < minimumFocusMs;
+  session.endReason = reason;
+  if (reason === 'DurationLimit') model.limitNotice = now;
+  session.state = session.restMs > 0 && reason !== 'DurationLimit' ? 'Resting' : 'Ended';
+  session.deadline = session.state === 'Resting' ? now + session.restMs : null;
 }
 
 export function formatTime(milliseconds, roundUp = false) {
@@ -95,11 +105,14 @@ export function getView(model, now) {
   const spent = elapsed(session, now);
   const display = session?.timerMode === 'Countdown' && active ? Math.max(0, session.durationMs - spent) : spent;
   const remaining = ['Paused', 'Resting'].includes(state) ? Math.max(0, session.deadline - now) : 0;
-  return { enabled: model.enabled, effective, preferences: model.preferences,
-    state: { state, stateText: { Ready:'准备开始', Focusing:'专注中', Paused:'已暂停', Resting:'休息中', Ended:'本次已结束' }[state],
+  const shortFocus = session?.discarded ?? (session?.endedAt != null && session.elapsedMs < minimumFocusMs);
+  return { enabled: model.enabled, effective, preferences: model.preferences, limitNotice: model.limitNotice ?? null,
+    state: { state, shortFocus, stateText: state === 'Ended' && shortFocus ? '本次未计入'
+        : { Ready:'准备开始', Focusing:'专注中', Paused:'已暂停', Resting:'休息中', Ended:'本次已结束' }[state],
       project: session?.project || '这一刻，专注学习', timer: formatTime(display, session?.timerMode === 'Countdown' && active),
-      phaseText: state === 'Paused' ? `${formatTime(remaining, true)} 后自动继续`
-        : state === 'Resting' ? `休息剩余 ${formatTime(remaining, true)}` : `有效专注 ${formatTime(spent)}`,
+      phaseText: session?.endReason === 'DurationLimit' ? '已达24小时上限，本次专注已自动结束。' : state === 'Paused' ? `${formatTime(remaining, true)} 后自动继续`
+        : state === 'Resting' ? `休息剩余 ${formatTime(remaining, true)}${shortFocus ? ' · 本次未计入' : ''}`
+        : shortFocus ? '有效专注不足10秒，本次未计入。' : `有效专注 ${formatTime(spent)}`,
       canEditRules: !active, canConfigure: ['Ready', 'Ended'].includes(state),
       websiteMode: active ? session.websiteMode : model.websiteMode, savedWebsiteMode: model.websiteMode,
       websites: model.lists[model.websiteMode], sessionWebsites: session?.websites || [] } };

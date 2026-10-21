@@ -60,7 +60,7 @@
 
 `date_events`、`calendar_plans`、`school_courses`、`course_changes`保存独立ID和JSON内容；学期与节次保存于`school.term`，待办提醒设置、本机通知计划及处理状态保存于settings。原有项目、待办、专注记录、图文偏好保持。课程JSON保存多个时段，单时段课程正常读取，调课和通知包含时段ID。缩放、提醒总开关、同步偏好及日历显示选择保存在settings。
 
-本次14项日历规则／存储／多时段课程／独立界面模块测试通过。验证覆盖待办执行安排与项目安排的日历归属、同日同时间的不同课程时段、独立调课、ICS身份、记录时间轴及暂停合并、单双列跨中午分段、日期年份月份跳转、缩放生效与保存、提醒总开关取消及重新安排Windows通知。只执行本次直接相关模块。预览位于`artifacts/qa`。
+本次14项日历规则／存储／多时段课程／独立界面模块测试通过。验证覆盖待办执行安排与项目安排的日历归属、同日同时间的不同课程时段、独立调课、ICS身份、记录时间轴及暂停合并、单双列跨中午分段、日期年份月份跳转、缩放生效与保存、提醒总开关取消及重新安排Windows通知。只执行本次直接相关模块。
 
 原理来源：[Microsoft计划通知](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-scheduled)、[通知工具包](https://www.nuget.org/packages/Microsoft.Toolkit.Uwp.Notifications/7.1.3)。界面只参考本地图片的布局思路，使用FocusBloom自己的配色和组件。
 

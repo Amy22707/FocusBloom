@@ -48,6 +48,6 @@
 
 `focus_goals`和`habits`保存定义JSON，`habit_checkins`按习惯ID及日期唯一保存。习惯删除保留定义及历史；原专注记录、待办、素材和设置继续保留。
 
-10项针对目标／习惯规则、存储、统计关联、按日完成比例、跨周／跨月周期、历史补打卡与撤销、单项筛选以及周／月／年界面的检查通过。完成日历预览为`artifacts/qa/goal-completion-month-light.png`、`goal-completion-week.png`、`goal-completion-year-light.png`和`goal-completion-year-dark.png`；历史月历预览为`artifacts/qa/habit-history-light.png`、`habit-history-dark.png`。
+10项针对目标／习惯规则、存储、统计关联、按日完成比例、跨周／跨月周期、历史补打卡与撤销、单项筛选以及周／月／年界面的检查通过。
 
 本次界面验证运行于独立Win32测试桌面，活动桌面保持不变，没有执行全局鼠标输入或系统通知投递验证。具体约定见[独立桌面测试](isolated-testing.md)。

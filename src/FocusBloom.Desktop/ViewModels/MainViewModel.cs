@@ -143,6 +143,7 @@ public sealed partial class MainViewModel : ObservableObject
         SaveProjectSelection();
         Widgets = new DesktopWidgetsViewModel(store);
         DateEvents.GroupRemapped += (previous, name) => Widgets[DesktopWidgetKind.Dates].RemapDateGroup(previous, name);
+        LoadRecovery();
     }
 
     public ObservableCollection<FocusProject> Projects { get; }
@@ -330,7 +331,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowEnd => _timer.IsRunning;
     public bool ShowSkipRest => _timer.State == FocusState.Resting;
     public string StatusMessage { get => _statusMessage; private set { _statusMessage = value; Notify(); } }
-    public bool CanConfigure => _timer.State is FocusState.Ready or FocusState.Ended;
+    public bool CanConfigure => !HasPendingRecovery && (_timer.State is FocusState.Ready or FocusState.Ended);
     public bool HasUnsavedRecord => _timer.LastRecord is { } record && record.Id != _savedRecordId;
     public string TimerText => Format(_timer.DisplayTime);
     public string StateText => _timer.State switch
@@ -342,6 +343,7 @@ public sealed partial class MainViewModel : ObservableObject
         _ => "准备开始"
     };
     public FocusState State => _timer.State;
+    public bool EndedAtDurationLimit => _timer.LastRecord?.EndReason == EndReason.DurationLimit;
     public string RoundText => _timer.IsPomodoro && !CanConfigure ? $"第 {_timer.Round} / {_timer.TotalRounds} 轮 · " : "";
     public string PhaseText => RoundText + (_timer.State switch
     {
@@ -378,6 +380,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool PrepareExit()
     {
         _timer.End(EndReason.ApplicationExit, false);
+        if (_timer.State == FocusState.Resting) _timer.SkipRest();
         var saved = PersistRecord();
         Refresh();
         return saved;
@@ -385,12 +388,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void Start()
     {
+        if (!CanConfigure || HasUnsavedRecord) return;
         if (SelectedProject is null) { StatusMessage = "请选择专注项目。"; return; }
         if (Countdown && !ValidateFocusDuration(DurationMinutes)) return;
         if (!TryMinutes(PauseMinutes, false, out var pause) || !TryMinutes(RestMinutes, true, out var rest)
             || (Countdown && !TryMinutes(DurationMinutes, false, out _)))
         {
-            StatusMessage = "请输入有效分钟数：倒计时与暂停大于 0，休息可设为 0。";
+            StatusMessage = "请输入有效分钟数：倒计时与暂停大于0，休息可为0；各项最多1440分钟（24小时）。";
             return;
         }
         PomodoroOptions? cycle = null;
@@ -519,6 +523,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public bool CanDeleteProject(FocusProject project) => !(_timer.IsRunning && _activeProjectId == project.Id)
+        && _recovery?.Timer.Options.ProjectId != project.Id
         && !(HasUnsavedRecord && _timer.LastRecord!.ProjectId == project.Id);
     public bool CanDeleteFolder(ProjectFolder folder) => folder.Projects.All(CanDeleteProject);
 
@@ -640,6 +645,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
         try
         {
+            RememberLimitNotice(_timer.LastRecord!);
             _store.SaveRecord(_timer.LastRecord!);
             _savedRecordId = _timer.LastRecord!.Id;
             LastSavedRecordId = _savedRecordId;
@@ -670,7 +676,7 @@ public sealed partial class MainViewModel : ObservableObject
                 record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                 record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), Format(record.FocusDuration),
                 record.Mode switch { TimerMode.CountUp => "正计时", TimerMode.Pomodoro => "番茄循环", _ => "倒计时" },
-                record.EndReason switch { EndReason.Manual => "手动结束", EndReason.CountdownElapsed => "到点结束", _ => "退出软件" },
+                record.EndReason switch { EndReason.Manual => "手动结束", EndReason.CountdownElapsed => "到点结束", EndReason.Interrupted => "中断后保存", EndReason.DurationLimit => "达到24小时上限", _ => "退出软件" },
                 record.Strict ? "严格" : "普通", record.Id,
                 record.TodoId is { } todoId ? todos.GetValueOrDefault(todoId, "") : "",
                 FormatOutcome(outcome), outcome?.NextStep ?? "", categories.GetValueOrDefault(record.ProjectId, "未分类"), record.Strict ? record.InterceptionCount?.ToString(CultureInfo.CurrentCulture) ?? "未统计" : "—"));
@@ -692,6 +698,7 @@ public sealed partial class MainViewModel : ObservableObject
             Media.BeginSession();
         }
         if (!_timer.IsActive) Media.ReleaseSession();
+        SaveCheckpoint();
         if (CanConfigure && !_wasConfigurable) ApplyDefaultModes();
         _wasConfigurable = CanConfigure;
         foreach (var name in new[] { nameof(TimerText), nameof(StateText), nameof(State), nameof(PhaseText), nameof(CanConfigure),

@@ -26,6 +26,7 @@
         <Border x:Name="WorkspaceHeader" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="恢复上次专注" Click="RecoverFocus_Click" Visibility="{Binding HasPendingRecovery, Converter={StaticResource BoolVisibility}}" Margin="0,0,12,0" />
                     <CheckBox x:Name="TimerFloatToggle" Content="&#xE8A7;" IsChecked="{Binding TimerFloatVisible}" Style="{StaticResource ShellToggle}" ToolTip="显示或隐藏计时浮窗" Margin="0,0,4,0" AutomationProperties.Name="计时浮窗" />
                     <CheckBox Content="&#xE718;" IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource ShellToggle}" ToolTip="窗口置顶" Margin="0,0,4,0" AutomationProperties.Name="窗口置顶" />
                     <Button x:Name="EnterFullscreenButton" Content="↗" Click="ToggleFullscreen_Click" Style="{StaticResource QuietTool}" Width="34" Height="32" FontSize="18" Padding="0" ToolTip="内容全屏（F11），Esc 返回" AutomationProperties.Name="内容全屏" />

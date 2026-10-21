@@ -88,6 +88,9 @@ async function command(message) {
   const fields = message.fields || {};
   switch (message.type) {
     case 'getView': return;
+    case 'ackLimitNotice':
+      if (candidate.limitNotice === message.noticeAt) candidate.limitNotice = null;
+      break;
     case 'setEnabled': candidate.enabled = Boolean(message.enabled); break;
     case 'start': start(candidate, fields, now); break;
     case 'pause': pause(candidate, now); break;

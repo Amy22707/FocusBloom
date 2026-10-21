@@ -56,6 +56,24 @@ public partial class MainWindow : Window
     private readonly List<(Expander Section, string Key, string Keywords)> _settingsSections = new();
     private bool _filteringSettings;
     public BackupSettingsViewModel? Backups { get; }
+    private bool _showingLimitNotice;
+    public void ShowLimitNotice()
+    {
+        if (!IsVisible || !_viewModel.HasLimitNotice || _viewModel.HasPendingRecovery || _showingLimitNotice) return;
+        _showingLimitNotice = true;
+        try
+        {
+            ConfirmDeletionWindow.ShowNotice(this, _viewModel.LimitNoticeMessage, "本次专注已自动结束");
+            _viewModel.AcknowledgeLimitNotice();
+        }
+        finally { _showingLimitNotice = false; }
+    }
+    public void ShowFocusRecovery()
+    {
+        if (_viewModel.HasPendingRecovery) new FocusRecoveryWindow(_viewModel) { Owner = this }.ShowDialog();
+        ShowLimitNotice();
+    }
+    private void RecoverFocus_Click(object sender, RoutedEventArgs e) => ShowFocusRecovery();
     public event Action<PreparedRestore>? BackupRestoreRequested;
 
     public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null)
@@ -72,6 +90,7 @@ public partial class MainWindow : Window
         _studyBrowser.ReturnToFocusRequested += BrowserReturnToFocusRequested;
         _studyBrowser.FullscreenRequested += BrowserFullscreenRequested;
         DataContext = viewModel;
+        Activated += (_, _) => Dispatcher.BeginInvoke(new Action(ShowLimitNotice));
         if (store is SqliteFocusStore sqlite)
         {
             Backups = new(new LocalBackupService(sqlite.DatabasePath), store, viewModel); BackupSettings.DataContext = Backups;

@@ -30,4 +30,4 @@
 
 导航配置保存于`ui.navigation.items`，设置分组保存于`ui.settings.expanded.*`。`NavigationViewModel`管理展示顺序，主窗口按稳定页面标识导航；主Tab页顺序保持，计时、浏览器和全屏入口仍使用既有页面。
 
-4项独立界面检查通过：导航勾选／排序／重开／计时连续性，实际鼠标悬停自动弹出及秒级内容，设置搜索／折叠／重开、滚动与预览，以及不同窗口高度下的导航底部间距。预览位于`artifacts/qa/settings-folded-sections.png`、`settings-search-fonts.png`、`settings-navigation-dark.png`及`statistics-hover-*`。
+4项独立界面检查通过：导航勾选／排序／重开／计时连续性，实际鼠标悬停自动弹出及秒级内容，设置搜索／折叠／重开、滚动与预览，以及不同窗口高度下的导航底部间距。

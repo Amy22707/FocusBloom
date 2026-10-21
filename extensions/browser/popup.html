@@ -1,20 +1,52 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>一刻专注</title><link rel="stylesheet" href="page.css"></head>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>一刻专注 · FocusBloom</title><link rel="stylesheet" href="page.css"></head>
 <body class="popup">
-<header><img src="icons/128.png" alt=""><div><h1>一刻专注</h1><small>FocusBloom · 浏览器版</small></div><button id="open" class="quiet">打开专注页</button><button id="fullscreen" class="quiet" hidden>全屏</button></header>
-<main>
-<section class="focusCard"><div class="sectionHeading"><p id="state" class="accent">准备开始</p><label class="switch"><input id="enabled" type="checkbox">限制网站</label></div><h2 id="project">这一刻，专注学习</h2><p id="timer" class="timer">00:00:00</p><p id="phase" class="muted"></p><p id="control" class="muted"></p><p id="error" role="alert"></p>
-<div class="actions"><button id="start">开始专注</button><button id="pause" hidden>暂停</button><button id="resume" hidden>继续</button><button id="end" class="quiet" hidden>结束本次</button><button id="skipRest" hidden>跳过休息</button></div></section>
-<div class="settingsColumns">
-<section><h2>计时偏好</h2><form id="timerForm"><label>本次专注<input id="projectName" placeholder="英语阅读、数学练习…"></label>
-<label>计时方式<select id="timerMode"><option value="CountUp">正计时 · 手动结束</option><option value="Countdown">倒计时 · 到点结束</option></select></label>
-<label id="durationLabel">专注分钟<input id="durationMinutes" type="number" min="0.01" step="any" value="25" required></label>
-<div class="formRow"><label>暂停分钟<input id="pauseMinutes" type="number" min="0.01" step="any" value="5" required></label><label>休息分钟<input id="restMinutes" type="number" min="0" step="any" value="0" required></label></div>
-<button type="submit" class="quiet">保存默认偏好</button></form></section>
-<section><h2>网站规则</h2><label>限制方式<select id="listMode"><option value="Whitelist">白名单 · 仅允许列表内</option><option value="Blacklist">黑名单 · 仅限制列表内</option></select></label><p id="editHint" class="muted"></p><div id="websites"></div>
-<form id="websiteForm"><label>域名或网址<input id="domain" placeholder="example.edu" required></label><label><input id="subdomains" type="checkbox" checked>包含子域名</label>
-<div class="actions"><button type="submit">保存网站</button><button id="cancel" type="button" class="quiet">取消编辑</button></div></form>
-<button id="addCurrent" class="quiet">将当前网站加入列表</button></section>
-<section><h2>外观</h2><label>配色<select id="palette"></select></label><label>明暗<select id="appearance"><option value="System">跟随系统</option><option value="Light">浅色</option><option value="Dark">深色</option></select></label></section>
-</div><p class="muted footnote">规则和计时保存在此浏览器中。专注与暂停限制网站，休息和结束后恢复访问。</p>
-</main><script type="module" src="page.js"></script></body></html>
+<header class="appHeader">
+  <div class="brandHeading"><img src="icons/128.png" alt=""><div><h1>一刻专注</h1><small>把时间留给喜欢的事</small></div></div>
+  <div class="headerActions"><button id="settings" class="iconButton quiet" aria-label="偏好设置" title="偏好设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></button><button id="open" class="iconButton quiet" aria-label="打开专注页" title="打开专注页"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6L10 14M10 4H4v16h16v-6"/></svg></button><button id="fullscreen" class="quiet" hidden>全屏</button></div>
+</header>
+<div class="appLayout">
+  <nav class="pageNav" aria-label="功能导航">
+    <button data-pane="focus" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>专注时刻</button>
+    <button data-pane="rules"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4-5 8-8 9-3-1-8-5-8-9V6zM8 12l3 3 5-6"/></svg>网站规则</button>
+    <button data-pane="preferences"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg>偏好设置</button>
+    <p class="navCaption">FocusBloom<br>浏览器版</p>
+  </nav>
+  <main>
+    <p id="error" role="alert" aria-live="polite"></p>
+    <div id="focusPane" class="pane">
+      <div class="pageHeading"><div><h2>留一刻，给自己</h2><p class="muted">一件事，一段专属的时间。</p></div></div>
+      <section class="focusCard">
+        <div class="sectionHeading"><span id="state" class="statusPill">准备开始</span><label class="switch"><input id="enabled" type="checkbox">限制网站</label></div>
+        <div class="focusCenter">
+          <div class="bloom" aria-hidden="true"><svg viewBox="0 0 120 120"><g class="petals"><ellipse cx="60" cy="37" rx="16" ry="25"/><ellipse cx="60" cy="37" rx="16" ry="25" transform="rotate(72 60 60)"/><ellipse cx="60" cy="37" rx="16" ry="25" transform="rotate(144 60 60)"/><ellipse cx="60" cy="37" rx="16" ry="25" transform="rotate(216 60 60)"/><ellipse cx="60" cy="37" rx="16" ry="25" transform="rotate(288 60 60)"/></g><circle class="bloomCore" cx="60" cy="60" r="12"/></svg></div>
+          <h2 id="project">这一刻，专注学习</h2>
+          <p id="timer" class="timer" aria-live="off">00:00:00</p>
+          <p id="phase" class="muted"></p>
+          <button id="quickSetup" class="setupChip quiet" title="调整本次计时">正计时 · 调整</button>
+        </div>
+        <div class="actions focusActions"><button id="start">开始专注</button><button id="pause" hidden>暂停</button><button id="resume" hidden>继续</button><button id="end" class="quiet" hidden>结束本次</button><button id="skipRest" hidden>跳过休息</button></div>
+        <p id="control" class="muted controlStatus"></p>
+      </section>
+      <p class="muted focusNote">关上面板，专注仍会继续。</p>
+    </div>
+    <div id="rulesPane" class="pane" hidden>
+      <div class="pageHeading"><div><h2>网站规则</h2><p class="muted">为想做的事，留一点安静。</p></div><span id="websiteCount" class="countPill">0 个网站</span></div>
+      <section><label>限制方式<select id="listMode"><option value="Whitelist">白名单 · 仅允许列表内</option><option value="Blacklist">黑名单 · 仅限制列表内</option></select></label><p id="editHint" class="muted hint"></p>
+        <div id="websites"></div><p id="emptyWebsites" class="emptyState">还没有网站，添加一个开始整理。</p>
+        <button id="addCurrent" class="quiet fullWidth">＋ 将当前网站加入列表</button>
+      </section>
+      <section><h3>添加或编辑网站</h3><form id="websiteForm"><label>域名或网址<input id="domain" placeholder="example.edu" required></label><label class="checkLabel"><input id="subdomains" type="checkbox" checked>包含子域名</label><div class="actions"><button type="submit">保存网站</button><button id="cancel" type="button" class="quiet">取消编辑</button></div></form></section>
+    </div>
+    <div id="preferencesPane" class="pane" hidden>
+      <div class="pageHeading"><div><h2>偏好设置</h2><p class="muted">找到适合自己的专注节奏。</p></div></div>
+      <section><h3>计时安排</h3><form id="timerForm"><label>本次专注<input id="projectName" placeholder="英语阅读、数学练习…" maxlength="120"></label><label>计时方式<select id="timerMode"><option value="CountUp">正计时 · 手动结束</option><option value="Countdown">倒计时 · 到点结束</option></select></label><label id="durationLabel">专注分钟<input id="durationMinutes" type="number" min="0.16666666666666666" max="1440" step="any" value="25" required></label><div class="formRow"><label>暂停分钟<input id="pauseMinutes" type="number" min="0.01" max="1440" step="any" value="5" required></label><label>休息分钟<input id="restMinutes" type="number" min="0" max="1440" step="any" value="0" required></label></div><div class="actions"><button type="submit">保存默认偏好</button><button id="backToFocus" type="button" class="quiet">返回专注</button></div><p id="preferenceNotice" class="muted hint" role="status"></p></form></section>
+      <section><h3>外观</h3><label>配色<select id="palette"></select></label><label>明暗<select id="appearance"><option value="System">跟随系统</option><option value="Light">浅色</option><option value="Dark">深色</option></select></label></section>
+      <p class="muted footnote">规则和偏好保存在当前浏览器。专注与暂停期间限制网站，休息和结束后恢复访问。</p>
+    </div>
+  </main>
+</div>
+<dialog id="limitNotice" aria-labelledby="limitNoticeTitle"><h2 id="limitNoticeTitle">本次专注已自动结束</h2><p>正计时已达到24小时上限，网站限制已解除。本次有效专注为24小时。</p><form method="dialog"><button>知道了</button></form></dialog>
+<script type="module" src="page.js"></script>
+</body></html>

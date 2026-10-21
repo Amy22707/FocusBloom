@@ -6,6 +6,23 @@ namespace FocusBloom.Tests;
 public sealed class FocusTimerTests
 {
     [Fact]
+    public void CountUpEndsAtTwentyFourEffectiveHoursWithoutRestOrFurtherAccumulation()
+    {
+        var clock = new ManualClock(); var timer = new FocusTimer(clock);
+        timer.Start(new(Guid.NewGuid(), TimerMode.CountUp, TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(15), true));
+        clock.Advance(TimeSpan.FromHours(23)); timer.Pause(); clock.Advance(TimeSpan.FromMinutes(2)); timer.Resume();
+        clock.Advance(TimeSpan.FromHours(3)); timer.Update();
+        Assert.Equal(FocusState.Ended, timer.State); Assert.False(timer.RestrictionsActive);
+        Assert.Equal(TimeSpan.FromHours(24), timer.Elapsed); Assert.Equal(EndReason.DurationLimit, timer.LastRecord!.EndReason);
+        Assert.Equal(TimeSpan.FromHours(24), timer.LastRecord.FocusDuration);
+        Assert.Equal(TimeSpan.FromHours(24) + TimeSpan.FromMinutes(2), timer.LastRecord.EndedAt - timer.LastRecord.StartedAt);
+        var id = timer.LastRecord.Id; clock.Advance(TimeSpan.FromDays(2)); timer.Update(); timer.Resume(); timer.End();
+        Assert.Equal(FocusState.Ended, timer.State); Assert.Equal(id, timer.LastRecord.Id);
+        Assert.Equal(TimeSpan.FromHours(24), timer.Elapsed);
+        timer.Start(new(Guid.NewGuid(), TimerMode.CountUp, TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.Zero));
+        Assert.Equal(TimeSpan.Zero, timer.Elapsed);
+    }
+    [Fact]
     public void InterceptionsCountOnlyStrictFocusAndPauseAndResetForNextRound()
     {
         var clock = new ManualClock(); var timer = new FocusTimer(clock);

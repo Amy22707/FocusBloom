@@ -10,9 +10,17 @@ export const palettes = [
 export function applyTheme(preferences) {
   const palette = palettes.find(item => item.id === preferences.palette) || palettes[0];
   const dark = preferences.appearance === 'Dark' || preferences.appearance === 'System' && matchMedia('(prefers-color-scheme: dark)').matches;
-  const colors = dark ? { background:'#20262c', card:'#2a323a', text:'#eef0f2', muted:'#b0b8c0', border:'#414b55', primary:'#20262c' }
-    : { background:'#f6f7f8', card:'#ffffff', text:'#303944', muted:'#707986', border:'#e6ebed', primary:'#ffffff' };
+  const colors = dark ? { card:'#242832', text:'#e5e9f0', muted:'#a6afbe', primary:'#1b2430' }
+    : { card:'#ffffff', text:'#303944', muted:'#76808d', primary:'#ffffff' };
   colors.accent = dark ? palette.dark : palette.light;
+  const mix = amount => '#' + [1,3,5].map(start => {
+    const base = parseInt(colors.card.slice(start,start+2),16);
+    return Math.round(base + (parseInt(colors.accent.slice(start,start+2),16)-base)*amount).toString(16).padStart(2,'0');
+  }).join('');
+  colors.background = dark ? '#191d25' : mix(.035);
+  colors.border = mix(dark ? .23 : .13);
+  colors.soft = mix(.08);
+  colors.selected = mix(dark ? .20 : .17);
   for (const [key, value] of Object.entries(colors)) document.documentElement.style.setProperty('--' + key, value);
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
 }

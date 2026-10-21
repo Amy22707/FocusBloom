@@ -99,6 +99,7 @@ public sealed partial class MainViewModel
         catch (Exception ex) { StatusMessage = $"待办文件夹选择保存失败：{ex.Message}"; }
     }
     public bool CanDeleteTodo(Guid id) => !(_timer.IsRunning && _activeTodoId == id)
+        && _recovery?.Timer.Options.TodoId != id
         && !(HasUnsavedRecord && _timer.LastRecord!.TodoId == id);
     public bool StartFromTodo(Guid id, FocusProject? project = null, int? quickMinutes = null, string? category = null)
     {
