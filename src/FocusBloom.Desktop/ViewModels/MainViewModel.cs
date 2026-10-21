@@ -142,6 +142,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshTodoChoices(Guid.TryParse(savedTodo, out var todoId) ? todoId : null);
         SaveProjectSelection();
         Widgets = new DesktopWidgetsViewModel(store);
+        DateEvents.GroupRemapped += (previous, name) => Widgets[DesktopWidgetKind.Dates].RemapDateGroup(previous, name);
     }
 
     public ObservableCollection<FocusProject> Projects { get; }

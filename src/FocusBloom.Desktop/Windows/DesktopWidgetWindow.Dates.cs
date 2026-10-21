@@ -14,33 +14,51 @@ public partial class DesktopWidgetWindow
 {
     private void DrawDates()
     {
-        var rows = _manager.Data.Dates.Where(item => Option.Includes(item.Item.Id)).ToArray();
+        var rows = _manager.Data.Dates.Where(item => Option.Includes(item.Item.Id) && Option.IncludesGroup(item.Item.Group)).ToArray();
+        var groups = _main.DateEvents.GroupNames.Where(Option.IncludesGroup).ToArray();
+        var scope = groups.Length == _main.DateEvents.GroupNames.Count ? "全部分组" : groups.Length == 1 ? groups[0] : $"{groups.Length} 个分组";
+        WidgetBody.Children.Add(Text(scope + $" · {rows.Length} 项", 10, true));
         if (Option.View == "月历") { MonthTools(); DrawDateCalendar(rows); return; }
         Tool("＋", () => new DateEventEditorWindow(_main) { Owner = this }.ShowDialog());
+        if (Option.View == "分组" && groups.Length > 0) { DrawDateGroups(rows, groups); return; }
         if (rows.Length == 0) { WidgetBody.Children.Add(Text("没有选中的日期事项，可在组件设置里选择或点击＋添加。", 12, true)); return; }
         if (Option.View == "大字")
         {
             _page %= rows.Length; var row = rows[_page]; Tool("‹", () => { _page = (_page + rows.Length - 1) % rows.Length; Render(); }); Tool("›", () => { _page = (_page + 1) % rows.Length; Render(); });
-            var body = new StackPanel(); var title = Text(row.Title, 17); title.FontWeight = FontWeights.SemiBold; title.TextAlignment = TextAlignment.Center; body.Children.Add(title);
+            var body = new StackPanel(); var title = Text(row.Title, 17); title.FontWeight = FontWeights.SemiBold; title.TextAlignment = TextAlignment.Center; body.Children.Add(title); var groupName = Text(row.Item.Group, 10, true); groupName.TextAlignment = TextAlignment.Center; body.Children.Add(groupName);
             var label = Text(row.Label, 12, true); label.Margin = new Thickness(0, 12, 0, 0); label.TextAlignment = TextAlignment.Center; body.Children.Add(label);
             var number = Text(row.Number, 58); number.FontWeight = FontWeights.Light; number.TextAlignment = TextAlignment.Center; number.SetResourceReference(TextBlock.ForegroundProperty, "AccentTextBrush"); body.Children.Add(new Viewbox { Child = number, MaxHeight = 80, StretchDirection = StretchDirection.DownOnly });
             var date = Text((row.Number == "—" ? "" : "天 · ") + row.Detail, 11, true); date.TextAlignment = TextAlignment.Center; body.Children.Add(date); body.Children.Add(Text($"{_page + 1} / {rows.Length}", 10, true));
             var open = new Button { Content = body, Tag = row.Item.Id, Margin = new Thickness(0, 8, 0, 0) }; open.SetResourceReference(StyleProperty, "CompletionDateButton"); open.Click += (_, _) => _open(DesktopWidgetKind.Dates, row.Item.Id, row.Next ?? row.Item.Date); WidgetBody.Children.Add(open); return;
         }
         var list = Option.View == "卡片" ? (Panel)new UniformGrid { Columns = WidgetViewport.ActualWidth >= 470 ? 2 : 1 } : new StackPanel();
-        foreach (var row in rows)
-        {
-            var body = new StackPanel();
-            if (Option.View == "卡片" && Option.ShowCovers && row.Cover is not null)
-            {
-                var image = new Image { Height = 78, Stretch = Stretch.UniformToFill, Margin = new Thickness(0, 0, 0, 8), ClipToBounds = true }; image.SetBinding(Image.SourceProperty, new Binding(nameof(DateEventRow.Thumbnail)) { Source = row }); image.SetBinding(VisibilityProperty, new Binding(nameof(DateEventRow.HasCover)) { Source = row, Converter = (IValueConverter)FindResource("BoolVisibility") }); body.Children.Add(image);
-            }
-            var title = Text(row.Title, 13); title.FontWeight = FontWeights.SemiBold; title.TextTrimming = TextTrimming.CharacterEllipsis; title.TextWrapping = TextWrapping.NoWrap; body.Children.Add(title);
-            var number = Text(row.Number == "—" ? row.Label : row.Label + " " + row.Number + " 天", Option.View == "卡片" ? 24 : 17); number.Margin = new Thickness(0, 7, 0, 5); number.SetResourceReference(TextBlock.ForegroundProperty, "AccentTextBrush"); body.Children.Add(number); body.Children.Add(Text(row.Detail, 10, true));
-            var open = new Button { Content = body, Tag = row.Item.Id, ToolTip = row.Title + "\n" + row.Notes }; open.SetResourceReference(StyleProperty, "CompletionDateButton"); open.Click += (_, _) => _open(DesktopWidgetKind.Dates, row.Item.Id, row.Next ?? row.Item.Date);
-            var card = Card(open); card.Margin = new Thickness(0, 0, Option.View == "卡片" ? 7 : 0, 8); list.Children.Add(card);
-        }
+        foreach (var row in rows) list.Children.Add(DateWidgetCard(row, Option.View == "卡片", true));
         WidgetBody.Children.Add(list);
+    }
+    private Border DateWidgetCard(DateEventRow row, bool cover, bool showGroup)
+    {
+        var body = new StackPanel();
+        if (cover && Option.ShowCovers && row.Cover is not null)
+        {
+            var image = new Image { Height = 78, Stretch = Stretch.UniformToFill, Margin = new Thickness(0, 0, 0, 8), ClipToBounds = true }; image.SetBinding(Image.SourceProperty, new Binding(nameof(DateEventRow.Thumbnail)) { Source = row }); image.SetBinding(VisibilityProperty, new Binding(nameof(DateEventRow.HasCover)) { Source = row, Converter = (IValueConverter)FindResource("BoolVisibility") }); body.Children.Add(image);
+        }
+        var title = Text(row.Title, 13); title.FontWeight = FontWeights.SemiBold; title.TextTrimming = TextTrimming.CharacterEllipsis; title.TextWrapping = TextWrapping.NoWrap; body.Children.Add(title);
+        if (showGroup) body.Children.Add(Text(row.Item.Group, 10, true));
+        var number = Text(row.Number == "—" ? row.Label : row.Label + " " + row.Number + " 天", cover ? 23 : 17); number.Margin = new Thickness(0, 7, 0, 5); number.SetResourceReference(TextBlock.ForegroundProperty, "AccentTextBrush"); body.Children.Add(number); body.Children.Add(Text(row.Detail, 10, true));
+        var open = new Button { Content = body, Tag = row.Item.Id, ToolTip = row.Title + "\n" + row.Item.Group + "\n" + row.Notes }; open.SetResourceReference(StyleProperty, "CompletionDateButton"); open.Click += (_, _) => _open(DesktopWidgetKind.Dates, row.Item.Id, row.Next ?? row.Item.Date);
+        var card = Card(open); card.CornerRadius = new CornerRadius(20); card.Margin = new Thickness(0, 0, Option.View == "卡片" ? 7 : 0, 8); return card;
+    }
+    private void DrawDateGroups(DateEventRow[] rows, string[] groups)
+    {
+        var columns = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        foreach (var name in groups)
+        {
+            var items = rows.Where(row => row.Item.Group == name).ToArray(); var column = new DockPanel();
+            var header = new DockPanel { Margin = new Thickness(2, 0, 2, 10) }; DockPanel.SetDock(header, Dock.Top); var add = new Button { Content = "＋", Padding = new Thickness(4, 0, 4, 0), ToolTip = "在此分组添加日期事项" }; add.SetResourceReference(StyleProperty, "WidgetTool"); add.Click += (_, _) => new DateEventEditorWindow(_main, initialGroup: name) { Owner = this }.ShowDialog(); DockPanel.SetDock(add, Dock.Right); header.Children.Add(add); var count = Text(items.Length + " 项", 10, true); count.VerticalAlignment = VerticalAlignment.Center; count.Margin = new Thickness(8, 0, 8, 0); DockPanel.SetDock(count, Dock.Right); header.Children.Add(count); var title = Text(name, 13); title.FontWeight = FontWeights.SemiBold; header.Children.Add(title); column.Children.Add(header);
+            var list = new StackPanel(); foreach (var row in items) list.Children.Add(DateWidgetCard(row, true, false)); if (items.Length == 0) list.Children.Add(Text("这个组还没有日期事项", 11, true)); column.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
+            var card = Card(column); card.Width = Math.Max(220, Math.Min(270, WidgetViewport.ActualWidth - 8)); card.Height = Math.Max(150, WidgetViewport.ActualHeight - 50); card.CornerRadius = new CornerRadius(22); card.Margin = new Thickness(0, 0, 10, 0); columns.Children.Add(card);
+        }
+        WidgetBody.Children.Add(new ScrollViewer { Content = columns, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled });
     }
     private void DrawDateCalendar(DateEventRow[] rows)
     {

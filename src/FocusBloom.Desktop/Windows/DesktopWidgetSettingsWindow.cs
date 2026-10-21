@@ -64,6 +64,20 @@ public sealed class DesktopWidgetSettingsWindow : Window
             fields.Children.Add(new ScrollViewer { Content = selection, MaxHeight = 180, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); RegisterName("WidgetItemSelection", selection);
         }
         if (option.Kind == DesktopWidgetKind.Dates) BindCheck("WidgetCoversInput", "卡片显示封面", "ShowCovers");
+        if (option.Kind == DesktopWidgetKind.Dates)
+        {
+            Caption("日期分组 · 卡片、列表混合显示所选分组，分组视图按列显示");
+            var all = new CheckBox { Content = "显示全部分组", IsChecked = option.AllDateGroups, Margin = new Thickness(0, 5, 0, 8) }; RegisterName("WidgetAllDateGroups", all); fields.Children.Add(all);
+            var groups = new StackPanel { IsEnabled = !option.AllDateGroups }; RegisterName("WidgetDateGroups", groups);
+            foreach (var name in main.DateEvents.GroupNames)
+            {
+                var group = new CheckBox { Content = name, Tag = name, IsChecked = option.IncludesGroup(name), Margin = new Thickness(0, 5, 0, 5) };
+                group.Checked += (_, _) => option.SelectDateGroup(name, true); group.Unchecked += (_, _) => option.SelectDateGroup(name, false); groups.Children.Add(group);
+            }
+            all.Checked += (_, _) => { option.AllDateGroups = true; groups.IsEnabled = false; };
+            all.Unchecked += (_, _) => { option.AllDateGroups = false; foreach (var group in groups.Children.OfType<CheckBox>().Where(group => group.IsChecked == true)) option.SelectDateGroup((string)group.Tag, true); groups.IsEnabled = true; };
+            fields.Children.Add(groups);
+        }
     }
     private sealed class InverseBooleanConverter : IValueConverter
     {

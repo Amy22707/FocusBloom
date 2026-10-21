@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Core.Reflection;
+using FocusBloom.Core.Goals;
 using FocusBloom.Core.Storage;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Desktop.ViewModels;
@@ -13,7 +14,7 @@ using FocusBloom.Desktop.ViewModels;
 namespace FocusBloom.Desktop.Windows;
 
 public sealed record DesktopWidgetData(int Version, IReadOnlyList<FocusRecord> Records, IReadOnlyList<TodoRow> Todos,
-    IReadOnlyList<DateEventRow> Dates, IReadOnlyList<HabitRow> Habits, IReadOnlyList<DailyReflection> Moods);
+    IReadOnlyList<DateEventRow> Dates, IReadOnlyList<HabitRow> Habits, IReadOnlyList<DailyReflection> Moods, IReadOnlyList<HabitCheckIn> CheckIns);
 
 public sealed class DesktopWidgetManager : IDisposable
 {
@@ -27,7 +28,7 @@ public sealed class DesktopWidgetManager : IDisposable
     private DateOnly _day = DateOnly.FromDateTime(DateTime.Today);
     private FocusState _state;
     public IReadOnlyDictionary<DesktopWidgetKind, DesktopWidgetWindow> Windows => _windows;
-    public DesktopWidgetData Data { get; private set; } = new(0, Array.Empty<FocusRecord>(), Array.Empty<TodoRow>(), Array.Empty<DateEventRow>(), Array.Empty<HabitRow>(), Array.Empty<DailyReflection>());
+    public DesktopWidgetData Data { get; private set; } = new(0, Array.Empty<FocusRecord>(), Array.Empty<TodoRow>(), Array.Empty<DateEventRow>(), Array.Empty<HabitRow>(), Array.Empty<DailyReflection>(), Array.Empty<HabitCheckIn>());
     public DesktopWidgetManager(MainViewModel main, IFocusStore store, Action<DesktopWidgetKind, Guid?, DateOnly?> open, Action<CalendarEntry> openCalendar)
     {
         _main = main; _store = store; _open = open; _openCalendar = openCalendar; _state = main.State;
@@ -68,7 +69,7 @@ public sealed class DesktopWidgetManager : IDisposable
     public void OpenCalendarEntry(CalendarEntry entry) => _openCalendar(entry);
     private void LoadData()
     {
-        Data = new(Data.Version + 1, _store.GetRecords(), _main.Todos.Items.ToArray(), _main.DateEvents.Items.ToArray(), _main.Goals.Habits.ToArray(), _main.Reflection.Entries.ToArray()); _dirty = false;
+        Data = new(Data.Version + 1, _store.GetRecords(), _main.Todos.Items.ToArray(), _main.DateEvents.Items.ToArray(), _main.Goals.Habits.ToArray(), _main.Reflection.Entries.ToArray(), _store.GetHabitCheckIns()); _dirty = false;
     }
     public void RefreshNow() { if (_disposed) return; LoadData(); foreach (var window in _windows.Values.ToArray()) window.Render(); }
     public void Tick()

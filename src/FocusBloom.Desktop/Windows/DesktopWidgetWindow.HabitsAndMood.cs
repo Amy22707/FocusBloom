@@ -14,25 +14,6 @@ namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow
 {
-    private void DrawHabits()
-    {
-        Tool("＋", () => new HabitEditorWindow(_main) { Owner = this }.ShowDialog());
-        var rows = _manager.Data.Habits.Where(item => Option.Includes(item.Id)).ToArray(); var planned = rows.Where(item => item.CanCheck).ToArray();
-        WidgetBody.Children.Add(Text($"今日已完成 {planned.Count(item => item.CheckedToday)} / {planned.Length}", 11, true));
-        if (rows.Length == 0) { WidgetBody.Children.Add(Text("没有选中的习惯，可在设置中选择或点击＋创建。", 12, true)); return; }
-        var list = Option.View == "平铺" ? (Panel)new UniformGrid { Columns = WidgetViewport.ActualWidth >= 360 ? 2 : 1, Margin = new Thickness(0, 8, 0, 0) } : new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var row in rows)
-        {
-            var body = new StackPanel(); var name = Text(row.Name, 13); name.FontWeight = FontWeights.SemiBold;
-            var history = new Button { Content = name, Tag = row.Id, ToolTip = "查看历史或补打卡" }; history.SetResourceReference(StyleProperty, "CompletionDateButton"); history.Click += (_, _) => new HabitHistoryWindow(_main, row.Habit) { Owner = this }.ShowDialog(); body.Children.Add(history);
-            body.Children.Add(Text(row.Streak, 10, true));
-            var check = new Button { Content = row.CheckText, Tag = row.Id, IsEnabled = row.CanCheck, Padding = new Thickness(8, 5, 8, 5), FontSize = 11, Margin = new Thickness(0, 8, 0, 0) };
-            if (row.CheckedToday) check.SetResourceReference(StyleProperty, "PrimaryButton");
-            check.Click += (_, _) => { if (row.CheckedToday && !ConfirmDeletionWindow.Ask(this, "撤销今天的打卡？")) return; _main.Goals.CheckIn(row.Id, _main.Goals.Today); }; body.Children.Add(check);
-            var card = Card(body); card.Margin = new Thickness(0, 0, Option.View == "平铺" ? 7 : 0, 8); list.Children.Add(card);
-        }
-        WidgetBody.Children.Add(list);
-    }
     private void DrawMood()
     {
         MonthTools(); MonthPicker(); var first = new DateOnly(_anchor.Year, _anchor.Month, 1); var last = new DateOnly(first.Year, first.Month, DateTime.DaysInMonth(first.Year, first.Month)); var today = DateOnly.FromDateTime(DateTime.Today);

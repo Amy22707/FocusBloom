@@ -65,6 +65,7 @@ public sealed class DateEventsViewModel : ObservableObject
     public ObservableCollection<DateEventGroup> Groups { get; } = [];
     public ObservableCollection<DateGroupFilter> GroupFilters { get; } = [];
     public event EventHandler? Changed;
+    public event Action<string, string>? GroupRemapped;
     public DateGroupChoice? SelectedGroup
     {
         get => _selected;
@@ -122,6 +123,7 @@ public sealed class DateEventsViewModel : ObservableObject
         CollectionOrder.Apply(GroupNames, _groupOrder, name => name);
         CollectionOrder.Apply(GroupFilters, _groupOrder, item => item.Name);
         CollectionOrder.Apply(GroupChoices, new string?[] { null }.Concat(_groupOrder).ToArray(), item => item.Name);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
     private void SaveGroupOrder() => _store.SaveSetting("dates.groupOrder", JsonSerializer.Serialize(_groupOrder));
     public string? SaveGroup(string? previous, string name)
@@ -140,14 +142,14 @@ public sealed class DateEventsViewModel : ObservableObject
                 if (_mixedGroups?.Remove(previous) == true) { _mixedGroups.Add(name); _store.SaveSetting("dates.mixedGroups", JsonSerializer.Serialize(_mixedGroups)); }
             }
             if (previous is not null && selected == previous) _selected = new(name);
-            Reload(); _store.SaveSetting("dates.selectedGroup", JsonSerializer.Serialize(_selected?.Name)); Changed?.Invoke(this, EventArgs.Empty); return null;
+            Reload(); _store.SaveSetting("dates.selectedGroup", JsonSerializer.Serialize(_selected?.Name)); if (previous is not null) GroupRemapped?.Invoke(previous, name); Changed?.Invoke(this, EventArgs.Empty); return null;
         }
         catch (Exception error) { return "分组保存失败：" + error.Message; }
     }
     public string? DeleteGroup(string name)
     {
         if (name == "未分组") return "默认分组保留，事项可以移入其他分组。";
-        try { _store.DeleteDateGroup(name); _groupOrder.Remove(name); SaveGroupOrder(); if (_mixedGroups?.Remove(name) == true) _store.SaveSetting("dates.mixedGroups", JsonSerializer.Serialize(_mixedGroups)); if (_selected?.Name == name) _selected = new("未分组"); Reload(); _store.SaveSetting("dates.selectedGroup", JsonSerializer.Serialize(_selected?.Name)); Changed?.Invoke(this, EventArgs.Empty); return null; }
+        try { _store.DeleteDateGroup(name); _groupOrder.Remove(name); SaveGroupOrder(); if (_mixedGroups?.Remove(name) == true) _store.SaveSetting("dates.mixedGroups", JsonSerializer.Serialize(_mixedGroups)); if (_selected?.Name == name) _selected = new("未分组"); Reload(); _store.SaveSetting("dates.selectedGroup", JsonSerializer.Serialize(_selected?.Name)); GroupRemapped?.Invoke(name, "未分组"); Changed?.Invoke(this, EventArgs.Empty); return null; }
         catch (Exception error) { return "分组删除失败：" + error.Message; }
     }
     public string? MoveToGroup(DateEventRow row, string group)

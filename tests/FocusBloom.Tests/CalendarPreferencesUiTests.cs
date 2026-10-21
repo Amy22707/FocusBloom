@@ -178,7 +178,7 @@ public sealed class CalendarPreferencesUiTests
                 var editor = new CourseEditorWindow(main) { Owner = window };
                 Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
                 {
-                    ((TextBox)editor.FindName("NameInput")).Text = "示例项目";
+                    ((TextBox)editor.FindName("NameInput")).Text = "示例课程";
                     ((Button)editor.FindName("AddMeetingButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
                     var meetings = Descendants<Expander>(editor).Where(item => item.GetType().Name == "CourseMeetingEditor").ToArray(); Assert.Equal(2, meetings.Length);
                     var second = Descendants<ComboBox>((DependencyObject)meetings[1].Content).ToArray(); second[0].SelectedIndex = 0;

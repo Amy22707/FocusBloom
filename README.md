@@ -12,7 +12,11 @@ Windows 专注与学习管理软件。围绕项目分类计时，连接学习计
 
 工作区采用紧凑导航和内容工具栏，待办突出名称与截止日期，月历展示多条事项，周视图与课表保留日期表头。界面说明与预览范围见[工作界面](docs/workspace-ui.md)。
 
-程序、窗口、托盘及主界面采用统一品牌图标。启动时显示图标、“一刻专注”和“把时间留给喜欢的事。”，本地数据初始化完成后进入主界面。原始 PNG 与 Windows ICO 位于 `src/FocusBloom.Desktop/Resources/Branding/`。
+程序、窗口、托盘及主界面采用统一品牌图标。启动时显示图标、“一刻专注”和“把时间留给喜欢的事。”，本地数据初始化完成后进入主界面。品牌图标由本地提供，不随仓库分发；构建前需将 `FocusBloom.png` 与 `FocusBloom.ico` 放入 `src/FocusBloom.Desktop/Resources/Branding/`。
+
+## 引用与素材
+
+默认句子均为名人名言或谚语引用；如果侵权，请联系删除。出处见[默认句子出处](docs/quote-sources.md)。图片、音频与第三方组件的许可记录见[素材来源](src/FocusBloom.Desktop/Resources/Focus/SOURCES.md)和[第三方组件](src/FocusBloom.Desktop/Resources/ThirdParty/README.md)。
 
 ## 开发环境
 

@@ -74,7 +74,7 @@ public sealed class CalendarUiTests
             {
                 var store = new SqliteFocusStore(Path.Combine(directory, "test.db")); var day = new DateOnly(2026, 10, 12);
                 store.SaveSchoolTerm(new(day, 16, new[] { new ClassPeriod(1, new(13, 0), new(14, 50)) }));
-                store.SaveCourse(new(Guid.NewGuid(), "示例课程", 1, 1, 1, Room: "教室101", Teacher: "示例教师"));
+                store.SaveCourse(new(Guid.NewGuid(), "示例课程一", 1, 1, 1, Room: "教室101", Teacher: "示例教师"));
                 store.SaveCourse(new(Guid.NewGuid(), "示例课程二", 2, 1, 1, Room: "教室102", Teacher: "教师甲、教师乙"));
                 main = new(store); window = new(main, store, Path.Combine(directory, "browser")) { Width = 1120, Height = 720 }; window.Show();
                 ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("CalendarTab"); main.Calendar.Mode = "课程表"; main.Calendar.Date = day.AddDays(35);
@@ -121,7 +121,7 @@ public sealed class CalendarUiTests
                 var folder = new TodoFolder(Guid.NewGuid(), "学习", "未分类"); store.SaveTodoFolder(folder);
                 var todo = new TodoItem(Guid.NewGuid(), folder.Id, "ICS作业", DueDate: day, DueTime: new(18, 0)); store.SaveTodo(todo);
                 store.SaveSchoolTerm(new(new(2026, 9, 7), 20, new[] { new ClassPeriod(1, new(8, 0), new(8, 50)), new ClassPeriod(2, new(9, 0), new(9, 50)), new ClassPeriod(3, new(10, 10), new(11, 0)), new ClassPeriod(4, new(11, 10), new(12, 0)) }));
-                var course = new SchoolCourse(Guid.NewGuid(), "示例项目", 3, 1, 2, Room: "教室101"); store.SaveCourse(course);
+                var course = new SchoolCourse(Guid.NewGuid(), "示例课程", 3, 1, 2, Room: "教室101"); store.SaveCourse(course);
                 store.SaveCalendarPlan(new(Guid.NewGuid(), "复习示例课程", day, new(14, 0), 90, todo.Id));
                 store.SaveDateEvent(new(Guid.NewGuid(), "期末考试", day.AddDays(30), Pinned: true, Notes: "每天进步一点"));
                 store.SaveDateEvent(new(Guid.NewGuid(), "开始学习", day.AddDays(-100), Mode: DateCountMode.CountUp));

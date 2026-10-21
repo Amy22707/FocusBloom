@@ -20,3 +20,10 @@ artifacts/
 *.db
 *.db-shm
 *.db-wal
+
+# 品牌图标由本地提供，不随仓库分发
+/src/FocusBloom.Desktop/Resources/Branding/FocusBloom.png
+/src/FocusBloom.Desktop/Resources/Branding/FocusBloom.ico
+/extensions/browser/icons/16.png
+/extensions/browser/icons/48.png
+/extensions/browser/icons/128.png

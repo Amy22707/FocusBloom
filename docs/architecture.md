@@ -36,7 +36,7 @@ flowchart LR
 | `Desktop/Views/FocusFontSettingsView` | 中文、英文、数字字体卡片及混排预览 |
 | `Desktop/Resources/Focus` | 离线背景、环境声、合成音源、提示音及来源目录 |
 | `Desktop/Resources` | 共用主题资源与控件样式 |
-| `Desktop/Resources/Branding` | 原始 PNG 与多尺寸 Windows ICO，供程序、窗口、托盘及主界面使用 |
+| `Desktop/Resources/Branding` | 品牌图标，由本地提供，不随仓库分发 |
 | `Desktop/Windows` | 托盘、加载窗口、窗口布局、前台应用监测、应用选择与阻止界面 |
 | `Desktop/App` | 数据路径、应用组装、刷新调度、隐藏到托盘与明确退出 |
 | `extensions/browser` | 独立 MV3 扩展，计时状态、本地存储、后台闹钟、黑白名单、主题及页面 |

@@ -147,7 +147,10 @@ public partial class MainWindow : Window
                 NavigateToSection("todos"); if (id is { } todo) OpenCalendarEntry(new("待办", todo, "", day ?? DateOnly.FromDateTime(DateTime.Today))); break;
             case DesktopWidgetKind.Dates:
                 NavigateToSection("dates"); if (id is { } date) OpenCalendarEntry(new("日期事项", date, "", day ?? DateOnly.FromDateTime(DateTime.Today))); break;
-            case DesktopWidgetKind.Habits: NavigateToSection("goals"); break;
+            case DesktopWidgetKind.Habits:
+                NavigateToSection("goals"); var habitView = _viewModel.Widgets[kind].View;
+                _viewModel.Goals.View = habitView is "日" or "周" or "月" or "年" ? habitView : "卡片";
+                _viewModel.Goals.Anchor = (day ?? _viewModel.Goals.Today).ToDateTime(TimeOnly.MinValue); break;
             case DesktopWidgetKind.Calendar: NavigateToSection("calendar"); _viewModel.Calendar.Date = day ?? DateOnly.FromDateTime(DateTime.Today); _viewModel.Calendar.Mode = _viewModel.Widgets[kind].View; break;
             case DesktopWidgetKind.Mood: NavigateToSection("reflection"); _viewModel.Reflection.Date = (day ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue); break;
         }
