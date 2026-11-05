@@ -8,6 +8,8 @@ using FocusBloom.Core.Calendar;
 using FocusBloom.Core.Statistics;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow
@@ -62,7 +64,7 @@ public partial class DesktopWidgetWindow
     {
         if (_focusSaved is null || _focusValue is null || _focusHint is null) return;
         var current = LiveFocusStatistics.Build(_focusSaved, _main.WidgetCurrentRecord); _focusValue.Text = FormatDuration(current.Duration);
-        _focusHint.Text = (current.IncludesCurrent ? "含本次尚未保存的计时 · " : "") + $"{_focusSaved.Count} 次已保存专注";
+        _focusHint.Text = (current.IncludesCurrent ? UiText.Get("含本次尚未保存的计时 · ") : "") + UiText.Format("{0} 次已保存专注", _focusSaved.Count);
     }
     private static string FormatDuration(TimeSpan time) => $"{(int)time.TotalHours:00}:{time.Minutes:00}:{time.Seconds:00}";
 }

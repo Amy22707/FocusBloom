@@ -11,3 +11,13 @@
 ## 联系
 
 有隐私问题可以联系 FocusBloom 项目。请在公开反馈中省略网址、项目名称等私人信息。[FocusBloom Issues](https://github.com/Amy22707/FocusBloom/issues)
+
+## English
+
+This policy covers the standalone FocusBloom extension for Chrome, Edge, and Firefox.
+
+The extension stores focus project names, session records, preferences, and website rules in the current browser profile. During a restricted session, the extension checks tab URLs locally against your rules. The blocked page temporarily retains the original URL so it can restore access when restrictions end.
+
+The store build works without an account. It sends no user data to a server and includes no advertising, analytics, or telemetry. The extension does not save browsing history or read page contents. Uninstalling it removes its data from the browser profile.
+
+For privacy questions, contact the FocusBloom project. Omit private URLs and project names from public reports. [FocusBloom Issues](https://github.com/Amy22707/FocusBloom/issues)

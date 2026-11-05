@@ -29,6 +29,7 @@ public partial class App : Application
     private WindowsReminderService? _reminders;
     private PreparedRestore? _restore;
     private bool _restartForAccount;
+    private string? _updateInstaller;
     private string? _alternateDataDirectory;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -60,6 +61,7 @@ public partial class App : Application
             MainWindow = _window;
             _window.Closing += HideToTray;
             _window.ExitRequested += (_, _) => ExitApplication();
+            _window.InstallUpdateRequested += installer => ExitApplication(installer);
             _window.AccountRestartRequested += () => { _restartForAccount = true; ExitApplication(); };
             _window.BackupRestoreRequested += prepared => { _restore = prepared; ExitApplication(); };
             _restrictions = new ApplicationRestrictionService(_viewModel, () => _window.ReturnToFocus());
@@ -106,7 +108,9 @@ public partial class App : Application
         _window!.ShowFromTray();
     }
 
-    private async void ExitApplication()
+    private void ExitApplication() => ExitApplication(null);
+
+    private async void ExitApplication(string? updateInstaller)
     {
         if (_exiting) return;
         if (_restore is not null)
@@ -121,6 +125,7 @@ public partial class App : Application
             }
         }
         if (!_viewModel!.PrepareExit()) { _restore?.Dispose(); _restore = null; ShowWindow(); return; }
+        _updateInstaller = updateInstaller;
         _exiting = true; _refresh?.Stop();
         foreach (Window window in Windows) window.IsEnabled = false;
         _restrictions?.Dispose();
@@ -191,6 +196,21 @@ public partial class App : Application
             catch (Exception error) { MessageBox.Show("本机数据未导入，原数据和导入前备份均已保留。\n" + error.Message, "导入本机数据", MessageBoxButton.OK, MessageBoxImage.Information); }
             try { Restart(); }
             catch (Exception error) { MessageBox.Show("请重新打开一刻专注。\n" + error.Message, "切换账号", MessageBoxButton.OK, MessageBoxImage.Information); }
+        }
+        if (_updateInstaller is { } installer)
+        {
+            try
+            {
+                var start = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "msiexec.exe")) { UseShellExecute = false };
+                start.ArgumentList.Add("/i");
+                start.ArgumentList.Add(installer);
+                Process.Start(start)?.Dispose();
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(UiText.Format("无法启动更新安装程序。可手动打开 {0}\n{1}", installer, error.Message),
+                    UiText.Get("检查更新"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
         base.OnExit(e);
     }

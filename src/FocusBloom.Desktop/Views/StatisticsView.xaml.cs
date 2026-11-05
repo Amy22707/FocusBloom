@@ -112,18 +112,18 @@ public partial class StatisticsView : UserControl
         if (fill is not null) { fill.SetResourceReference(Shape.StrokeProperty, "AccentBrush"); ring.Children.Add(fill); }
         var percentage = Text(data.ZeroRatio is { } ratio ? ratio.ToString("P0") : "—", 24); percentage.Width = 128; percentage.TextAlignment = TextAlignment.Center; percentage.FontWeight = FontWeights.SemiBold; Canvas.SetTop(percentage, 39); ring.Children.Add(percentage);
         var caption = Text(data.ZeroRatio is null ? "暂无数据" : "零拦截场次", 10, true); caption.Width = 128; caption.TextAlignment = TextAlignment.Center; Canvas.SetTop(caption, 76); ring.Children.Add(caption);
-        var chart = new Button { Content = ring, Tag = "interception-ratio", ToolTip = $"零拦截 {data.ZeroSessions} / 已统计严格专注 {data.CountedSessions} 次\n未统计记录不计入比例。" }; chart.SetResourceReference(StyleProperty, "StatisticsHit"); chart.Click += (_, _) => InterceptionDetails(null); layout.Children.Add(chart);
+        var chart = new Button { Content = ring, Tag = "interception-ratio", ToolTip = UiText.Format("零拦截 {0} / 已统计严格专注 {1} 次\n未统计记录不计入比例。", data.ZeroSessions, data.CountedSessions) }; chart.SetResourceReference(StyleProperty, "StatisticsHit"); chart.Click += (_, _) => InterceptionDetails(null); layout.Children.Add(chart);
         var legend = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(legend, 2); layout.Children.Add(legend);
         legend.Children.Add(Text(UiText.Get("每专注小时拦截"), 10, true));
         var frequency = Text(_model.InterceptionRateText, 17); frequency.FontWeight = FontWeights.SemiBold; frequency.Margin = new Thickness(0, 3, 0, 4); frequency.ToolTip = UiText.Get("拦截总次数 ÷ 对应已统计严格专注的有效小时数，数值越低，触发拦截越少。有效时长排除暂停和休息。"); legend.Children.Add(frequency);
         var comparison = Text(_model.InterceptionComparisonText, 10, true); comparison.ToolTip = _model.InterceptionComparisonTooltip; comparison.Margin = new Thickness(0, 0, 0, 5); legend.Children.Add(comparison);
         foreach (var (name, count, zero) in new[] { ("零拦截", data.ZeroSessions, true), ("有拦截", data.AffectedSessions, false) })
         {
-            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) }; var dot = new Ellipse { Width = 7, Height = 7, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center }; dot.SetResourceReference(Shape.FillProperty, zero ? "AccentBrush" : "BorderBrush"); row.Children.Add(dot); row.Children.Add(Text($"{name} {count} 次", 11));
+            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) }; var dot = new Ellipse { Width = 7, Height = 7, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center }; dot.SetResourceReference(Shape.FillProperty, zero ? "AccentBrush" : "BorderBrush"); row.Children.Add(dot); row.Children.Add(Text(UiText.Format("{0} {1} 次", UiText.Get(name), count), 11));
             var button = new Button { Content = row, Tag = zero ? "zero-interceptions" : "with-interceptions", ToolTip = UiText.Get("查看对应严格模式记录") }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => InterceptionDetails(zero); legend.Children.Add(button);
         }
-        body.Children.Add(Text(data.CountedSessions == 0 ? data.StrictSessions == 0 ? "所选范围暂无严格模式记录" : "所选记录尚未保存拦截次数" : $"样本 {data.CountedSessions} 次 · 有效专注 {StatisticsViewModel.Duration(data.CountedDuration)} · 拦截 {data.Total} 次", 10, true));
-        if (data.UnknownSessions > 0) body.Children.Add(Text($"{data.UnknownSessions} 次旧记录未统计，不计入比例", 10, true));
+        body.Children.Add(Text(data.CountedSessions == 0 ? UiText.Get(data.StrictSessions == 0 ? "所选范围暂无严格模式记录" : "所选记录尚未保存拦截次数") : UiText.Format("样本 {0} 次 · 有效专注 {1} · 拦截 {2} 次", data.CountedSessions, StatisticsViewModel.Duration(data.CountedDuration), data.Total), 10, true));
+        if (data.UnknownSessions > 0) body.Children.Add(Text(UiText.Format("{0} 次旧记录未统计，不计入比例", data.UnknownSessions), 10, true));
         return card;
     }
     private void InterceptionDetails(bool? zero)
@@ -137,8 +137,8 @@ public partial class StatisticsView : UserControl
     private void DurationTooltip(FrameworkElement element, string title, TimeSpan duration, int count)
     {
         var body = new StackPanel(); body.Children.Add(Text(title, 12, true));
-        var total = Text($"总专注 {(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}", 16); total.FontWeight = FontWeights.SemiBold; total.Margin = new Thickness(0, 5, 0, 4); body.Children.Add(total);
-        body.Children.Add(Text($"结束 {count} 次", 11, true));
+        var total = Text(UiText.Format("总专注 {0}", $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"), 16); total.FontWeight = FontWeights.SemiBold; total.Margin = new Thickness(0, 5, 0, 4); body.Children.Add(total);
+        body.Children.Add(Text(UiText.Format("结束 {0} 次", count), 11, true));
         element.ToolTip = new ToolTip { Content = body, Style = (Style)FindResource("StatisticsTooltip"), Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse };
         ToolTipService.SetInitialShowDelay(element, 100); ToolTipService.SetBetweenShowDelay(element, 0); ToolTipService.SetShowDuration(element, 30000);
     }
@@ -221,15 +221,15 @@ public partial class StatisticsView : UserControl
             byte Blend(byte low, byte high) => (byte)(low + (high - low) * strength);
             var button = new Button { Width = cell - 2, Height = cell - 2, Background = new SolidColorBrush(Color.FromRgb(Blend(baseColor.R, accent.R), Blend(baseColor.G, accent.G), Blend(baseColor.B, accent.B))), Tag = date };
             DurationTooltip(button, day.ToString("yyyy-MM-dd"), data?.Duration ?? TimeSpan.Zero, data?.Count ?? 0);
-            button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => Details(_model.Drill(date, date), $"{date:yyyy年M月d日}");
+            button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => Details(_model.Drill(date, date), date.ToString("D", UiText.DateCulture));
             Canvas.SetLeft(button, 26 + col * cell); Canvas.SetTop(button, 20 + row * cell); chart.Children.Add(button);
-            if (day.Day == 1) { var label = Text($"{day.Month}月", 9, true); Canvas.SetLeft(label, 26 + col * cell); chart.Children.Add(label); }
+            if (day.Day == 1) { var label = Text(day.ToString(UiText.IsEnglish ? "MMM" : "M月", UiText.DateCulture), 9, true); Canvas.SetLeft(label, 26 + col * cell); chart.Children.Add(label); }
         }
         var legend = Text(UiText.Get("浅色投入少，深色投入多"), 10, true); Canvas.SetLeft(legend, 26); Canvas.SetTop(legend, 24 + cell * 7); chart.Children.Add(legend); return chart;
     }
     private FrameworkElement GoalProgressCard()
     {
-            var goals = Card($"目标进度 · 截至{_model!.GoalDate:M月d日}", out var goalBody);
+            var goals = Card(UiText.Format("目标进度 · 截至{0}", _model!.GoalDate.ToString(UiText.IsEnglish ? "MMM d" : "M月d日", UiText.DateCulture)), out var goalBody);
             goalBody.Children.Add(Text(UiText.Get("按目标自身的项目与周期累计，点击查看或调整目标。"), 11, true));
             foreach (var goal in _model.GoalProgress)
             {
@@ -249,20 +249,20 @@ public partial class StatisticsView : UserControl
         {
             var panel = new StackPanel(); var heading = Text(task.Title, 15); heading.FontWeight = FontWeights.SemiBold; panel.Children.Add(heading);
             panel.Children.Add(Text(task.Folder + " · " + task.Status, 11, true));
-            panel.Children.Add(Text("累计 " + task.Invested + " · 预估 " + task.Estimated, 12));
+            panel.Children.Add(Text(UiText.Format("累计 {0} · 预估 {1}", task.Invested, task.Estimated), 12));
             if (task.Difference.Length > 0) panel.Children.Add(Text(task.Difference, 11, true));
-            if (task.NextStep.Length > 0) panel.Children.Add(Text("下一步 · " + task.NextStep, 11, true));
+            if (task.NextStep.Length > 0) panel.Children.Add(Text(UiText.Format("下一步 · {0}", task.NextStep), 11, true));
             var open = new Button { Content = UiText.Get("查看待办"), Tag = task.Id, Padding = new Thickness(10, 5, 10, 5), FontSize = 11, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
             open.Click += (_, _) => { var item = Main.Todos.Items.FirstOrDefault(item => item.Id == task.Id); if (item is null) { ConfirmDeletionWindow.ShowNotice(Window.GetWindow(this), "这条待办已删除，历史投入仍保留。" ); return; } if (new TodoDetailsWindow(Main, item) { Owner = Window.GetWindow(this) }.ShowDialog() == true) ((MainWindow)Window.GetWindow(this)).ReturnToFocus(); }; panel.Children.Add(open);
             var border = new Border { Child = panel, Padding = new Thickness(14), CornerRadius = new CornerRadius(12), Margin = new Thickness(0, 0, 8, 8) }; border.SetResourceReference(Border.BackgroundProperty, "FieldBrush"); grid.Children.Add(border);
         }
         if (_model.Tasks.Count == 0) taskBody.Children.Add(Text(UiText.Get("这个范围没有关联待办，选择项目或待办可查看累计投入。"), 12, true)); else taskBody.Children.Add(grid); StatisticsContent.Children.Add(tasks);
         var outcomes = Card("成果与下一步", out var outcomeBody); outcomeBody.Children.Add(Text(_model.OutcomeSummary, 12, true));
-        if (_model.QuantitySummary.Length > 0) outcomeBody.Children.Add(Text("数量成果 · " + _model.QuantitySummary, 14));
+        if (_model.QuantitySummary.Length > 0) outcomeBody.Children.Add(Text(UiText.Format("数量成果 · {0}", _model.QuantitySummary), 14));
         foreach (var outcome in _model.Outcomes)
         {
             var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 8) }; var title = Text(outcome.Project + (outcome.Todo.Length > 0 ? " / " + outcome.Todo : ""), 14); title.FontWeight = FontWeights.SemiBold; panel.Children.Add(title);
-            panel.Children.Add(Text(outcome.Date, 10, true)); if (outcome.Text.Length > 0) panel.Children.Add(Text(outcome.Text)); if (outcome.NextStep.Length > 0) panel.Children.Add(Text("下一步 · " + outcome.NextStep, 11, true));
+            panel.Children.Add(Text(outcome.Date, 10, true)); if (outcome.Text.Length > 0) panel.Children.Add(Text(outcome.Text)); if (outcome.NextStep.Length > 0) panel.Children.Add(Text(UiText.Format("下一步 · {0}", outcome.NextStep), 11, true));
             var button = new Button { Content = panel, Tag = outcome.Id }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => new OutcomeEditorWindow(Main, outcome.Id) { Owner = Window.GetWindow(this) }.ShowDialog(); outcomeBody.Children.Add(button);
         }
         if (_model.Outcomes.Count == 0) outcomeBody.Children.Add(Text(UiText.Get("还没有填写成果，可以从时间轴或图表明细补记。"), 12, true)); StatisticsContent.Children.Add(outcomes);

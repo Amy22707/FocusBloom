@@ -26,7 +26,7 @@ public sealed class ReminderInboxWindow : CalendarFormWindow
         if (future.Length == 0) Caption("没有已开启的未来提醒。");
         void Add(ReminderOccurrence item)
         {
-            var button = new Button { Content = $"{item.Title}\n{item.At.LocalDateTime:yyyy-MM-dd HH:mm} · {item.Kind}", HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
+            var button = new Button { Content = $"{item.Title}\n{item.At.LocalDateTime:yyyy-MM-dd HH:mm} · {UiText.Get(item.Kind)}", HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
             button.Click += (_, _) => open(new(item.Kind, item.Id, item.Title, DateOnly.FromDateTime(item.HappensAt.LocalDateTime), OriginalDate: item.OriginalDate, MeetingId: item.MeetingId)); Fields.Children.Add(button);
         }
     }

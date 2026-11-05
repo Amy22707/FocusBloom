@@ -6,6 +6,9 @@ on:
         description: Release tag to validate
         required: true
         default: v1.0.0
+      from_tag:
+        description: Optional previous version to upgrade from
+        required: false
 permissions:
   contents: read
 jobs:
@@ -17,20 +20,45 @@ jobs:
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag }}
+          PREVIOUS_TAG: ${{ inputs.from_tag }}
         run: |
           $ErrorActionPreference = 'Stop'
-          Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/FocusBloom-Windows-x64.msi" -OutFile app.msi
-          $install = Start-Process msiexec.exe -ArgumentList @('/i', "$PWD\app.msi", '/qn', '/norestart', '/l*v', "$PWD\install.log") -Wait -PassThru
-          if ($install.ExitCode -notin @(0,3010)) { throw "Installer failed: $($install.ExitCode)" }
-          $app = Join-Path $env:LOCALAPPDATA 'Programs\FocusBloom\FocusBloom.exe'
-          if (!(Test-Path $app)) { throw 'Application was not installed.' }
           $profile = Join-Path $env:RUNNER_TEMP 'FocusBloom-qa'
-          $process = Start-Process $app -ArgumentList @('--data-dir', $profile) -WindowStyle Hidden -PassThru
-          try {
-            $deadline = (Get-Date).AddSeconds(45)
-            while (!(Test-Path "$profile\guest\focusbloom.db") -and !$process.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
-            if ($process.HasExited -or !(Test-Path "$profile\guest\focusbloom.db")) { throw 'Application did not start with a fresh profile.' }
-          } finally { if (!$process.HasExited) { Stop-Process -Id $process.Id -Force } }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\FocusBloom\FocusBloom.exe'
+          function Install-Package($file, $log) {
+            $install = Start-Process msiexec.exe -ArgumentList @('/i', $file, '/qn', '/norestart', '/l*v', $log) -Wait -PassThru
+            if ($install.ExitCode -notin @(0,3010)) { throw "Installer failed: $($install.ExitCode)" }
+            if (!(Test-Path $app)) { throw 'Application was not installed.' }
+          }
+          function Start-TestProfile {
+            $process = Start-Process $app -ArgumentList @('--data-dir', $profile) -WindowStyle Hidden -PassThru
+            try {
+              $deadline = (Get-Date).AddSeconds(45)
+              while (!$process.MainWindowHandle -and !$process.HasExited -and (Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 500
+                $process.Refresh()
+              }
+              if ($process.HasExited -or !$process.MainWindowHandle -or !(Test-Path "$profile\guest\focusbloom.db")) { throw 'Application did not open with the test profile.' }
+            } finally {
+              if (!$process.HasExited) {
+                Stop-Process -Id $process.Id -Force
+                $process.WaitForExit()
+              }
+            }
+          }
+          if ($env:PREVIOUS_TAG) {
+            Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:PREVIOUS_TAG/FocusBloom-Windows-x64.msi" -OutFile previous.msi
+            Install-Package "$PWD\previous.msi" "$PWD\previous-install.log"
+            Start-TestProfile
+            Set-Content -LiteralPath "$profile\retained.txt" -Value 'retained'
+          }
+          Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/FocusBloom-Windows-x64.msi" -OutFile app.msi
+          Install-Package "$PWD\app.msi" "$PWD\install.log"
+          $expected = $env:RELEASE_TAG.TrimStart('v')
+          $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path (Split-Path $app) 'FocusBloom.dll')).Version.ToString(3)
+          if ($version -ne $expected) { throw "Expected version $expected, installed version $version" }
+          if ($env:PREVIOUS_TAG -and ((Get-Content -LiteralPath "$profile\retained.txt" -Raw).Trim() -ne 'retained')) { throw 'Upgrade removed existing data.' }
+          Start-TestProfile
           $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', "$PWD\app.msi", '/qn', '/norestart', '/l*v', "$PWD\uninstall.log") -Wait -PassThru
           if ($uninstall.ExitCode -notin @(0,3010)) { throw "Uninstall failed: $($uninstall.ExitCode)" }
           if (Test-Path $app) { throw 'Executable remains after uninstall.' }

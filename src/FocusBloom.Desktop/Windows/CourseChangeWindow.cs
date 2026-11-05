@@ -24,10 +24,11 @@ public sealed class CourseChangeWindow : CalendarFormWindow
         _course = course; _original = original; _meetingId = meetingId;
         var meeting = CalendarRules.Meetings(course).Single(item => item.Id == (meetingId ?? Guid.Empty));
         _item = main.Calendar.Store.GetCourseChanges().FirstOrDefault(change => change.CourseId == course.Id && change.OriginalDate == original && (change.MeetingId ?? Guid.Empty) == (meetingId ?? Guid.Empty));
-        Caption($"{course.Name} · 原上课日期 {original:yyyy-MM-dd}");
+        Caption(UiText.Format("{0} · 原上课日期 {1:yyyy-MM-dd}", course.Name, original));
         _cancel = Check("CancelledInput", "这一次停课", _item?.Cancelled ?? false);
         _date = DateInput("NewDateInput", "调整后日期", _item?.NewDate ?? original);
-        var periods = main.Calendar.Store.GetSchoolTerm().Periods.Select(period => new PeriodChoice(period.Number, $"第{period.Number}节 · {period.Start:HH:mm}—{period.End:HH:mm}")).ToArray();
+        var periods = main.Calendar.Store.GetSchoolTerm().Periods.Select(period => new PeriodChoice(period.Number,
+            UiText.Format("第{0}节", period.Number) + $" · {period.Start:HH:mm}—{period.End:HH:mm}")).ToArray();
         _start = Choice("StartPeriodSelector", "开始节次", periods, periods.FirstOrDefault(period => period.Number == (_item?.StartPeriod ?? meeting.StartPeriod)), "Name");
         _end = Choice("EndPeriodSelector", "结束节次", periods, periods.FirstOrDefault(period => period.Number == (_item?.EndPeriod ?? meeting.EndPeriod)), "Name");
         _room = AddTextInput("RoomInput", "这一次的教室", _item?.Room ?? meeting.Room); Finish();
@@ -40,5 +41,5 @@ public sealed class CourseChangeWindow : CalendarFormWindow
             DateOnly.FromDateTime(_date.SelectedDate.Value), start.Number, end.Number, _room.Text.Trim(), _meetingId)));
     }
     protected override void Delete()
-    { if (_item is not null && ConfirmDeletionWindow.Ask(this, "删除这次临时调整，恢复原来的上课安排？")) Commit(() => Main.Calendar.Store.DeleteCourseChange(_item.Id)); }
+    { if (_item is not null && ConfirmDeletionWindow.Ask(this, UiText.Get("删除这次临时调整，恢复原来的上课安排？"))) Commit(() => Main.Calendar.Store.DeleteCourseChange(_item.Id)); }
 }

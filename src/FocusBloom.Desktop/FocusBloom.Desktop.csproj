@@ -13,6 +13,7 @@
     <DefineConstants>$(DefineConstants);FOCUSBLOOM_OFFLINE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="FocusBloom.Tests" />
     <Content Include="../../cloudbase.local.json" Link="cloud-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(OfflineRelease)' != 'true' And '$(IncludeLocalCloudConfig)' != 'false' And Exists('../../cloudbase.local.json')" />
     <Resource Include="Resources/Branding/FocusBloom.png" />
     <Resource Include="Resources/Branding/FocusBloom.ico" />

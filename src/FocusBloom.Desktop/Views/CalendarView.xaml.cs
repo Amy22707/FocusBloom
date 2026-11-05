@@ -264,7 +264,7 @@ public partial class CalendarView : UserControl
             var line = new Border { Width = width, Height = 1 }; line.SetResourceReference(Border.BackgroundProperty, "BorderBrush"); Canvas.SetTop(line, row * rowHeight); canvas.Children.Add(line);
             if (row < (timetable ? periods.Length : hours))
             {
-                var label = Label(timetable ? $"第{periods[row].Number}节\n{periods[row].Start:HH:mm}\n{periods[row].End:HH:mm}" : $"{row + firstHour:00}:00", 10, true); Canvas.SetTop(label, row * rowHeight + 4); canvas.Children.Add(label);
+                var label = Label(timetable ? UiText.Format("第{0}节", periods[row].Number) + $"\n{periods[row].Start:HH:mm}\n{periods[row].End:HH:mm}" : $"{row + firstHour:00}:00", 10, true); Canvas.SetTop(label, row * rowHeight + 4); canvas.Children.Add(label);
             }
         }
         for (var day = 0; day <= count; day++) { var line = new Border { Width = 1, Height = height }; line.SetResourceReference(Border.BackgroundProperty, "BorderBrush"); Canvas.SetLeft(line, labelWidth + day * dayWidth); canvas.Children.Add(line); }

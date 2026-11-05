@@ -426,6 +426,11 @@
                                     <TextBlock x:Name="AboutEditionText" Text="{present:Translate '离线版无需注册，任务和记录保存在本机，可在设置中备份与恢复。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
                                     <TextBlock FontSize="12" Margin="0,10,0,0"><Run Text="{present:Translate '软件图标由 '}" /><Hyperlink NavigateUri="https://xhslink.cn/o/6cydnJJz1q1" RequestNavigate="AboutLink_RequestNavigate" Foreground="{DynamicResource AccentTextBrush}" ToolTip="{present:Translate '打开小红书'}"><Run Text="@芋鱼_yu" /></Hyperlink><Run Text="{present:Translate ' 绘制，在此表示衷心感谢。'}" /></TextBlock>
                                     <TextBlock FontSize="12" Margin="0,10,0,0"><Hyperlink NavigateUri="https://github.com/Amy22707/FocusBloom" RequestNavigate="AboutLink_RequestNavigate" Foreground="{DynamicResource AccentTextBrush}"><Run Text="{present:Translate 'GitHub 项目仓库'}" /></Hyperlink></TextBlock>
+                                    <WrapPanel Margin="0,10,0,0">
+                                        <Button x:Name="CheckUpdatesButton" Content="{present:Translate '检查更新'}" Click="CheckUpdates_Click" />
+                                        <Button x:Name="InstallUpdateButton" Content="{present:Translate '下载安装更新'}" Click="InstallUpdate_Click" Visibility="Collapsed" Margin="8,0,0,0" />
+                                    </WrapPanel>
+                                    <TextBlock x:Name="UpdateStatus" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" />
                                 </StackPanel></Border>
                             </Expander>
                         </StackPanel>
