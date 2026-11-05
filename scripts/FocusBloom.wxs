@@ -1,6 +1,6 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="FocusBloom" Manufacturer="FocusBloom" Version="$(Version)" UpgradeCode="8A29B808-97E8-4F7E-9B62-34299DF7F180" Scope="perUser">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of FocusBloom is already installed." />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of FocusBloom is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">

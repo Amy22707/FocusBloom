@@ -9,6 +9,10 @@ on:
       from_tag:
         description: Optional previous version to upgrade from
         required: false
+      installer_asset:
+        description: Installer attachment to validate
+        required: false
+        default: FocusBloom-Windows-x64.msi
 permissions:
   contents: read
 jobs:
@@ -21,6 +25,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           PREVIOUS_TAG: ${{ inputs.from_tag }}
+          INSTALLER_ASSET: ${{ inputs.installer_asset }}
         run: |
           $ErrorActionPreference = 'Stop'
           $profile = Join-Path $env:RUNNER_TEMP 'FocusBloom-qa'
@@ -52,7 +57,7 @@ jobs:
             Start-TestProfile
             Set-Content -LiteralPath "$profile\retained.txt" -Value 'retained'
           }
-          Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/FocusBloom-Windows-x64.msi" -OutFile app.msi
+          Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/$env:INSTALLER_ASSET" -OutFile app.msi
           Install-Package "$PWD\app.msi" "$PWD\install.log"
           $expected = $env:RELEASE_TAG.TrimStart('v')
           $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path (Split-Path $app) 'FocusBloom.dll')).Version.ToString(3)
