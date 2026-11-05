@@ -30,6 +30,7 @@ export function settle(model, now) {
   const session = model.session;
   let changed = false;
   if (session?.state === 'Paused' && now >= session.deadline) {
+    closeInterval(session,'Pause',session.deadline);
     session.state = 'Focusing'; session.phaseStartedAt = session.deadline; session.deadline = null; changed = true;
   }
   const due = nextDeadline(session);
@@ -62,7 +63,14 @@ export function start(model, fields, now) {
   if (isActive(model.session) || model.session?.state === 'Resting') throw new Error('请先结束当前专注或休息。');
   model.preferences = validatePreferences(fields, model.preferences);
   const preferences = model.preferences;
-  model.session = { state: 'Focusing', project: preferences.project || '这一刻，专注学习',
+  model.projects ||= []; model.records ||= [];
+  const name=preferences.project||'这一刻，专注学习';
+  let project=model.projects.find(item=>!item.deleted&&item.id===preferences.projectId)
+    ||model.projects.find(item=>!item.deleted&&item.name===name&&item.category==='浏览器');
+  if(!project) {project={id:crypto.randomUUID(),name,category:'浏览器',color:'#627F90',deleted:false};model.projects.push(project);}
+  model.preferences.project=project.name;model.preferences.projectId=project.id;
+  model.session = { id:crypto.randomUUID(), projectId:project.id, startedAt:now, intervals:[], strict:model.enabled,
+    state: 'Focusing', project: project.name,
     timerMode: preferences.timerMode, durationMs: preferences.durationMinutes * 60000,
     pauseMs: preferences.pauseMinutes * 60000, restMs: preferences.restMinutes * 60000,
     elapsedMs: 0, phaseStartedAt: now, deadline: null,
@@ -72,23 +80,35 @@ export function start(model, fields, now) {
 export function pause(model, now) {
   if (model.session?.state !== 'Focusing') throw new Error('当前没有正在进行的专注。');
   const session = model.session;
-  session.elapsedMs = elapsed(session, now); session.state = 'Paused'; session.deadline = now + session.pauseMs;
+  session.elapsedMs = elapsed(session, now); closeInterval(session,'Focus',now); session.state = 'Paused'; session.deadline = now + session.pauseMs;
 }
 
 export function resume(model, now) {
   if (model.session?.state !== 'Paused') throw new Error('当前专注没有暂停。');
-  model.session.state = 'Focusing'; model.session.phaseStartedAt = now; model.session.deadline = null;
+  closeInterval(model.session,'Pause',now); model.session.state = 'Focusing'; model.session.phaseStartedAt = now; model.session.deadline = null;
 }
 
 export function finish(model, now, reason = 'Manual') {
   if (!isActive(model.session)) throw new Error('当前没有可结束的专注。');
   const session = model.session;
   session.elapsedMs = elapsed(session, now); session.endedAt = now;
+  closeInterval(session,session.state==='Paused'?'Pause':'Focus',now);
   session.discarded = session.elapsedMs < minimumFocusMs;
   session.endReason = reason;
   if (reason === 'DurationLimit') model.limitNotice = now;
   session.state = session.restMs > 0 && reason !== 'DurationLimit' ? 'Resting' : 'Ended';
   session.deadline = session.state === 'Resting' ? now + session.restMs : null;
+  if(!session.discarded&&session.id&&session.startedAt!=null) {
+    model.records ||= [];
+    if(!model.records.some(record=>record.id===session.id)) model.records.push({id:session.id,projectId:session.projectId,mode:session.timerMode,
+      startedAt:new Date(session.startedAt).toISOString(),endedAt:new Date(now).toISOString(),endReason:reason,
+      intervals:structuredClone(session.intervals),strict:Boolean(session.strict),todoId:null,interceptionCount:null,source:'browser'});
+  }
+}
+
+function closeInterval(session,kind,until) {
+  if(session.intervals) session.intervals.push({kind,startedAt:new Date(session.phaseStartedAt).toISOString(),endedAt:new Date(until).toISOString()});
+  session.phaseStartedAt=until;
 }
 
 export function formatTime(milliseconds, roundUp = false) {
@@ -98,6 +118,7 @@ export function formatTime(milliseconds, roundUp = false) {
 }
 
 export function getView(model, now) {
+  const t = translator(model.preferences.language);
   const session = model.session;
   const active = isActive(session);
   const effective = model.enabled && active;
@@ -107,12 +128,13 @@ export function getView(model, now) {
   const remaining = ['Paused', 'Resting'].includes(state) ? Math.max(0, session.deadline - now) : 0;
   const shortFocus = session?.discarded ?? (session?.endedAt != null && session.elapsedMs < minimumFocusMs);
   return { enabled: model.enabled, effective, preferences: model.preferences, limitNotice: model.limitNotice ?? null,
-    state: { state, shortFocus, stateText: state === 'Ended' && shortFocus ? '本次未计入'
-        : { Ready:'准备开始', Focusing:'专注中', Paused:'已暂停', Resting:'休息中', Ended:'本次已结束' }[state],
-      project: session?.project || '这一刻，专注学习', timer: formatTime(display, session?.timerMode === 'Countdown' && active),
-      phaseText: session?.endReason === 'DurationLimit' ? '已达24小时上限，本次专注已自动结束。' : state === 'Paused' ? `${formatTime(remaining, true)} 后自动继续`
-        : state === 'Resting' ? `休息剩余 ${formatTime(remaining, true)}${shortFocus ? ' · 本次未计入' : ''}`
-        : shortFocus ? '有效专注不足10秒，本次未计入。' : `有效专注 ${formatTime(spent)}`,
+    projects:(model.projects||[]).filter(project=>!project.deleted).map(project=>({id:project.id,name:project.name,category:project.category})),
+    state: { state, shortFocus, stateText: t(state === 'Ended' && shortFocus ? '本次未计入'
+        : { Ready:'准备开始', Focusing:'专注中', Paused:'已暂停', Resting:'休息中', Ended:'本次已结束' }[state]),
+      project: session?.project || t('这一刻，专注学习'), timer: formatTime(display, session?.timerMode === 'Countdown' && active),
+      phaseText: session?.endReason === 'DurationLimit' ? t('已达24小时上限，本次专注已自动结束。') : state === 'Paused' ? t('{0} 后自动继续', formatTime(remaining, true))
+        : state === 'Resting' ? t('休息剩余 {0}', formatTime(remaining, true)) + (shortFocus ? ' · ' + t('本次未计入') : '')
+        : shortFocus ? t('有效专注不足10秒，本次未计入。') : t('有效专注 {0}', formatTime(spent)),
       canEditRules: !active, canConfigure: ['Ready', 'Ended'].includes(state),
       websiteMode: active ? session.websiteMode : model.websiteMode, savedWebsiteMode: model.websiteMode,
       websites: model.lists[model.websiteMode], sessionWebsites: session?.websites || [] } };
@@ -126,3 +148,5 @@ export function normalizeWebsite(address) {
     return url.hostname.toLowerCase().replace(/\.$/, '');
   } catch { throw new Error('请输入有效域名或 http／https 网址。'); }
 }
+import { translator } from './language.mjs';
+
