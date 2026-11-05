@@ -4,6 +4,8 @@
 
 当前桌面版本包括独立计划本、事项级专注历史、五秒截图提示和随主题变化的月历。语言检查见[语言检查](localization-review.md)，安装和发布验收见[离线版验收状态](offline-readiness-review.md)。
 
+Windows v1.0.0 已发布，浏览器扩展版本为 0.3.7。公开安装包和附件见 [GitHub Releases](https://github.com/Amy22707/FocusBloom/releases/tag/v1.0.0)。本机覆盖前的备份位于被忽略的 artifacts/backups 目录。
+
 ## 完成内容
 
 桌面左下角显示账号姓名和头像，收起导航仍保留入口，点击进入资料编辑。账号设置区分已登录与访客状态，登录后隐藏邮箱验证码表单，单独显示退出登录。姓名与头像保存在CloudBase身份认证中，本机缓存用于离线显示。

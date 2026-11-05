@@ -9,10 +9,11 @@ Windows x64 核心功能、独立计划本、应用限制、主题设置、文�
 ## 仍需完成的验收
 
 - 全部英文动态提示的逐分支验收，具体范围见[语言检查](localization-review.md)。
-- 干净 Windows 上的安装和卸载，由 Windows installer validation 工作流执行。
 - 不同权限应用、独占全屏、多屏、休眠后的实际限制与通知行为。
 - 安装包签名，需要发布者的代码签名证书。
 - 自动下载和安装更新。
 - 扩展商店提交与审核，需要开发者账户及图标分发授权。
 
 账户和云同步已有源码，当前离线版本使用本机功能。
+
+Windows installer validation 在 GitHub 的全新 Windows 执行器上通过了 v1.0.0 的安装、首次运行、资料库创建、卸载和数据保留检查。[安装验收](https://github.com/Amy22707/FocusBloom/actions/runs/42097113987)
