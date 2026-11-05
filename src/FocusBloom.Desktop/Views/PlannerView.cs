@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using FocusBloom.Core.Todos;
 using FocusBloom.Desktop.Presentation;
+using FocusBloom.Desktop.Windows;
 
 namespace FocusBloom.Desktop.Views;
 
@@ -189,6 +190,16 @@ public sealed class PlannerView : UserControl
             focus.Click += (_, _) => _startFocus(item);
             DockPanel.SetDock(focus, Dock.Right);
             row.Children.Add(focus);
+            var edit = new Button { Content = "✎", ToolTip = UiText.Get("编辑计划事项"), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 6, 0) };
+            System.Windows.Automation.AutomationProperties.SetName(edit, UiText.Get("编辑计划事项"));
+            edit.Click += (_, _) =>
+            {
+                var editor = new PlannerItemEditorWindow(item.Text) { Owner = Window.GetWindow(this) };
+                if (editor.ShowDialog() == true && editor.ItemText != item.Text)
+                    Save(_entries.Select(entry => entry.Id == item.Id ? entry with { Text = editor.ItemText } : entry).ToArray());
+            };
+            DockPanel.SetDock(edit, Dock.Right);
+            row.Children.Add(edit);
             var text = new TextBlock { Text = item.Text, TextWrapping = TextWrapping.Wrap };
             if (item.Done)
             {

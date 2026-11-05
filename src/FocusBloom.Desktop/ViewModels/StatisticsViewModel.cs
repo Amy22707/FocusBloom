@@ -167,12 +167,13 @@ public sealed partial class StatisticsViewModel : ObservableObject
                     todo.EstimatedMinutes is { } minutes ? Duration(TimeSpan.FromMinutes(minutes)) : "未设置", Duration(actual), difference is { } diff ? (diff >= TimeSpan.Zero ? "比预估多 " : "比预估少 ") + Duration(diff.Duration()) : "", todo.ResumeNote);
             }).ToArray();
         Outcomes = Snapshot.Sessions.Where(item => item.EndedInRange && _outcomes.TryGetValue(item.Record.Id, out var outcome) && (outcome.Summary.Length > 0 || outcome.Quantity is not null || outcome.NextStep.Length > 0))
-            .Select(item => { var outcome = _outcomes[item.Record.Id]; return new ReviewOutcome(item.Record.Id, ProjectName(item.Record.ProjectId), TodoName(item.Record.TodoId), item.Record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm"), OutcomeText(outcome), outcome.NextStep); }).ToArray();
+            .Select(item => { var outcome = _outcomes[item.Record.Id]; return new ReviewOutcome(item.Record.Id, ProjectName(item.Record.ProjectId), TaskName(item.Record), item.Record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm"), OutcomeText(outcome), outcome.NextStep); }).ToArray();
         var quantities = Snapshot.Sessions.Where(item => item.EndedInRange).Select(item => _outcomes.GetValueOrDefault(item.Record.Id)).Where(outcome => outcome?.Quantity is not null).GroupBy(outcome => outcome!.Unit.Trim());
         QuantitySummary = string.Join(" · ", quantities.Select(group => $"{group.Sum(item => item!.Quantity!.Value):0.##} {group.Key}"));
     }
     public string ProjectName(Guid id) => _projects.FirstOrDefault(item => item.Id == id)?.Name ?? UiText.Get("已删除项目");
     public string TodoName(Guid? id) => id is { } todo ? _todos.FirstOrDefault(item => item.Id == todo)?.Title ?? UiText.Get("已删除待办") : "";
+    private string TaskName(FocusRecord record) => record.PlannerTitle ?? TodoName(record.TodoId);
     public string OutcomeText(Guid recordId) => _outcomes.TryGetValue(recordId, out var outcome) ? OutcomeText(outcome) : "";
     private static string OutcomeText(FocusOutcome outcome) => string.Join(" · ", new[] { outcome.Summary, outcome.Quantity is { } quantity ? $"{quantity:0.##} {outcome.Unit}" : "" }.Where(text => text.Length > 0));
     public StatisticsSnapshot Drill(DateOnly from, DateOnly to, IReadOnlySet<Guid>? projects = null, int? hour = null) => FocusStatistics.Build(_records, new(from, to, projects ?? ProjectFilter(), SelectedTodo?.Id, hour));
@@ -183,7 +184,7 @@ public sealed partial class StatisticsViewModel : ObservableObject
         {
             string Cell(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
             var text = new StringBuilder(UiText.Get("项目,待办,开始,结束,本范围有效秒数,完整有效秒数,成果,下一步") + "\r\n");
-            foreach (var item in Snapshot.Sessions) text.AppendLine(string.Join(",", new[] { ProjectName(item.Record.ProjectId), TodoName(item.Record.TodoId), item.Record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.Record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.IncludedDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), item.Record.FocusDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), OutcomeText(item.Record.Id), _outcomes.GetValueOrDefault(item.Record.Id)?.NextStep ?? "" }.Select(Cell)));
+            foreach (var item in Snapshot.Sessions) text.AppendLine(string.Join(",", new[] { ProjectName(item.Record.ProjectId), TaskName(item.Record), item.Record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.Record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.IncludedDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), item.Record.FocusDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), OutcomeText(item.Record.Id), _outcomes.GetValueOrDefault(item.Record.Id)?.NextStep ?? "" }.Select(Cell)));
             return text.ToString();
         }
         var result = new StringBuilder($"# {UiText.Get("专注复盘")}\n\n{RangeLabel}\n\n{SelectionLabel}\n\n");

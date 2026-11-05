@@ -144,9 +144,27 @@ public sealed class NavigationSettingsTests
                 Assert.Null(savedRecord.TodoId);
                 Assert.NotNull(savedRecord.PlannerItemId);
                 Assert.Equal("阅读", savedRecord.PlannerTitle);
+                Assert.Equal("阅读", Assert.Single(model.Records).Todo);
                 Assert.Equal(savedRecord.PlannerItemId, Assert.Single(new SqliteFocusStore(Path.Combine(root, "test.db")).GetRecords()).PlannerItemId);
-                Assert.True(Assert.Single(model.Todos.Checklist.Read(FocusBloom.Core.Todos.ChecklistScope.For(
-                    FocusBloom.Core.Todos.ChecklistPeriod.Day, DateOnly.FromDateTime(day)))).Done);
+                var scope = FocusBloom.Core.Todos.ChecklistScope.For(FocusBloom.Core.Todos.ChecklistPeriod.Day, DateOnly.FromDateTime(day));
+                Assert.True(Assert.Single(model.Todos.Checklist.Read(scope)).Done);
+                model.Navigation.Items.Single(item => item.Key == "planner").OpenCommand.Execute(null); Flush();
+                var edit = Descendants<Button>(content).Single(button => Equals(button.ToolTip, "Edit plan item"));
+                window.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    var editor = window.OwnedWindows.OfType<FocusBloom.Desktop.Windows.PlannerItemEditorWindow>().Single();
+                    Descendants<TextBox>(editor).Single(input => input.Name == "PlannerEditInput").Text = "阅读第四章";
+                    Descendants<Button>(editor).Single(button => button.Name == "PlannerSaveEdit").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    if (editor.IsVisible) editor.Close();
+                }));
+                edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                var edited = Assert.Single(model.Todos.Checklist.Read(scope));
+                Assert.Equal(savedRecord.PlannerItemId, edited.Id);
+                Assert.Equal("阅读第四章", edited.Text);
+                Assert.True(edited.Done);
+                Assert.Equal(edited.Id, Assert.Single(store.GetRecords()).PlannerItemId);
+                model.Statistics.Anchor = clock.GetLocalNow().DateTime.Date;
+                Assert.Contains("\"阅读\"", model.Statistics.Export(csv: true));
             }
             finally
             {

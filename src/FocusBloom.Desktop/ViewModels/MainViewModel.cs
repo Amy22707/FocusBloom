@@ -716,7 +716,7 @@ public sealed partial class MainViewModel : ObservableObject
                 record.Mode switch { TimerMode.CountUp => "正计时", TimerMode.Pomodoro => "番茄循环", _ => "倒计时" },
                 record.EndReason switch { EndReason.Manual => "手动结束", EndReason.CountdownElapsed => "到点结束", EndReason.Interrupted => "中断后保存", EndReason.DurationLimit => "达到24小时上限", _ => "退出软件" },
                 record.Strict ? "严格" : "普通", record.Id,
-                record.TodoId is { } todoId ? todos.GetValueOrDefault(todoId, "") : "",
+                record.PlannerTitle ?? (record.TodoId is { } todoId ? todos.GetValueOrDefault(todoId, "") : ""),
                 FormatOutcome(outcome), outcome?.NextStep ?? "", categories.GetValueOrDefault(record.ProjectId, "未分类"), record.Strict ? record.InterceptionCount?.ToString(CultureInfo.CurrentCulture) ?? "未统计" : "—"));
         }
         Notify(nameof(RecordSummary));

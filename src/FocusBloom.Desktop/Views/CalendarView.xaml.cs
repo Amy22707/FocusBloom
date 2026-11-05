@@ -210,6 +210,7 @@ public partial class CalendarView : UserControl
             if (entry.Kind == "专注")
             {
                 var record = recordItems[entry.Id];
+                if (record.PlannerTitle is { Length: > 0 } planner) AddDetail(UiText.Format("计划 · {0}", planner));
                 if (record.Strict) AddDetail("严格专注 · 拦截 " + (record.InterceptionCount?.ToString() ?? "未统计") + (record.InterceptionCount is not null ? " 次" : ""));
                 var outcome = outcomes.GetValueOrDefault(entry.Id);
                 AddDetail(outcome is { Summary.Length: > 0 } ? "成果 · " + outcome.Summary : outcome?.Quantity is { } quantity ? $"成果 · {quantity:0.##} {outcome.Unit}" : "点击补记成果");

@@ -39,11 +39,15 @@ jobs:
             $process = Start-Process $app -ArgumentList @('--data-dir', $profile) -WindowStyle Hidden -PassThru
             try {
               $deadline = (Get-Date).AddSeconds(45)
-              while ($process.MainWindowTitle -notlike '*独立资料库' -and !$process.HasExited -and (Get-Date) -lt $deadline) {
+              while (!(Test-Path "$profile\guest\focusbloom.db") -and !$process.HasExited -and (Get-Date) -lt $deadline) {
                 Start-Sleep -Milliseconds 500
                 $process.Refresh()
               }
-              if ($process.HasExited -or $process.MainWindowTitle -notlike '*独立资料库' -or !(Test-Path "$profile\guest\focusbloom.db")) { throw 'Application did not open with the test profile.' }
+              if ($process.HasExited -or !(Test-Path "$profile\guest\focusbloom.db")) {
+                throw "Application did not start with the test profile. Exited: $($process.HasExited)"
+              }
+              Start-Sleep -Seconds 2
+              if ($process.HasExited) { throw "Application closed during startup. Exit code: $($process.ExitCode)" }
             } finally {
               if (!$process.HasExited) {
                 Stop-Process -Id $process.Id -Force
