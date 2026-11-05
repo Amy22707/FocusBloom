@@ -29,7 +29,7 @@ public sealed partial class GoalsViewModel
     public DateOnly CompletionFrom { get; private set; }
     public DateOnly CompletionTo { get; private set; }
     public IReadOnlyList<CompletionDay> CompletionDays { get; private set; } = Array.Empty<CompletionDay>();
-    public string CompletionLabel => View == "年" ? $"{Anchor:yyyy年}" : View == "月" ? $"{Anchor:yyyy年M月}" : $"{CompletionFrom:yyyy.M.d} — {CompletionTo:M.d}";
+    public string CompletionLabel => View == "年" ? Anchor.ToString(UiText.IsEnglish ? "yyyy" : "yyyy年", UiText.DateCulture) : View == "月" ? Anchor.ToString(UiText.IsEnglish ? "MMMM yyyy" : "yyyy年M月", UiText.DateCulture) : $"{CompletionFrom:yyyy.M.d} — {CompletionTo:M.d}";
     public string CompletionSummary { get; private set; } = "";
     public RelayCommand PreviousCommand { get; }
     public RelayCommand NextCommand { get; }
@@ -38,9 +38,9 @@ public sealed partial class GoalsViewModel
     private void ReloadCompletion(IReadOnlyList<FocusRecord> records, IReadOnlyList<HabitCheckIn> checks, IReadOnlyList<Habit> habits)
     {
         _completionRecords = records; _completionChecks = checks; _completionHabits = habits;
-        var previous = _completionChoice; CompletionChoices.Clear(); CompletionChoices.Add(new("整体"));
-        foreach (var goal in Goals) CompletionChoices.Add(new("目标 · " + goal.Name, GoalId: goal.Id));
-        foreach (var habit in Habits) CompletionChoices.Add(new("习惯 · " + habit.Name, HabitId: habit.Id));
+        var previous = _completionChoice; CompletionChoices.Clear(); CompletionChoices.Add(new(UiText.Get("整体")));
+        foreach (var goal in Goals) CompletionChoices.Add(new(UiText.Format("目标 · {0}", goal.Name), GoalId: goal.Id));
+        foreach (var habit in Habits) CompletionChoices.Add(new(UiText.Format("习惯 · {0}", habit.Name), HabitId: habit.Id));
         _completionChoice = CompletionChoices.FirstOrDefault(item => item.GoalId == previous?.GoalId && item.HabitId == previous?.HabitId) ?? CompletionChoices[0];
         Notify(nameof(SelectedCompletion)); RefreshCompletion(); RefreshDaily();
     }
@@ -55,7 +55,7 @@ public sealed partial class GoalsViewModel
         var habits = _completionHabits.Where(item => !item.Deleted && SelectedCompletion?.GoalId is null && (SelectedCompletion?.HabitId is null || item.Id == SelectedCompletion.HabitId)).ToArray();
         CompletionDays = GoalCompletion.Build(goals, habits, _completionRecords, _completionChecks, CompletionFrom, CompletionTo, Today);
         var planned = CompletionDays.Where(day => !day.Future && day.Entries.Count > 0).ToArray();
-        CompletionSummary = planned.Length == 0 ? "所选范围暂无已到期的计划" : $"平均完成度 {planned.Average(day => day.Ratio):P0} · 全部完成 {planned.Count(day => day.Ratio >= 1)} / {planned.Length} 天";
+        CompletionSummary = planned.Length == 0 ? UiText.Get("所选范围暂无已到期的计划") : UiText.Format("平均完成度 {0:P0} · 全部完成 {1} / {2} 天", planned.Average(day => day.Ratio), planned.Count(day => day.Ratio >= 1), planned.Length);
         Notify(nameof(CompletionLabel)); Notify(nameof(CompletionSummary)); CompletionChanged?.Invoke(this, EventArgs.Empty);
     }
 }

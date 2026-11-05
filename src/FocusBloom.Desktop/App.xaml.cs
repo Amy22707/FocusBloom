@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Windows;
 using FocusBloom.Infrastructure.Storage;
+using FocusBloom.Infrastructure.Cloud;
 using Microsoft.Win32;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Core.Focus;
@@ -27,33 +28,48 @@ public partial class App : Application
     private FocusState _lastFocusState;
     private WindowsReminderService? _reminders;
     private PreparedRestore? _restore;
+    private bool _restartForAccount;
+    private string? _alternateDataDirectory;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         Appearance.Apply(Appearance.Palettes[0], AppearanceMode.System);
-        var loadingWindow = new LoadingWindow();
-        loadingWindow.Show();
+        LoadingWindow? loadingWindow = null;
         try
         {
+            if (Array.IndexOf(e.Args, "--data-dir") is var index && index >= 0)
+            {
+                if (index + 1 >= e.Args.Length || string.IsNullOrWhiteSpace(e.Args[index + 1]))
+                    throw new ArgumentException("--data-dir 需要指定独立资料目录。");
+                _alternateDataDirectory = Path.GetFullPath(e.Args[index + 1]);
+            }
+            var profiles = new AccountProfiles(_alternateDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FocusBloom"));
+            profiles.Load();
+            var store = await Task.Run(() => new SqliteFocusStore(profiles.CurrentDatabase));
+            UiText.Configure(store.GetSetting(UiText.SettingKey));
+            loadingWindow = new LoadingWindow();
+            loadingWindow.Show();
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
-            var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FocusBloom", "guest");
-            var store = await Task.Run(() => new SqliteFocusStore(Path.Combine(dataDirectory, "focusbloom.db")));
             _viewModel = new MainViewModel(store);
             _viewModel.PropertyChanged += OnFocusPhaseChanged;
             _viewModel.ShortFocusDiscarded += OnShortFocusDiscarded;
             SystemEvents.UserPreferenceChanged += OnSystemAppearanceChanged;
-            _window = new MainWindow(_viewModel, store);
+            _window = new MainWindow(_viewModel, store, Path.Combine(profiles.Root, "browser"), profiles);
+            if (_alternateDataDirectory is not null) _window.Title += " · 独立资料库";
             MainWindow = _window;
             _window.Closing += HideToTray;
             _window.ExitRequested += (_, _) => ExitApplication();
+            _window.AccountRestartRequested += () => { _restartForAccount = true; ExitApplication(); };
             _window.BackupRestoreRequested += prepared => { _restore = prepared; ExitApplication(); };
             _restrictions = new ApplicationRestrictionService(_viewModel, () => _window.ReturnToFocus());
             _keepAwake = new KeepAwakeService(_viewModel);
             _tray = new TrayIcon(_viewModel, ShowWindow, ExitApplication);
-            try { _reminders = new WindowsReminderService(store, _viewModel, entry => _window.OpenReminder(entry)); }
-            catch (Exception ex) { _viewModel.NotificationStatus = "系统提醒不可用：" + ex.Message; }
+            if (_alternateDataDirectory is null)
+            {
+                try { _reminders = new WindowsReminderService(store, _viewModel, entry => _window.OpenReminder(entry)); }
+                catch (Exception ex) { _viewModel.NotificationStatus = "系统提醒不可用：" + ex.Message; }
+            }
             _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _refresh.Tick += (_, _) =>
             {
@@ -68,10 +84,11 @@ public partial class App : Application
             _window.ShowFocusRecovery();
             _window.ShowLimitNotice();
             _window.Backups?.StartAutomatic();
+            _window.Accounts?.Start();
         }
         catch (Exception ex)
         {
-            loadingWindow.Close();
+            loadingWindow?.Close();
             MessageBox.Show($"一刻专注无法启动：{ex.Message}", "启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
@@ -145,6 +162,7 @@ public partial class App : Application
     }
     protected override void OnExit(ExitEventArgs e)
     {
+        _window?.Accounts?.Dispose();
         _window?.CloseDesktopWidgetsForExit();
         _refresh?.Stop();
         _reminders?.Dispose();
@@ -164,9 +182,22 @@ public partial class App : Application
             try { _window!.Backups!.Service.ApplyRestore(restore); }
             catch (Exception error) { MessageBox.Show("恢复未完成，当前数据已保留。恢复前备份位于：\n" + _window!.Backups!.LastBackup + "\n\n" + error.Message, "恢复备份", MessageBoxButton.OK, MessageBoxImage.Information); }
             finally { restore.Dispose(); }
-            try { Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true }); }
+            try { Restart(); }
             catch (Exception error) { MessageBox.Show("请重新打开一刻专注。\n" + error.Message, "重新启动", MessageBoxButton.OK, MessageBoxImage.Information); }
         }
+        if (_restartForAccount && _restore is null)
+        {
+            try { _window?.Accounts?.CompleteLocalImport(); }
+            catch (Exception error) { MessageBox.Show("本机数据未导入，原数据和导入前备份均已保留。\n" + error.Message, "导入本机数据", MessageBoxButton.OK, MessageBoxImage.Information); }
+            try { Restart(); }
+            catch (Exception error) { MessageBox.Show("请重新打开一刻专注。\n" + error.Message, "切换账号", MessageBoxButton.OK, MessageBoxImage.Information); }
+        }
         base.OnExit(e);
+    }
+    private void Restart()
+    {
+        var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true };
+        if (_alternateDataDirectory is not null) { start.ArgumentList.Add("--data-dir"); start.ArgumentList.Add(_alternateDataDirectory); }
+        Process.Start(start);
     }
 }

@@ -1,6 +1,22 @@
 {
   "images": [
     {
+      "id": "lake-blue-hour",
+      "name": "湖畔暮色",
+      "file": "Backgrounds/lake-blue-hour.png",
+      "author": "FocusBloom",
+      "license": "AI 生成",
+      "manualOnly": true
+    },
+    {
+      "id": "rain-desk",
+      "name": "雨窗书桌",
+      "file": "Backgrounds/rain-desk.png",
+      "author": "FocusBloom",
+      "license": "AI 生成",
+      "manualOnly": true
+    },
+    {
       "id": "lake",
       "name": "湖光与山影",
       "file": "Backgrounds/lake.jpg",

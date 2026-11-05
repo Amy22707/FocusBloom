@@ -31,7 +31,7 @@ public sealed class ReorderButton : Button
     public event RoutedEventHandler ReorderRequested { add => AddHandler(ReorderRequestedEvent, value); remove => RemoveHandler(ReorderRequestedEvent, value); }
     public ReorderButton()
     {
-        Content = "≡"; ToolTip = "拖动调整顺序，点击打开排序菜单"; Cursor = Cursors.SizeAll; Width = 24; Height = 24; Padding = new Thickness(0); FontSize = 17; Background = Brushes.Transparent;
+        Content = "≡"; ToolTip = UiText.Get("拖动调整顺序，点击打开排序菜单"); Cursor = Cursors.SizeAll; Width = 24; Height = 24; Padding = new Thickness(0); FontSize = 17; Background = Brushes.Transparent;
         SetResourceReference(StyleProperty, "ReorderHandle");
         ContextMenu = new ContextMenu { PlacementTarget = this };
         ContextMenu.SetResourceReference(BackgroundProperty, "CardBrush");
@@ -39,7 +39,7 @@ public sealed class ReorderButton : Button
         ContextMenu.SetResourceReference(BorderBrushProperty, "BorderBrush");
         foreach (var (title, direction) in new[] { ("移到最前", OrderMove.First), ("前移", OrderMove.Previous), ("后移", OrderMove.Next), ("移到最后", OrderMove.Last) })
         {
-            var item = new MenuItem { Header = title };
+            var item = new MenuItem { Header = UiText.Get(title) };
             item.Click += (_, _) => RaiseEvent(new ReorderEventArgs(direction));
             ContextMenu.Items.Add(item);
         }

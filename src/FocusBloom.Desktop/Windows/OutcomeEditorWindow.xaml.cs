@@ -5,6 +5,8 @@ using System.Windows;
 using FocusBloom.Core.Focus;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class OutcomeEditorWindow : Window
@@ -27,7 +29,7 @@ public partial class OutcomeEditorWindow : Window
         double? quantity = null;
         if (!string.IsNullOrWhiteSpace(QuantityInput.Text))
         {
-            if (!double.TryParse(QuantityInput.Text, out var value) || !double.IsFinite(value) || value < 0) { ValidationMessage.Text = "数量须为非负数，也可以留空。"; return; }
+            if (!double.TryParse(QuantityInput.Text, out var value) || !double.IsFinite(value) || value < 0) { ValidationMessage.Text = UiText.Get("数量须为非负数，也可以留空。"); return; }
             quantity = value;
         }
         if (_main.SaveOutcome(new(_id, SummaryInput.Text, quantity, UnitInput.Text, NextInput.Text))) DialogResult = true;

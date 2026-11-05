@@ -10,6 +10,7 @@ public interface IFocusStore
     IReadOnlyList<string> GetFolders();
     void SaveFolder(string name);
     void SaveProject(FocusProject project);
+    void CreateProjectFromPreset(FocusProject project, ProjectPreset preset);
     void RenameFolder(string name, string newName);
     void DeleteFolder(string name);
     void DeleteProject(Guid id);
@@ -40,12 +41,17 @@ public interface IFocusStore
     void DeleteCalendarPlan(Guid id);
     IReadOnlyList<FocusBloom.Core.Calendar.SchoolCourse> GetCourses();
     void SaveCourse(FocusBloom.Core.Calendar.SchoolCourse item);
+    void ImportCourses(IReadOnlyList<FocusBloom.Core.Calendar.SchoolCourse> courses);
     void DeleteCourse(Guid id);
     IReadOnlyList<FocusBloom.Core.Calendar.CourseChange> GetCourseChanges();
     void SaveCourseChange(FocusBloom.Core.Calendar.CourseChange item);
     void DeleteCourseChange(Guid id);
     FocusBloom.Core.Calendar.SchoolTerm GetSchoolTerm();
     void SaveSchoolTerm(FocusBloom.Core.Calendar.SchoolTerm term);
+    IReadOnlyList<FocusBloom.Core.Calendar.SchoolSemester> GetSchoolSemesters();
+    void CreateSchoolSemester(string name, DateOnly start);
+    void SelectSchoolSemester(Guid id);
+    void RenameSchoolSemester(string name);
     FocusBloom.Core.Calendar.ReminderOptions GetReminderOptions(string kind, Guid id);
     void SaveReminderOptions(string kind, Guid id, FocusBloom.Core.Calendar.ReminderOptions options);
     bool IsReminderHandled(string key);

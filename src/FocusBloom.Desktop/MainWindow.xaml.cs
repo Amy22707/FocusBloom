@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Windows;
 using FocusBloom.Core.Storage;
@@ -20,6 +21,7 @@ using FocusBloom.Desktop.Presentation;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Infrastructure.Backup;
 using FocusBloom.Infrastructure.Storage;
+using FocusBloom.Infrastructure.Cloud;
 
 namespace FocusBloom.Desktop;
 
@@ -56,6 +58,8 @@ public partial class MainWindow : Window
     private readonly List<(Expander Section, string Key, string Keywords)> _settingsSections = new();
     private bool _filteringSettings;
     public BackupSettingsViewModel? Backups { get; }
+    public AccountSettingsViewModel? Accounts { get; }
+    public event Action? AccountRestartRequested;
     private bool _showingLimitNotice;
     public void ShowLimitNotice()
     {
@@ -74,15 +78,73 @@ public partial class MainWindow : Window
         ShowLimitNotice();
     }
     private void RecoverFocus_Click(object sender, RoutedEventArgs e) => ShowFocusRecovery();
+    private void SaveLanguage_Click(object sender, RoutedEventArgs e)
+    {
+        if (LanguageSelector.SelectedValue is not string language) return;
+        try
+        {
+            _store.SaveSetting(UiText.SettingKey, language);
+            _viewModel.ReportStatus(UiText.Get("语言已保存，重开软件后生效。"));
+        }
+        catch (Exception error) { ConfirmDeletionWindow.ShowNotice(this, error.Message, UiText.Get("无法保存语言")); }
+    }
+    private void FocusScreenshot_Click(object sender, RoutedEventArgs e) =>
+        SaveFocusScreenshot(() => FocusSceneCapture.Render(WindowFocusScene, WindowFocusHeader, WindowFocusActions));
+    private void CustomPalette_Click(object sender, RoutedEventArgs e)
+    {
+        using var picker = new System.Windows.Forms.ColorDialog
+        {
+            Color = System.Drawing.ColorTranslator.FromHtml(_viewModel.CustomPaletteColor ?? _viewModel.SelectedPalette.Swatch),
+            FullOpen = true
+        };
+        if (picker.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        try { _viewModel.SetCustomPalette($"#{picker.Color.R:X2}{picker.Color.G:X2}{picker.Color.B:X2}"); }
+        catch (Exception error) { ConfirmDeletionWindow.ShowNotice(this, error.Message, UiText.Get("无法保存配色")); }
+    }
+    private void FullscreenScreenshotRequested(object? sender, EventArgs e) => SaveFocusScreenshot(FullscreenView.CaptureScene);
+    private readonly System.Windows.Threading.DispatcherTimer _screenshotToastTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private void SaveFocusScreenshot(Func<BitmapSource> capture)
+    {
+        if (Backups is null) return;
+        try
+        {
+            var image = capture();
+            var directory = Directory.CreateDirectory(Backups.ScreenshotDirectory);
+            var file = Path.Combine(directory.FullName, $"FocusBloom-{DateTime.Now:yyyyMMdd-HHmmss-fff}.png");
+            var png = new PngBitmapEncoder();
+            png.Frames.Add(BitmapFrame.Create(image));
+            using (var stream = new FileStream(file, FileMode.CreateNew)) png.Save(stream);
+            var message = UiText.Format("截图已保存：{0}", file);
+            ScreenshotToastText.Text = message;
+            ScreenshotToast.Visibility = Visibility.Visible;
+            _screenshotToastTimer.Stop();
+            _screenshotToastTimer.Start();
+        }
+        catch (Exception error) { ConfirmDeletionWindow.ShowNotice(this, error.Message, UiText.Get("无法保存截图")); }
+    }
     public event Action<PreparedRestore>? BackupRestoreRequested;
 
-    public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null)
+    internal static bool OfflineRelease =>
+#if FOCUSBLOOM_OFFLINE
+        true;
+#else
+        false;
+#endif
+    public MainWindow(MainViewModel viewModel, IFocusStore store, string? browserUserDataFolder = null, AccountProfiles? profiles = null, CloudBaseClient? accountClient = null)
     {
         InitializeComponent();
+        _screenshotToastTimer.Tick += (_, _) =>
+        {
+            _screenshotToastTimer.Stop();
+            ScreenshotToast.Visibility = Visibility.Collapsed;
+        };
+        Closed += (_, _) => _screenshotToastTimer.Stop();
         WindowAppearance.Attach(this);
         _viewModel = viewModel;
         _store = store;
-        foreach (var (key, tab) in new[] { ("focus", FocusTab), ("projects", ProjectsTab), ("todos", TodoTab), ("calendar", CalendarTab), ("dates", DateEventsTab), ("records", RecordsTab), ("settings", PreferencesTab), ("goals", GoalsTab), ("reflection", ReflectionTab) }) _navigationTabs.Add(key, tab);
+        LanguageSelector.SelectedValue = UiText.IsEnglish ? "en" : "zh-CN";
+        foreach (var (key, tab) in new[] { ("focus", FocusTab), ("projects", ProjectsTab), ("todos", TodoTab), ("calendar", CalendarTab), ("dates", DateEventsTab), ("records", RecordsTab), ("settings", PreferencesTab), ("goals", GoalsTab), ("reflection", ReflectionTab), ("planner", PlannerTab) }) _navigationTabs.Add(key, tab);
+        PlannerTab.Content = new PlannerView(viewModel.Todos.Checklist, StartPlannerFocus, ShowPlannerHistory);
         viewModel.Navigation.NavigateRequested += NavigateToSection;
         NavigationCollapsed = store.GetSetting("ui.navigation.collapsed") == "True";
         _studyBrowser = browserUserDataFolder is null ? new StudyBrowserView() : new StudyBrowserView(browserUserDataFolder);
@@ -93,9 +155,27 @@ public partial class MainWindow : Window
         Activated += (_, _) => Dispatcher.BeginInvoke(new Action(ShowLimitNotice));
         if (store is SqliteFocusStore sqlite)
         {
+            if (!OfflineRelease)
+            {
+                Accounts = new(viewModel, sqlite, profiles ?? new AccountProfiles(Path.Combine(Path.GetDirectoryName(sqlite.DatabasePath)!, "identity")), accountClient);
+                AccountSettings.DataContext = Accounts; Accounts.RestartRequested += () => AccountRestartRequested?.Invoke();
+                Accounts.AccountPageRequested += () =>
+                {
+                    viewModel.Navigation.Items.Single(item => item.Key == "settings").OpenCommand.Execute(null);
+                    SettingsSearchInput.Text = ""; AccountSettingsSection.IsExpanded = true;
+                    Dispatcher.BeginInvoke(new Action(() => AccountSettingsSection.BringIntoView()));
+                };
+            }
             Backups = new(new LocalBackupService(sqlite.DatabasePath), store, viewModel); BackupSettings.DataContext = Backups;
             BackupSettings.RestoreRequested += prepared => { if (BackupRestoreRequested is { } restore) restore(prepared); else prepared.Dispose(); };
         }
+        if (OfflineRelease)
+        {
+            LoginExpiredBanner.Visibility = Visibility.Collapsed;
+            AccountSettingsSection.Visibility = Visibility.Collapsed;
+            OutlookSettings.Visibility = Visibility.Collapsed;
+        }
+        else AboutEditionText.Visibility = Visibility.Collapsed;
         _desktopWidgets = new DesktopWidgetManager(viewModel, store, OpenDesktopWidget, OpenReminder);
         Loaded += (_, _) => _desktopWidgets.Start();
         RememberToggle(ProjectSidebarToggle, "ui.projects.sidebarCollapsed");
@@ -107,13 +187,23 @@ public partial class MainWindow : Window
         RememberExpansion((Expander)mediaSettings.FindName("QuoteLibrary"), "ui.media.quoteExpanded");
         RememberExpansion((Expander)mediaSettings.FindName("SoundLibrary"), "ui.media.soundExpanded");
         foreach (var (section, key, words) in new[] {
+            (AccountSettingsSection, "account", "账号 个人资料 姓名 昵称 头像 邮箱 注册 登录 退出 云端 同步 离线 冲突"),
             (NavigationSettingsSection, "navigation", "导航 显示 展示 顺序 排序 功能"), (AppearanceSettingsSection, "appearance", "外观 颜色 配色 明暗 深色 浅色"),
             (SizeSettingsSection, "size", "大小 缩放 卡片 预览"), (TimerSettingsSection, "timer", "计时 正计时 倒计时 番茄 循环 暂停 休息"),
-            (FloatSettingsSection, "float", "浮窗 组件 置顶 透明 专注时长 待办 日期事项 习惯 心情"), (FontSettingsSection, "fonts", "字体 中文 英文 数字"),
-            (MediaSettingsSection, "media", "专注 图文 背景 图片 视频 GIF 声音 音乐 句子 文字 收藏"), (ReminderSettingsSection, "reminders", "日历 提醒 Outlook 同步"),
-            (BackupSettingsSection, "backup", "数据 备份 恢复 迁移 导入 自动备份 文件"),
-            (RestrictionSettingsSection, "restrictions", "严格 应用 网站 浏览器 黑名单 白名单 限制") })
-        { var settingKey = "ui.settings.expanded." + key; _settingsSections.Add((section, settingKey, section.Header + " " + words)); RememberExpansion(section, settingKey); }
+            (FloatSettingsSection, "float", "浮窗 组件 置顶 透明 专注时长 待办 日期事项 习惯 心情"),
+            (InterfaceFontSettingsSection, "interfaceFont", "字体 软件 界面 标题 导航"), (FontSettingsSection, "fonts", "字体 中文 英文 数字"),
+            (LanguageSettingsSection, "language", "语言 中文 英文 language english chinese"),
+            (MediaSettingsSection, "media", "专注 图文 背景 图片 视频 GIF 声音 音乐 句子 文字 收藏"), (ReminderSettingsSection, "reminders", OfflineRelease ? "日历 提醒" : "日历 提醒 Outlook 同步"),
+            (BackupSettingsSection, "backup", "数据 备份 恢复 迁移 导入 自动备份 文件 截图 保存位置"),
+            (RestrictionSettingsSection, "restrictions", "严格 应用 网站 浏览器 黑名单 白名单 限制"),
+            (ExitSettingsSection, "exit", "后台 退出 托盘"),
+            (AboutSettingsSection, "about", "软件 版本 图标 致谢" + (OfflineRelease ? " 离线" : "")) })
+        {
+            if (section == AccountSettingsSection && Accounts is null) continue;
+            var settingKey = "ui.settings.expanded." + key;
+            _settingsSections.Add((section, settingKey, section.Header + " " + words));
+            RememberExpansion(section, settingKey);
+        }
         var settingsPanel = (Panel)NavigationSettingsSection.Parent;
         for (var index = 0; index < _settingsSections.Count; index++) { var section = _settingsSections[index].Section; settingsPanel.Children.Remove(section); settingsPanel.Children.Insert(index, section); }
         NavigateToSection(viewModel.Navigation.Items.Single(item => item.Key == "focus").Visible ? "focus" : viewModel.Navigation.VisibleItems[0].Key);
@@ -121,7 +211,7 @@ public partial class MainWindow : Window
         FocusCalendarPage.EntryRequested += OpenCalendarEntry;
         viewModel.PropertyChanged += OnFocusStateChanged;
         viewModel.FocusDurationRejected += OnFocusDurationRejected;
-        Closed += (_, _) => { _desktopWidgets.Dispose(); if (Backups is { } backups) _ = backups.StopAsync(); viewModel.Navigation.NavigateRequested -= NavigateToSection; viewModel.PropertyChanged -= OnFocusStateChanged; viewModel.FocusDurationRejected -= OnFocusDurationRejected; _timerFloat?.CloseForExit(); _studyBrowser.Dispose(); };
+        Closed += (_, _) => { Accounts?.Dispose(); _desktopWidgets.Dispose(); if (Backups is { } backups) _ = backups.StopAsync(); viewModel.Navigation.NavigateRequested -= NavigateToSection; viewModel.PropertyChanged -= OnFocusStateChanged; viewModel.FocusDurationRejected -= OnFocusDurationRejected; _timerFloat?.CloseForExit(); _studyBrowser.Dispose(); };
         var savedJson = store.GetSetting(WindowLayout.SettingKey);
         var savedLayout = savedJson is null ? null : JsonSerializer.Deserialize<WindowLayout>(savedJson);
         SourceInitialized += (_, _) => { RestoreWindowLayout(savedLayout); UpdateTimerFloatVisibility(); };
@@ -175,6 +265,23 @@ public partial class MainWindow : Window
         }
     }
     private void NavigateToSection(string key) { MainTabs.SelectedItem = _navigationTabs[key]; _viewModel.Navigation.SetActive(key); KeepNavigationVisible(); }
+    private void StartPlannerFocus(FocusBloom.Core.Todos.ChecklistEntry item)
+    {
+        if (!_viewModel.CanConfigure || _viewModel.HasUnsavedRecord)
+        {
+            ConfirmDeletionWindow.ShowNotice(this, UiText.Get("请先结束当前计时并保存记录，再开始新的专注。"), UiText.Get("开始专注"));
+            return;
+        }
+        if (new TodoStartWindow(_viewModel, item) { Owner = this }.ShowDialog() == true) ReturnToFocus();
+    }
+    private void ShowPlannerHistory(FocusBloom.Core.Todos.ChecklistEntry item)
+    {
+        var records = _store.GetRecords().Where(record => record.PlannerItemId == item.Id).ToArray();
+        var from = records.Length == 0 ? DateOnly.FromDateTime(DateTime.Today) : records.Min(record => DateOnly.FromDateTime(record.StartedAt.LocalDateTime));
+        var to = records.Length == 0 ? from : records.Max(record => DateOnly.FromDateTime(record.EndedAt.LocalDateTime));
+        var data = FocusBloom.Core.Statistics.FocusStatistics.Build(records, new(from, to));
+        new StatisticsDetailsWindow(_viewModel, _viewModel.Statistics, data, item.Text) { Owner = this }.ShowDialog();
+    }
     private void KeepNavigationVisible()
     {
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
@@ -310,6 +417,10 @@ public partial class MainWindow : Window
                 var todo = _viewModel.Todos.Items.FirstOrDefault(item => item.Id == entry.Id);
                 if (todo is not null && new TodoDetailsWindow(_viewModel, todo) { Owner = this }.ShowDialog() == true) ReturnToFocus();
                 break;
+            case "项目截止":
+                if (_viewModel.Projects.FirstOrDefault(item => item.Id == entry.Id) is { } project)
+                    new ProjectEditorWindow(_viewModel, project) { Owner = this }.ShowDialog();
+                break;
             case "安排":
                 var plan = _store.GetCalendarPlans().FirstOrDefault(item => item.Id == entry.Id);
                 if (plan is not null) { var editor = new CalendarPlanWindow(_viewModel, entry.Date, plan, focusOnly: plan.ProjectId is not null) { Owner = this }; editor.ShowDialog(); if (editor.FocusRequested) ReturnToFocus(); }
@@ -379,8 +490,8 @@ public partial class MainWindow : Window
         ContentFullscreen = _fullscreen && !browser && !timer;
         WorkspaceHeader.Visibility = ContentFullscreen ? Visibility.Collapsed : Visibility.Visible;
         StatusDisplay.Visibility = ContentFullscreen ? Visibility.Collapsed : Visibility.Visible;
-        WorkspaceView.RowDefinitions[0].Height = new GridLength(ContentFullscreen ? 0 : 52);
-        WorkspaceView.RowDefinitions[2].Height = new GridLength(ContentFullscreen ? 0 : 24);
+        WorkspaceHeaderRow.Height = new GridLength(ContentFullscreen ? 0 : 52);
+        WorkspaceStatusRow.Height = new GridLength(ContentFullscreen ? 0 : 24);
         WorkspaceView.Visibility = timer || browser ? Visibility.Collapsed : Visibility.Visible;
         FullscreenView.Visibility = timer ? Visibility.Visible : Visibility.Collapsed;
         BrowserFullscreenView.Visibility = browser ? Visibility.Visible : Visibility.Collapsed;
@@ -398,7 +509,7 @@ public partial class MainWindow : Window
     }
     private void SelectApplicationFile_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "选择允许操作的程序", Filter = "程序 (*.exe)|*.exe" };
+        var dialog = new OpenFileDialog { Title = UiText.Get("选择允许操作的程序"), Filter = "程序 (*.exe)|*.exe" };
         if (dialog.ShowDialog(this) != true) return;
         var name = FileVersionInfo.GetVersionInfo(dialog.FileName).FileDescription;
         ((MainViewModel)DataContext).Whitelist.AddApplication(new AllowedApplication(
@@ -451,6 +562,12 @@ public partial class MainWindow : Window
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e) => ExitRequested?.Invoke(this, EventArgs.Empty);
+    private void AboutLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Win32Exception) { _viewModel.ReportStatus(UiText.Get("无法打开链接，请检查默认浏览器设置。")); }
+    }
     private void ToggleFullscreen_Click(object sender, RoutedEventArgs e) => ToggleFullscreen();
     private void ReturnToWindowRequested(object? sender, EventArgs e) => ToggleFullscreen();
 

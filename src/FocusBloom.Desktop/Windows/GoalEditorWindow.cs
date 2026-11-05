@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using FocusBloom.Core.Goals;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class GoalEditorWindow : CalendarFormWindow
@@ -34,10 +36,10 @@ public sealed class GoalEditorWindow : CalendarFormWindow
     }
     protected override void Save()
     {
-        if (_name.Text.Trim().Length == 0 || !double.TryParse(_target.Text, out var target) || !double.IsFinite(target) || target <= 0 || target > 10000000 || _metric.SelectedIndex != 0 && target != Math.Truncate(target)) { Message.Text = "请填写名称和有效目标数量，次数与天数使用正整数。"; return; }
-        if (_start.SelectedDate is not { } start || _hasUntil.IsChecked == true && (_until.SelectedDate is null || _until.SelectedDate < start)) { Message.Text = "请填写有效的开始、结束日期。"; return; }
-        if (_metric.SelectedIndex == 2 && ((Link)_habit.SelectedItem).Id is null) { Message.Text = "请先创建习惯并选择关联习惯。"; return; }
-        if (_metric.SelectedIndex == 2 && (_cycle.SelectedIndex == 0 && target > 1 || _cycle.SelectedIndex == 1 && target > 7 || _cycle.SelectedIndex == 2 && target > 31)) { Message.Text = "打卡天数超过所选周期天数，可改用累计目标。"; return; }
+        if (_name.Text.Trim().Length == 0 || !double.TryParse(_target.Text, out var target) || !double.IsFinite(target) || target <= 0 || target > 10000000 || _metric.SelectedIndex != 0 && target != Math.Truncate(target)) { Message.Text = UiText.Get("请填写名称和有效目标数量，次数与天数使用正整数。"); return; }
+        if (_start.SelectedDate is not { } start || _hasUntil.IsChecked == true && (_until.SelectedDate is null || _until.SelectedDate < start)) { Message.Text = UiText.Get("请填写有效的开始、结束日期。"); return; }
+        if (_metric.SelectedIndex == 2 && ((Link)_habit.SelectedItem).Id is null) { Message.Text = UiText.Get("请先创建习惯并选择关联习惯。"); return; }
+        if (_metric.SelectedIndex == 2 && (_cycle.SelectedIndex == 0 && target > 1 || _cycle.SelectedIndex == 1 && target > 7 || _cycle.SelectedIndex == 2 && target > 31)) { Message.Text = UiText.Get("打卡天数超过所选周期天数，可改用累计目标。"); return; }
         if (_metric.SelectedIndex == 0 && _unit.SelectedIndex == 0) target *= 60;
         Commit(() => Main.Goals.SaveGoal(new(_item?.Id ?? Guid.NewGuid(), _name.Text.Trim(), (GoalMetric)_metric.SelectedIndex, target, (GoalCycle)_cycle.SelectedIndex, DateOnly.FromDateTime(start), _hasUntil.IsChecked == true ? DateOnly.FromDateTime(_until.SelectedDate!.Value) : null, _metric.SelectedIndex != 2 ? ((Link)_project.SelectedItem).Id : null, _metric.SelectedIndex == 2 ? ((Link)_habit.SelectedItem).Id : null)));
     }

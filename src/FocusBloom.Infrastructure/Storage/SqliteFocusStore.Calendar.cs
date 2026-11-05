@@ -34,6 +34,23 @@ public sealed partial class SqliteFocusStore
     public void SaveCalendarPlan(CalendarPlan item) => WriteCalendarRow("calendar_plans", item.Id, item);
     public void DeleteCalendarPlan(Guid id) => DeleteCalendarRow("calendar_plans", id);
     public IReadOnlyList<SchoolCourse> GetCourses() => ReadCalendarRows<SchoolCourse>("school_courses");
+    public void ImportCourses(IReadOnlyList<SchoolCourse> courses)
+    {
+        var term = GetSchoolTerm();
+        using var connection = Open(); using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = "INSERT OR IGNORE INTO settings(key,value) VALUES('school.term',$term)";
+        command.Parameters.AddWithValue("$term", JsonSerializer.Serialize(term, CalendarJson)); command.ExecuteNonQuery();
+        command.Parameters.Clear();
+        command.CommandText = "INSERT INTO school_courses(id,payload) VALUES($id,$payload)";
+        var id = command.Parameters.Add("$id", Microsoft.Data.Sqlite.SqliteType.Text);
+        var payload = command.Parameters.Add("$payload", Microsoft.Data.Sqlite.SqliteType.Text);
+        foreach (var course in courses)
+        {
+            id.Value = course.Id.ToString(); payload.Value = JsonSerializer.Serialize(course, CalendarJson); command.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
     public void SaveCourse(SchoolCourse item)
     {
         if (GetSetting("school.term") is null) SaveSchoolTerm(GetSchoolTerm());

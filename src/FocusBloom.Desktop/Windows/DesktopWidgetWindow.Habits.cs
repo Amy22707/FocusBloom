@@ -9,6 +9,8 @@ using FocusBloom.Core.Focus;
 using FocusBloom.Core.Goals;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow
@@ -49,7 +51,7 @@ public partial class DesktopWidgetWindow
     }
     private Border HabitDayCard(HabitDayRow row, bool daily)
     {
-        var root = new DockPanel(); var history = new Button { Content = "···", Padding = new Thickness(4, 0, 4, 0), ToolTip = "查看历史或补打卡", VerticalAlignment = VerticalAlignment.Top }; history.SetResourceReference(StyleProperty, "WidgetTool"); history.Click += (_, _) => new HabitHistoryWindow(_main, row.Habit, _anchor) { Owner = this }.ShowDialog(); DockPanel.SetDock(history, Dock.Right); root.Children.Add(history);
+        var root = new DockPanel(); var history = new Button { Content = "···", Padding = new Thickness(4, 0, 4, 0), ToolTip = UiText.Get("查看历史或补打卡"), VerticalAlignment = VerticalAlignment.Top }; history.SetResourceReference(StyleProperty, "WidgetTool"); history.Click += (_, _) => new HabitHistoryWindow(_main, row.Habit, _anchor) { Owner = this }.ShowDialog(); DockPanel.SetDock(history, Dock.Right); root.Children.Add(history);
         if (daily)
         {
             var content = new Grid(); content.ColumnDefinitions.Add(new() { Width = new GridLength(46) }); content.ColumnDefinitions.Add(new()); content.ColumnDefinitions.Add(new() { Width = new GridLength(26) });

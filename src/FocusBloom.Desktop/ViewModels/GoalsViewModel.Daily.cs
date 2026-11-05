@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using FocusBloom.Core.Goals;
+using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
@@ -13,7 +14,9 @@ public sealed record HabitDayRow(Habit Habit, DateOnly Date, bool Checked, bool 
     public string Color => Colors[Habit.Id.ToByteArray()[0] % Colors.Length];
     public bool CanCheck => !Future && (Checked || Planned);
     public string Schedule => HabitRow.ScheduleFor(Habit);
-    public string Detail => Checked ? Streak > 0 ? $"已打卡 · 连续完成 {Streak} 个计划日" : "已打卡" : Future ? "未来计划" : Date < Habit.Start ? $"{Habit.Start:M月d日}开始" : Habit.Until < Date ? "已结束" : !Planned ? "休息日" : "点击打卡";
+    public string Detail => Checked && Streak > 0 ? UiText.Format("已打卡 · 连续完成 {0} 个计划日", Streak)
+        : Date < Habit.Start && !Checked && !Future ? UiText.Format("{0}开始", Habit.Start.ToString(UiText.IsEnglish ? "MMM d" : "M月d日", UiText.DateCulture))
+        : UiText.Get(Checked ? "已打卡" : Future ? "未来计划" : Habit.Until < Date ? "已结束" : !Planned ? "休息日" : "点击打卡");
 }
 
 public sealed partial class GoalsViewModel
@@ -21,13 +24,13 @@ public sealed partial class GoalsViewModel
     public ObservableCollection<HabitDayRow> DayHabits { get; } = new();
     public ObservableCollection<GoalRow> DayGoals { get; } = new();
     public DateOnly Day => DateOnly.FromDateTime(Anchor);
-    public string DayTitle => Day == Today ? "今天" : Day == Today.AddDays(-1) ? "昨天" : Day.ToString("M月d日");
-    public string DayCaption => $"{Day:yyyy年M月d日} · 周{"一二三四五六日"[((int)Day.DayOfWeek + 6) % 7]}";
+    public string DayTitle => Day == Today ? UiText.Get("今天") : Day == Today.AddDays(-1) ? UiText.Get("昨天") : Day.ToString(UiText.IsEnglish ? "MMM d" : "M月d日", UiText.DateCulture);
+    public string DayCaption => Day.ToString(UiText.IsEnglish ? "MMM d, yyyy · dddd" : "yyyy年M月d日 · dddd", UiText.DateCulture);
     public int DayPlanned => DayHabits.Count(row => row.Planned || row.Checked);
     public int DayDone => DayHabits.Count(row => row.Checked);
     public double DayRatio => DayPlanned == 0 ? 0 : (double)DayDone / DayPlanned;
-    public string DaySummary => Day > Today ? $"计划 {DayPlanned} 项习惯" : $"已完成 {DayDone} / {DayPlanned} 项习惯";
-    public string DayEncouragement => Day > Today ? "先看计划，到了当天再开始。" : DayPlanned == 0 ? "这一天，也可以给自己留一点空白。" : DayDone == DayPlanned ? "这一天的小事，都认真完成了。" : DayDone == 0 ? "从最容易的一件开始。" : "已经向前走了一步，按自己的节奏继续。";
+    public string DaySummary => Day > Today ? UiText.Format("计划 {0} 项习惯", DayPlanned) : UiText.Format("已完成 {0} / {1} 项习惯", DayDone, DayPlanned);
+    public string DayEncouragement => UiText.Get(Day > Today ? "先看计划，到了当天再开始。" : DayPlanned == 0 ? "这一天，也可以给自己留一点空白。" : DayDone == DayPlanned ? "这一天的小事，都认真完成了。" : DayDone == 0 ? "从最容易的一件开始。" : "已经向前走了一步，按自己的节奏继续。");
     public bool NoDayHabits => DayHabits.Count == 0;
     public bool HasDayGoals => DayGoals.Count > 0;
     private void RefreshDaily()

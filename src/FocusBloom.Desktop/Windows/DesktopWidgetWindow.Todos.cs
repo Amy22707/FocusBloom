@@ -6,6 +6,8 @@ using System.Windows.Controls.Primitives;
 using FocusBloom.Core.Todos;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow
@@ -53,7 +55,7 @@ public partial class DesktopWidgetWindow
     }
     private Border TodoCard(TodoRow row, bool compact)
     {
-        var content = new DockPanel(); var check = new CheckBox { IsChecked = row.Completed, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 3, 7, 0), Tag = row.Id, ToolTip = "标记完成或恢复待办" }; DockPanel.SetDock(check, Dock.Left); content.Children.Add(check);
+        var content = new DockPanel(); var check = new CheckBox { IsChecked = row.Completed, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 3, 7, 0), Tag = row.Id, ToolTip = UiText.Get("标记完成或恢复待办") }; DockPanel.SetDock(check, Dock.Left); content.Children.Add(check);
         check.Click += (_, _) => { _store.SaveTodo(row.Item with { Status = check.IsChecked == true ? TodoStatus.Completed : TodoStatus.Pending }); _main.Todos.Reload(); };
         var body = new StackPanel(); var title = Text(row.Title, compact ? 11 : 13); title.FontWeight = row.Completed ? FontWeights.Normal : FontWeights.SemiBold; title.TextTrimming = TextTrimming.CharacterEllipsis; title.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;
         if (!compact) { title.LineStackingStrategy = LineStackingStrategy.BlockLineHeight; title.LineHeight = 18; title.MaxHeight = 36; }

@@ -1,0 +1,42 @@
+name: Windows installer validation
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to validate
+        required: true
+        default: v1.0.0
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and validate installer
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/FocusBloom-Windows-x64.msi" -OutFile app.msi
+          $install = Start-Process msiexec.exe -ArgumentList @('/i', "$PWD\app.msi", '/qn', '/norestart', '/l*v', "$PWD\install.log") -Wait -PassThru
+          if ($install.ExitCode -notin @(0,3010)) { throw "Installer failed: $($install.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\FocusBloom\FocusBloom.exe'
+          if (!(Test-Path $app)) { throw 'Application was not installed.' }
+          $profile = Join-Path $env:RUNNER_TEMP 'FocusBloom-qa'
+          $process = Start-Process $app -ArgumentList @('--data-dir', $profile) -WindowStyle Hidden -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(45)
+            while (!(Test-Path "$profile\guest\focusbloom.db") -and !$process.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+            if ($process.HasExited -or !(Test-Path "$profile\guest\focusbloom.db")) { throw 'Application did not start with a fresh profile.' }
+          } finally { if (!$process.HasExited) { Stop-Process -Id $process.Id -Force } }
+          $uninstall = Start-Process msiexec.exe -ArgumentList @('/x', "$PWD\app.msi", '/qn', '/norestart', '/l*v', "$PWD\uninstall.log") -Wait -PassThru
+          if ($uninstall.ExitCode -notin @(0,3010)) { throw "Uninstall failed: $($uninstall.ExitCode)" }
+          if (Test-Path $app) { throw 'Executable remains after uninstall.' }
+          if (!(Test-Path "$profile\guest\focusbloom.db")) { throw 'Uninstall removed user data.' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-logs
+          path: "*.log"

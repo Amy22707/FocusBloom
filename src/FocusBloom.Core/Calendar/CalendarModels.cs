@@ -11,6 +11,10 @@ public sealed record DateEvent(Guid Id, string Title, DateOnly Date, TimeOnly? T
 public sealed record CalendarPlan(Guid Id, string Title, DateOnly Date, TimeOnly Start, int Minutes = 30,
     Guid? TodoId = null, Guid? ProjectId = null, string Notes = "", ReminderOptions? Reminder = null);
 public sealed record ClassPeriod(int Number, TimeOnly Start, TimeOnly End);
+public sealed record SchoolSemester(Guid Id, string Name, DateOnly Start, bool Active)
+{
+    public string Label => $"{Name} · {Start:yyyy-MM-dd}" + (Active ? "（当前）" : "");
+}
 public sealed record SchoolTerm(DateOnly Start, int Weeks, IReadOnlyList<ClassPeriod> Periods)
 {
     public static SchoolTerm Default(DateOnly today) => new(CalendarRules.Monday(today), 20,

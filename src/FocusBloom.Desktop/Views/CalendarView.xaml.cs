@@ -12,6 +12,8 @@ using FocusBloom.Desktop.Windows;
 using Microsoft.Win32;
 using System.IO;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Views;
 
 public partial class CalendarView : UserControl
@@ -116,21 +118,33 @@ public partial class CalendarView : UserControl
     {
         var first = new DateOnly(date.Year, date.Month, 1); var from = CalendarRules.Monday(first);
         var entries = _model!.Entries(from, from.AddDays(41)).GroupBy(entry => entry.Date).ToDictionary(group => group.Key, group => group.ToArray());
-        var weekdays = new UniformGrid { Columns = 7, Margin = new Thickness(4, 4, 4, 6) }; foreach (var name in Weekdays) { var label = Label(name, 11, true); label.TextAlignment = TextAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center; weekdays.Children.Add(label); } CalendarDayHeader.Content = weekdays;
+        var weekdays = new UniformGrid { Columns = 7, Margin = new Thickness(4, 4, 4, 6) }; foreach (var name in Weekdays) { var label = Label(UiText.Get(name), 11, true); label.TextAlignment = TextAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center; weekdays.Children.Add(label); } CalendarDayHeader.Content = weekdays;
         var factor = (double)(TryFindResource(_model.FocusOnly ? "FocusCalendarCardScale" : "CalendarCardScale") ?? 1d);
-        var grid = new UniformGrid { Columns = 7, Rows = 6, Height = Math.Max(Math.Max(360, 6 * (34 + 22 * factor)), CalendarViewport.ActualHeight - 2) };
-        var entryHeight = 22 * factor; var slots = Math.Max(1, (int)Math.Floor((grid.Height / 6 - 32) / (entryHeight + 2)));
+        var entryHeight = 22 * factor;
+        var grid = new UniformGrid { Columns = 7, Rows = 6, Height = Math.Max(6 * (32 + 2 * (entryHeight + 2)), CalendarViewport.ActualHeight - 2) };
         for (var index = 0; index < 42; index++)
         {
-            var day = from.AddDays(index); var panel = new StackPanel();
+            var day = from.AddDays(index); var panel = new Grid();
+            panel.RowDefinitions.Add(new() { Height = GridLength.Auto }); panel.RowDefinitions.Add(new());
             var daily = entries.GetValueOrDefault(day) ?? Array.Empty<CalendarEntry>();
             var heading = new DockPanel();
-            if (daily.Length > slots) { var more = new Button { Content = $"＋{daily.Length - slots}", FontSize = 9, Padding = new Thickness(2, 0, 2, 0), Height = 24, ToolTip = "查看当天全部事项" }; more.SetResourceReference(StyleProperty, "QuietTool"); DockPanel.SetDock(more, Dock.Right); more.Click += (_, _) => { _model.Date = day; _model.Mode = _model.FocusOnly ? "时间轴" : "日"; }; heading.Children.Add(more); }
+            if (daily.Length > 1) { var count = Label($"{daily.Length}项", 9, true); count.VerticalAlignment = VerticalAlignment.Center; count.Margin = new Thickness(0, 0, 3, 0); DockPanel.SetDock(count, Dock.Right); heading.Children.Add(count); }
             var number = new Button { Content = day.Day.ToString(), Padding = new Thickness(0), Width = 24, Height = 24, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent };
             if (day == DateOnly.FromDateTime(DateTime.Today)) { number.SetResourceReference(Control.BackgroundProperty, "AccentBrush"); number.SetResourceReference(Control.ForegroundProperty, "PrimaryTextBrush"); }
             if (day.Month != date.Month) number.Opacity = 0.45;
             number.Click += (_, _) => { _model.Date = day; _model.Mode = _model.FocusOnly ? "时间轴" : "日"; }; heading.Children.Add(number); panel.Children.Add(heading);
-            foreach (var entry in daily.Take(slots)) panel.Children.Add(MonthEntryButton(entry, factor, entryHeight));
+            var items = new StackPanel();
+            foreach (var entry in daily) items.Children.Add(MonthEntryButton(entry, factor, entryHeight));
+            var scroll = new ScrollViewer { Name = "MonthDayEntries", Tag = day, Content = items,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                CanContentScroll = false, Focusable = false };
+            scroll.PreviewMouseWheel += (_, e) =>
+            {
+                var target = scroll.ScrollableHeight > 0 ? scroll : CalendarViewport;
+                target.ScrollToVerticalOffset(target.VerticalOffset - e.Delta / 120d * (entryHeight + 2));
+                e.Handled = true;
+            };
+            Grid.SetRow(scroll, 1); panel.Children.Add(scroll);
             var cell = Cell(panel); cell.Padding = new Thickness(3); cell.ClipToBounds = true; grid.Children.Add(cell);
         }
         CalendarContent.Children.Add(grid);
@@ -153,7 +167,7 @@ public partial class CalendarView : UserControl
             var first = new DateOnly(year, month, 1); var panel = new StackPanel();
             var heading = new Button { Content = $"{month}月", Padding = new Thickness(6, 4, 6, 4), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent };
             heading.Click += (_, _) => { _model.Date = first; _model.Mode = "月"; }; panel.Children.Add(heading);
-            var days = new UniformGrid { Columns = 7, Rows = 7, Height = 126 }; foreach (var name in Weekdays) days.Children.Add(Label(name[^1..], 9, true));
+            var days = new UniformGrid { Columns = 7, Rows = 7, Height = 126 }; foreach (var name in Weekdays) days.Children.Add(Label(UiText.IsEnglish ? UiText.Get(name) : name[^1..], 9, true));
             var begin = CalendarRules.Monday(first);
             for (var index = 0; index < 42; index++)
             {
@@ -170,13 +184,13 @@ public partial class CalendarView : UserControl
         var entries = _model!.Entries(_model.Date, _model.Date);
         var records = entries.Where(entry => entry.Kind == "专注").GroupBy(entry => entry.Id).ToArray();
         var total = records.Sum(group => group.Sum(entry => (entry.EndMinutes ?? 0) - entry.Start!.Value.ToTimeSpan().TotalMinutes));
-        CalendarContent.Children.Add(Label($"{records.Length} 次专注 · 累计 {Duration(total)}", 13, true));
+        CalendarContent.Children.Add(Label(UiText.Format("{0} 次专注 · 累计 {1}", records.Length, Duration(total)), 13, true));
         var factor = (double)(TryFindResource("FocusCalendarCardScale") ?? 1d);
         var rows = records.Select(group => group.OrderBy(entry => entry.Start).First() with {
             End = group.OrderBy(entry => entry.Start).Last().End,
             EndMinutes = group.OrderBy(entry => entry.Start).Last().EndMinutes
         }).Concat(entries.Where(entry => entry.Kind == "安排")).OrderByDescending(entry => entry.Start).ToArray();
-        if (rows.Length == 0) { CalendarContent.Children.Add(new TextBlock { Text = "这一天还没有专注记录或项目安排。", Margin = new Thickness(0, 32, 0, 0), Foreground = (Brush)FindResource("MutedBrush") }); return; }
+        if (rows.Length == 0) { CalendarContent.Children.Add(new TextBlock { Text = UiText.Get("这一天还没有专注记录或项目安排。"), Margin = new Thickness(0, 32, 0, 0), Foreground = (Brush)FindResource("MutedBrush") }); return; }
         var projectItems = _model.Store.GetProjects(true).ToDictionary(item => item.Id);
         var todoItems = _model.Store.GetTodos(true).ToDictionary(item => item.Id);
         var recordItems = _model.Store.GetRecords().ToDictionary(item => item.Id);
@@ -202,13 +216,13 @@ public partial class CalendarView : UserControl
                 if (outcome is { NextStep.Length: > 0 }) AddDetail("下一步 · " + outcome.NextStep);
             }
             else AddDetail("项目安排" + (entry.Detail.Length > 0 ? " · " + entry.Detail : ""));
-            var button = new Button { Content = panel, Padding = new Thickness(18 * factor), HorizontalContentAlignment = HorizontalAlignment.Stretch, Tag = entry, ToolTip = "查看详情" };
+            var button = new Button { Content = panel, Padding = new Thickness(18 * factor), HorizontalContentAlignment = HorizontalAlignment.Stretch, Tag = entry, ToolTip = UiText.Get("查看详情") };
             button.SetResourceReference(StyleProperty, "CalendarEntryButton"); button.SetResourceReference(BackgroundProperty, "FieldBrush");
             button.Click += (_, _) => EntryRequested?.Invoke(entry); Grid.SetColumn(button, 2); row.Children.Add(button); CalendarContent.Children.Add(row);
             void AddDetail(string text) { var label = Label(text, 12 * factor, true); label.Margin = new Thickness(0, 7 * factor, 0, 0); panel.Children.Add(label); }
         }
     }
-    private static string Duration(double minutes) => minutes >= 60 ? $"{(int)minutes / 60}小时{(int)minutes % 60}分钟" : minutes >= 1 ? $"{(int)minutes}分钟" : $"{Math.Round(minutes * 60)}秒";
+    private static string Duration(double minutes) => StatisticsViewModel.Duration(TimeSpan.FromMinutes(minutes));
     private void DrawDoubleDay()
     {
         var width = Math.Max(300, CalendarViewport.ActualWidth - 18);
@@ -229,7 +243,7 @@ public partial class CalendarView : UserControl
         var header = new Grid { Height = 32, Width = width, HorizontalAlignment = HorizontalAlignment.Left }; header.ColumnDefinitions.Add(new() { Width = new GridLength(labelWidth) });
         for (var day = 0; day < count; day++)
         {
-            header.ColumnDefinitions.Add(new()); var label = Label(hours == 12 ? $"{firstHour:00}:00 — {firstHour + 12:00}:00" : $"{Weekdays[((int)from.AddDays(day).DayOfWeek + 6) % 7]} {from.AddDays(day):M/d}", 11);
+            header.ColumnDefinitions.Add(new()); var label = Label(hours == 12 ? $"{firstHour:00}:00 — {firstHour + 12:00}:00" : $"{UiText.Get(Weekdays[((int)from.AddDays(day).DayOfWeek + 6) % 7])} {from.AddDays(day):M/d}", 11);
             label.TextAlignment = TextAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(label, day + 1); header.Children.Add(label);
         }

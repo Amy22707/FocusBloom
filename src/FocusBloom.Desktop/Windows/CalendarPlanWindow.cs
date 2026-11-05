@@ -5,6 +5,8 @@ using FocusBloom.Core.Calendar;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Views;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class CalendarPlanWindow : CalendarFormWindow
@@ -38,10 +40,10 @@ public sealed class CalendarPlanWindow : CalendarFormWindow
     protected override void Save()
     {
         if (_title.Text.Trim().Length == 0 || _date.SelectedDate is null || !ParseTime(_start.Text, out var start) || start is null || !int.TryParse(_minutes.Text, out var minutes) || minutes < 1 || start.Value.ToTimeSpan().TotalMinutes + minutes > 1440)
-        { Message.Text = "请填写名称、日期、HH:mm开始时间及当天内的持续分钟数。"; return; }
-        if (_focusOnly && ((Link)_project.SelectedItem).Id is null) { Message.Text = "请选择这次安排的专注项目。"; return; }
-        if (!_focusOnly && ((Link)_project.SelectedItem).Id is null && ((Link)_todo.SelectedItem).Id is null) { Message.Text = "请至少关联一个待办或计时项目；未关联的安排不会显示在日历或专注记录中。"; return; }
-        if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = "请填写有效的提醒设置。"; return; }
+        { Message.Text = UiText.Get("请填写名称、日期、HH:mm开始时间及当天内的持续分钟数。"); return; }
+        if (_focusOnly && ((Link)_project.SelectedItem).Id is null) { Message.Text = UiText.Get("请选择这次安排的专注项目。"); return; }
+        if (!_focusOnly && ((Link)_project.SelectedItem).Id is null && ((Link)_todo.SelectedItem).Id is null) { Message.Text = UiText.Get("请至少关联一个待办或计时项目；未关联的安排不会显示在日历或专注记录中。"); return; }
+        if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = UiText.Get("请填写有效的提醒设置。"); return; }
         var item = new CalendarPlan(_item?.Id ?? Guid.NewGuid(), _title.Text.Trim(), DateOnly.FromDateTime(_date.SelectedDate.Value), start.Value, minutes,
             ((Link)_todo.SelectedItem).Id, ((Link)_project.SelectedItem).Id, _notes.Text.Trim(), reminder);
         Commit(() => Main.Calendar.Store.SaveCalendarPlan(item));

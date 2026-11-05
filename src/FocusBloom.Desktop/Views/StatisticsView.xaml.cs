@@ -58,8 +58,8 @@ public partial class StatisticsView : UserControl
                 }
                 else StatisticsContent.Children.Add(Module(option, width));
             }
-            if (modules.Length == 0) StatisticsContent.Children.Add(Text("尚未选择统计模块，点击上方‘模块’选择要展示的内容。", 12, true));
-            else if (_model.Snapshot.Sessions.Count == 0) StatisticsContent.Children.Insert(0, Text("这个范围还没有专注记录，可以调整日期或筛选。", 12, true));
+            if (modules.Length == 0) StatisticsContent.Children.Add(Text(UiText.Get("尚未选择统计模块，点击上方‘模块’选择要展示的内容。"), 12, true));
+            else if (_model.Snapshot.Sessions.Count == 0) StatisticsContent.Children.Insert(0, Text(UiText.Get("这个范围还没有专注记录，可以调整日期或筛选。"), 12, true));
         }
         finally { _rendering = false; }
     }
@@ -69,7 +69,7 @@ public partial class StatisticsView : UserControl
         var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 10) };
         foreach (var metric in _model!.Metrics)
         {
-            var body = new StackPanel(); body.Children.Add(Text(metric.Name, 11, true)); var value = Text(metric.Value, 20); value.FontWeight = FontWeights.SemiBold; value.Margin = new Thickness(0, 6, 0, 0); value.TextTrimming = TextTrimming.CharacterEllipsis; value.ToolTip = metric.Tooltip; body.Children.Add(value);
+            var body = new StackPanel(); body.Children.Add(Text(UiText.Get(metric.Name), 11, true)); var value = Text(metric.Value, 20); value.FontWeight = FontWeights.SemiBold; value.Margin = new Thickness(0, 6, 0, 0); value.TextTrimming = TextTrimming.CharacterEllipsis; value.ToolTip = UiText.Get(metric.Hint); body.Children.Add(value);
             var card = new Border { Child = body, CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), Padding = new Thickness(14), Margin = new Thickness(0, 0, 8, 0) }; card.SetResourceReference(Border.BackgroundProperty, "CardBrush"); card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush"); grid.Children.Add(card);
         }
         return grid;
@@ -82,14 +82,14 @@ public partial class StatisticsView : UserControl
             case "overview": result = Overview(); break;
             case "trend":
                 var bars = Card("投入趋势", out var barBody); var metric = new ComboBox { Width = 86, ItemsSource = _model!.ChartMetrics, SelectedItem = _model.ChartMetric, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
-                metric.SelectionChanged += (_, _) => { if (metric.SelectedItem is string value) _model.ChartMetric = value; }; barBody.Children.Add(metric); barBody.Children.Add(Bars(_model.Trend, Math.Max(200, width - 32), true)); result = bars; break;
+                metric.SetResourceReference(ItemsControl.ItemTemplateProperty, "UiStringItem"); metric.SelectionChanged += (_, _) => { if (metric.SelectedItem is string value) _model.ChartMetric = value; }; barBody.Children.Add(metric); barBody.Children.Add(Bars(_model.Trend, Math.Max(200, width - 32), true)); result = bars; break;
             case "shares":
                 var shares = Card("投入占比", out var shareBody); var grouping = new ComboBox { Width = 98, ItemsSource = _model!.ShareModes, SelectedItem = _model.ShareMode, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 4) };
-                grouping.SelectionChanged += (_, _) => { if (grouping.SelectedItem is string value) _model.ShareMode = value; }; shareBody.Children.Add(grouping); DrawShares(shareBody); result = shares; break;
+                grouping.SetResourceReference(ItemsControl.ItemTemplateProperty, "UiStringItem"); grouping.SelectionChanged += (_, _) => { if (grouping.SelectedItem is string value) _model.ShareMode = value; }; shareBody.Children.Add(grouping); DrawShares(shareBody); result = shares; break;
             case "activity": var activity = Card("活跃时间段", out var hours); hours.Children.Add(Bars(_model!.Hours, Math.Max(200, width - 32), false)); result = activity; break;
             case "annual":
                 var yearly = Card("年度投入", out var annual); var yearSelector = new ComboBox { Width = 90, ItemsSource = _model!.HeatmapYears, SelectedItem = _model.HeatmapYear, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, -28, 0, 6) };
-                yearSelector.SelectionChanged += (_, _) => { if (yearSelector.SelectedItem is int year) _model.HeatmapYear = year; }; annual.Children.Add(yearSelector); annual.Children.Add(Text("按当前项目／待办筛选展示全年，点击日期查看明细。", 11, true)); annual.Children.Add(Heatmap(Math.Max(200, width - 32))); result = yearly; break;
+                yearSelector.SelectionChanged += (_, _) => { if (yearSelector.SelectedItem is int year) _model.HeatmapYear = year; }; annual.Children.Add(yearSelector); annual.Children.Add(Text(UiText.Get("按当前项目／待办筛选展示全年，点击日期查看明细。"), 11, true)); annual.Children.Add(Heatmap(Math.Max(200, width - 32))); result = yearly; break;
             case "goals": result = GoalProgressCard(); break;
             default: result = ConcentrationCard(); break;
         }
@@ -114,13 +114,13 @@ public partial class StatisticsView : UserControl
         var caption = Text(data.ZeroRatio is null ? "暂无数据" : "零拦截场次", 10, true); caption.Width = 128; caption.TextAlignment = TextAlignment.Center; Canvas.SetTop(caption, 76); ring.Children.Add(caption);
         var chart = new Button { Content = ring, Tag = "interception-ratio", ToolTip = $"零拦截 {data.ZeroSessions} / 已统计严格专注 {data.CountedSessions} 次\n未统计记录不计入比例。" }; chart.SetResourceReference(StyleProperty, "StatisticsHit"); chart.Click += (_, _) => InterceptionDetails(null); layout.Children.Add(chart);
         var legend = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(legend, 2); layout.Children.Add(legend);
-        legend.Children.Add(Text("每专注小时拦截", 10, true));
-        var frequency = Text(_model.InterceptionRateText, 17); frequency.FontWeight = FontWeights.SemiBold; frequency.Margin = new Thickness(0, 3, 0, 4); frequency.ToolTip = "拦截总次数 ÷ 对应已统计严格专注的有效小时数，数值越低，触发拦截越少。有效时长排除暂停和休息。"; legend.Children.Add(frequency);
+        legend.Children.Add(Text(UiText.Get("每专注小时拦截"), 10, true));
+        var frequency = Text(_model.InterceptionRateText, 17); frequency.FontWeight = FontWeights.SemiBold; frequency.Margin = new Thickness(0, 3, 0, 4); frequency.ToolTip = UiText.Get("拦截总次数 ÷ 对应已统计严格专注的有效小时数，数值越低，触发拦截越少。有效时长排除暂停和休息。"); legend.Children.Add(frequency);
         var comparison = Text(_model.InterceptionComparisonText, 10, true); comparison.ToolTip = _model.InterceptionComparisonTooltip; comparison.Margin = new Thickness(0, 0, 0, 5); legend.Children.Add(comparison);
         foreach (var (name, count, zero) in new[] { ("零拦截", data.ZeroSessions, true), ("有拦截", data.AffectedSessions, false) })
         {
             var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) }; var dot = new Ellipse { Width = 7, Height = 7, Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center }; dot.SetResourceReference(Shape.FillProperty, zero ? "AccentBrush" : "BorderBrush"); row.Children.Add(dot); row.Children.Add(Text($"{name} {count} 次", 11));
-            var button = new Button { Content = row, Tag = zero ? "zero-interceptions" : "with-interceptions", ToolTip = "查看对应严格模式记录" }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => InterceptionDetails(zero); legend.Children.Add(button);
+            var button = new Button { Content = row, Tag = zero ? "zero-interceptions" : "with-interceptions", ToolTip = UiText.Get("查看对应严格模式记录") }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => InterceptionDetails(zero); legend.Children.Add(button);
         }
         body.Children.Add(Text(data.CountedSessions == 0 ? data.StrictSessions == 0 ? "所选范围暂无严格模式记录" : "所选记录尚未保存拦截次数" : $"样本 {data.CountedSessions} 次 · 有效专注 {StatisticsViewModel.Duration(data.CountedDuration)} · 拦截 {data.Total} 次", 10, true));
         if (data.UnknownSessions > 0) body.Children.Add(Text($"{data.UnknownSessions} 次旧记录未统计，不计入比例", 10, true));
@@ -144,7 +144,7 @@ public partial class StatisticsView : UserControl
     }
     private Border Card(string heading, out StackPanel body)
     {
-        body = new StackPanel(); body.Children.Add(new TextBlock { Text = heading, FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
+        body = new StackPanel(); body.Children.Add(new TextBlock { Text = UiText.Get(heading), FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
         var border = new Border { Child = body, CornerRadius = new CornerRadius(16), Padding = new Thickness(16), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 10) };
         border.SetResourceReference(Border.BackgroundProperty, "CardBrush"); border.SetResourceReference(Border.BorderBrushProperty, "BorderBrush"); return border;
     }
@@ -180,7 +180,7 @@ public partial class StatisticsView : UserControl
     private void DrawShares(StackPanel body)
     {
         var shares = _model!.Shares.Where(item => item.Duration > TimeSpan.Zero).ToArray(); var total = shares.Sum(item => item.Duration.Ticks);
-        if (total == 0) { body.Children.Add(Text("暂无投入分布", 12, true)); return; }
+        if (total == 0) { body.Children.Add(Text(UiText.Get("暂无投入分布"), 12, true)); return; }
         var pie = new Canvas { Width = 160, Height = 160, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 10) };
         double angle = -90;
         foreach (var share in shares)
@@ -225,25 +225,25 @@ public partial class StatisticsView : UserControl
             Canvas.SetLeft(button, 26 + col * cell); Canvas.SetTop(button, 20 + row * cell); chart.Children.Add(button);
             if (day.Day == 1) { var label = Text($"{day.Month}月", 9, true); Canvas.SetLeft(label, 26 + col * cell); chart.Children.Add(label); }
         }
-        var legend = Text("浅色投入少，深色投入多", 10, true); Canvas.SetLeft(legend, 26); Canvas.SetTop(legend, 24 + cell * 7); chart.Children.Add(legend); return chart;
+        var legend = Text(UiText.Get("浅色投入少，深色投入多"), 10, true); Canvas.SetLeft(legend, 26); Canvas.SetTop(legend, 24 + cell * 7); chart.Children.Add(legend); return chart;
     }
     private FrameworkElement GoalProgressCard()
     {
             var goals = Card($"目标进度 · 截至{_model!.GoalDate:M月d日}", out var goalBody);
-            goalBody.Children.Add(Text("按目标自身的项目与周期累计，点击查看或调整目标。", 11, true));
+            goalBody.Children.Add(Text(UiText.Get("按目标自身的项目与周期累计，点击查看或调整目标。"), 11, true));
             foreach (var goal in _model.GoalProgress)
             {
                 var content = new StackPanel { Margin = new Thickness(0, 6, 0, 6) }; content.Children.Add(Text(goal.Name + " · " + goal.ValueText, 13)); content.Children.Add(Text(goal.Scope + " · " + goal.Period + " · " + goal.State, 10, true));
                 content.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = goal.Ratio, Height = 5, Margin = new Thickness(0, 6, 0, 0), Foreground = (Brush)FindResource("AccentBrush"), Background = (Brush)FindResource("SubtleBrush") });
                 var button = new Button { Content = content, Tag = goal.Id }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => new GoalEditorWindow(Main, goal.Progress.Goal) { Owner = Window.GetWindow(this) }.ShowDialog(); goalBody.Children.Add(button);
             }
-            if (_model.GoalProgress.Count == 0) goalBody.Children.Add(Text("所选范围暂无关联目标。", 12, true));
+            if (_model.GoalProgress.Count == 0) goalBody.Children.Add(Text(UiText.Get("所选范围暂无关联目标。"), 12, true));
             return goals;
     }
     private void DrawReview()
     {
         var tasks = Card("待办与累计投入", out var taskBody); taskBody.Children.Add(Text(_model!.TaskSummary, 12, true));
-        taskBody.Children.Add(Text("预估与累计投入比较，完成状态为当前状态。", 11, true));
+        taskBody.Children.Add(Text(UiText.Get("预估与累计投入比较，完成状态为当前状态。"), 11, true));
         var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 12, 0, 0) };
         foreach (var task in _model.Tasks)
         {
@@ -252,11 +252,11 @@ public partial class StatisticsView : UserControl
             panel.Children.Add(Text("累计 " + task.Invested + " · 预估 " + task.Estimated, 12));
             if (task.Difference.Length > 0) panel.Children.Add(Text(task.Difference, 11, true));
             if (task.NextStep.Length > 0) panel.Children.Add(Text("下一步 · " + task.NextStep, 11, true));
-            var open = new Button { Content = "查看待办", Tag = task.Id, Padding = new Thickness(10, 5, 10, 5), FontSize = 11, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+            var open = new Button { Content = UiText.Get("查看待办"), Tag = task.Id, Padding = new Thickness(10, 5, 10, 5), FontSize = 11, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
             open.Click += (_, _) => { var item = Main.Todos.Items.FirstOrDefault(item => item.Id == task.Id); if (item is null) { ConfirmDeletionWindow.ShowNotice(Window.GetWindow(this), "这条待办已删除，历史投入仍保留。" ); return; } if (new TodoDetailsWindow(Main, item) { Owner = Window.GetWindow(this) }.ShowDialog() == true) ((MainWindow)Window.GetWindow(this)).ReturnToFocus(); }; panel.Children.Add(open);
             var border = new Border { Child = panel, Padding = new Thickness(14), CornerRadius = new CornerRadius(12), Margin = new Thickness(0, 0, 8, 8) }; border.SetResourceReference(Border.BackgroundProperty, "FieldBrush"); grid.Children.Add(border);
         }
-        if (_model.Tasks.Count == 0) taskBody.Children.Add(Text("这个范围没有关联待办，选择项目或待办可查看累计投入。", 12, true)); else taskBody.Children.Add(grid); StatisticsContent.Children.Add(tasks);
+        if (_model.Tasks.Count == 0) taskBody.Children.Add(Text(UiText.Get("这个范围没有关联待办，选择项目或待办可查看累计投入。"), 12, true)); else taskBody.Children.Add(grid); StatisticsContent.Children.Add(tasks);
         var outcomes = Card("成果与下一步", out var outcomeBody); outcomeBody.Children.Add(Text(_model.OutcomeSummary, 12, true));
         if (_model.QuantitySummary.Length > 0) outcomeBody.Children.Add(Text("数量成果 · " + _model.QuantitySummary, 14));
         foreach (var outcome in _model.Outcomes)
@@ -265,13 +265,13 @@ public partial class StatisticsView : UserControl
             panel.Children.Add(Text(outcome.Date, 10, true)); if (outcome.Text.Length > 0) panel.Children.Add(Text(outcome.Text)); if (outcome.NextStep.Length > 0) panel.Children.Add(Text("下一步 · " + outcome.NextStep, 11, true));
             var button = new Button { Content = panel, Tag = outcome.Id }; button.SetResourceReference(StyleProperty, "StatisticsHit"); button.Click += (_, _) => new OutcomeEditorWindow(Main, outcome.Id) { Owner = Window.GetWindow(this) }.ShowDialog(); outcomeBody.Children.Add(button);
         }
-        if (_model.Outcomes.Count == 0) outcomeBody.Children.Add(Text("还没有填写成果，可以从时间轴或图表明细补记。", 12, true)); StatisticsContent.Children.Add(outcomes);
+        if (_model.Outcomes.Count == 0) outcomeBody.Children.Add(Text(UiText.Get("还没有填写成果，可以从时间轴或图表明细补记。"), 12, true)); StatisticsContent.Children.Add(outcomes);
     }
     private void Details(StatisticsSnapshot data, string title) => new StatisticsDetailsWindow(Main, _model!, data, title) { Owner = Window.GetWindow(this) }.ShowDialog();
     private void Export_Click(object sender, RoutedEventArgs args)
     {
         if (_model is null || !_model.IsValid) return;
-        var dialog = new SaveFileDialog { Title = "导出专注摘要", FileName = $"专注摘要-{_model.Snapshot.Filter.From:yyyyMMdd}-{_model.Snapshot.Filter.To:yyyyMMdd}", Filter = "Markdown 摘要 (*.md)|*.md|CSV 记录明细 (*.csv)|*.csv", AddExtension = true };
+        var dialog = new SaveFileDialog { Title = UiText.Get("导出专注摘要"), FileName = $"专注摘要-{_model.Snapshot.Filter.From:yyyyMMdd}-{_model.Snapshot.Filter.To:yyyyMMdd}", Filter = "Markdown 摘要 (*.md)|*.md|CSV 记录明细 (*.csv)|*.csv", AddExtension = true };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
         try { var csv = dialog.FilterIndex == 2; System.IO.File.WriteAllText(dialog.FileName, _model.Export(csv), new System.Text.UTF8Encoding(csv)); }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { ConfirmDeletionWindow.ShowNotice(Window.GetWindow(this), "导出失败：" + ex.Message); }

@@ -3,42 +3,45 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:FocusBloom.Desktop.Views"
         xmlns:present="clr-namespace:FocusBloom.Desktop.Presentation">
-    <Grid>
+    <Grid x:Name="FocusScene">
         <Grid.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="{DynamicResource HeroStartColor}" Offset="0" /><GradientStop Color="{DynamicResource HeroMiddleColor}" Offset="0.55" /><GradientStop Color="{DynamicResource HeroEndColor}" Offset="1" /></LinearGradientBrush></Grid.Background>
         <views:FocusBackgroundView x:Name="FullscreenBackground" DataContext="{Binding Media}" BackgroundImage="{Binding Background}" AnimatedUri="{Binding BackgroundGifUri}" VideoUri="{Binding BackgroundVideoUri}" />
-        <Border Background="#6B0D1826" Visibility="{Binding Media.HasBackground, Converter={StaticResource BoolVisibility}}" />
+        <Border Background="#520D1826" Visibility="{Binding Media.HasBackground, Converter={StaticResource BoolVisibility}}" />
         <Grid Margin="48,28">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <DockPanel>
-                <Button x:Name="ReturnToWindowButton" DockPanel.Dock="Right" Content="返回窗口  ·  Esc" Click="ReturnToWindow_Click" Style="{StaticResource SceneButton}" Padding="20,11" />
-                <Button x:Name="FullscreenOpenBrowserButton" DockPanel.Dock="Right" Content="学习浏览器  ↗" Click="OpenBrowser_Click" Style="{StaticResource SceneQuietButton}" Margin="0,0,12,0" />
+            <DockPanel x:Name="FocusHeader">
+                <Button x:Name="ReturnToWindowButton" DockPanel.Dock="Right" Content="{present:Translate '返回窗口  ·  Esc'}" Click="ReturnToWindow_Click" Style="{StaticResource SceneButton}" Padding="20,11" />
+                <Button x:Name="FullscreenOpenBrowserButton" DockPanel.Dock="Right" Content="{present:Translate '学习浏览器  ↗'}" Click="OpenBrowser_Click" Style="{StaticResource SceneQuietButton}" Margin="0,0,12,0" />
+                <Button x:Name="FullscreenScreenshotButton" DockPanel.Dock="Right" Content="&#xE722;" FontFamily="Segoe MDL2 Assets" Click="Screenshot_Click" Style="{StaticResource SceneQuietButton}" ToolTip="{present:Translate '保存专注截图'}" AutomationProperties.Name="{present:Translate '保存专注截图'}" Margin="0,0,12,0" />
                 <TextBlock Text="{Binding SessionModeText, StringFormat='F O C U S B L O O M  /  {0}'}" Style="{StaticResource SceneCaption}" FontSize="12" VerticalAlignment="Center" />
             </DockPanel>
             <Viewbox Grid.Row="1" Stretch="Uniform" MaxWidth="1000" MaxHeight="600" Margin="0,28">
                 <StackPanel Width="940" HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding FocusHeading}" Style="{StaticResource SceneText}" FontSize="26" FontWeight="Medium" HorizontalAlignment="Center" TextAlignment="Center" />
+                    <TextBlock Text="{Binding FocusHeading}" Style="{StaticResource SceneText}" FontSize="{DynamicResource FullscreenFocusTextSize}" FontWeight="Medium" HorizontalAlignment="Center" TextAlignment="Center" />
                     <TextBlock Text="{Binding FocusTodoText}" Style="{StaticResource SceneCaption}" FontSize="18" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,8,0,0" Visibility="{Binding HasFocusTodo, Converter={StaticResource BoolVisibility}}" />
-                    <TextBlock x:Name="FullscreenTimerDisplay" Text="{Binding TimerText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusTimerFont}" FontWeight="Light" Typography.NumeralAlignment="Tabular" FontSize="138" HorizontalAlignment="Center" Margin="0,24,0,12" />
+                    <TextBlock x:Name="FullscreenTimerDisplay" Text="{Binding TimerText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusTimerFont}" FontWeight="Light" Typography.NumeralAlignment="Tabular" FontSize="{DynamicResource FullscreenTimerSize}" HorizontalAlignment="Center" Margin="0,24,0,12" />
                     <TextBlock Text="{Binding StateText}" Style="{StaticResource SceneText}" FontSize="18" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding PhaseText}" Style="{StaticResource SceneCaption}" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
-                    <TextBlock x:Name="FullscreenQuoteDisplay" Text="{Binding Media.QuoteText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusQuoteFont}" FontSize="26" LineHeight="44" MaxHeight="176" TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="80,42,80,0" />
+                    <TextBlock x:Name="FullscreenQuoteDisplay" Text="{Binding Media.QuoteText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusQuoteFont}" FontSize="{DynamicResource FullscreenFocusTextSize}" LineHeight="44" MaxHeight="176" TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="80,42,80,0" />
                     <present:QuoteAttributionText Quote="{Binding Media.CurrentQuote}" Style="{StaticResource SceneCaption}" FontSize="13" HorizontalAlignment="Center" Margin="0,14,0,0" ToolTip="{Binding Media.QuoteSource}" />
                 </StackPanel>
             </Viewbox>
-            <Grid Grid.Row="2">
+            <Grid x:Name="FocusActions" Grid.Row="2">
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <StackPanel>
                 <WrapPanel HorizontalAlignment="Center">
-                    <Button x:Name="FullscreenStartButton" Content="开始专注  →" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="210" Padding="24,14" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
-                    <Button x:Name="FullscreenPauseButton" Content="暂停" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Width="130" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
-                    <Button x:Name="FullscreenResumeButton" Content="继续专注" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Width="150" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
-                    <Button x:Name="FullscreenEndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="130" Padding="24,14" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,14,0" />
-                    <Button Content="跳过休息" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="190" Padding="24,14" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
+                    <Button x:Name="FullscreenStartButton" Content="{present:Translate '开始专注  →'}" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="210" Padding="24,14" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
+                    <Button x:Name="FullscreenPauseButton" Content="{present:Translate '暂停'}" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Width="130" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
+                    <Button x:Name="FullscreenResumeButton" Content="{present:Translate '继续专注'}" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Width="150" Margin="0,0,14,0" Padding="24,14" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
+                    <Button x:Name="FullscreenEndButton" Content="{present:Translate '结束'}" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="130" Padding="24,14" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,14,0" />
+                    <Button Content="{present:Translate '跳过休息'}" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="190" Padding="24,14" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
                 </WrapPanel>
+                </StackPanel>
                 <Grid Grid.Row="1" Margin="0,22,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <ToggleButton x:Name="FullscreenKeepScreenOnButton" Content="常亮" IsChecked="{Binding KeepScreenOn}" Style="{StaticResource SceneUtilityToggle}" Width="100" MinHeight="44" FontSize="14" Padding="20,11" HorizontalAlignment="Left" ToolTip="保持屏幕常亮，专注与暂停时生效" />
+                    <ToggleButton x:Name="FullscreenKeepScreenOnButton" Content="{present:Translate '常亮'}" IsChecked="{Binding KeepScreenOn}" Style="{StaticResource SceneUtilityToggle}" Width="100" MinHeight="44" FontSize="14" Padding="20,11" HorizontalAlignment="Left" ToolTip="{present:Translate '保持屏幕常亮，专注与暂停时生效'}" />
                     <Button Grid.Column="1" Content="{Binding Media.ImageCredit}" ToolTip="{Binding Media.ImageSourceInfo}" Command="{Binding Media.OpenImageSourceCommand}" Style="{StaticResource SceneQuietButton}" Opacity="0.5" FontSize="10" VerticalAlignment="Center" />
-                    <ToggleButton x:Name="SoundPanelButton" Grid.Column="2" Content="声音" Style="{StaticResource SceneUtilityToggle}" Width="100" MinHeight="44" FontSize="14" Padding="20,11" HorizontalAlignment="Right" ToolTip="音源、播放与音量" />
+                    <ToggleButton x:Name="SoundPanelButton" Grid.Column="2" Content="{present:Translate '声音'}" Style="{StaticResource SceneUtilityToggle}" Width="100" MinHeight="44" FontSize="14" Padding="20,11" HorizontalAlignment="Right" ToolTip="{present:Translate '音源、播放与音量'}" />
                 </Grid>
                 <Popup x:Name="SoundPopup" IsOpen="{Binding IsChecked, ElementName=SoundPanelButton}" PlacementTarget="{Binding ElementName=SoundPanelButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True">
                     <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16" Padding="20" Width="340" DataContext="{Binding Media}"><views:FocusAudioControls /></Border>

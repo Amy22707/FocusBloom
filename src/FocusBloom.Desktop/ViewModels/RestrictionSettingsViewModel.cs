@@ -62,6 +62,13 @@ public sealed class RestrictionSettingsViewModel : ObservableObject
         new AccessListChoice(AccessListMode.Whitelist, "白名单 · 仅允许列表内"),
         new AccessListChoice(AccessListMode.Blacklist, "黑名单 · 仅限制列表内")
     };
+    public void ReloadWebsites()
+    {
+        _whiteWebsites.Clear(); foreach (var rule in Read<WebsiteRule>("restrictions.websites")) _whiteWebsites.Add(rule);
+        _blackWebsites.Clear(); foreach (var rule in Read<WebsiteRule>("restrictions.websites.blacklist")) _blackWebsites.Add(rule);
+        _websiteMode = ListModes.First(choice => choice.Mode.ToString() == (_store.GetSetting("restrictions.websiteMode") ?? "Whitelist"));
+        Notify(nameof(WebsiteMode)); Notify(nameof(Websites));
+    }
     public AccessListChoice ApplicationMode
     {
         get => _applicationMode;

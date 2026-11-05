@@ -18,6 +18,7 @@ $env:DOTNET_CLI_HOME = Join-Path $repoRoot '.tools/cli-home'
 $env:NUGET_PACKAGES = Join-Path $repoRoot '.tools/nuget'
 Push-Location $repoRoot
 try {
+    & (Join-Path $PSScriptRoot 'configure-cloud.ps1')
     switch ($Task) {
         'build' { & $dotnet build FocusBloom.sln -c $Configuration }
         'test' {

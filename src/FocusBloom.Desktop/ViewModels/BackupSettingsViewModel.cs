@@ -21,17 +21,22 @@ public sealed class BackupSettingsViewModel : ObservableObject
     private Task? _operation;
     private bool _busy, _stopped;
     private DateTimeOffset _retryAfter;
-    private string _status = "备份包含已保存数据和自定义素材，可用于换电脑迁移。";
+    private string _status = UiText.Get("备份包含已保存数据和自定义素材，可用于换电脑迁移。");
     public LocalBackupService Service { get; }
     public bool AutomaticEnabled { get => _options.Automatic; set { Save(_options with { Automatic = value }); _retryAfter = default; Notify(); if (_automatic.IsEnabled) _ = CheckAutomaticAsync(); } }
     public string DirectoryPath { get => string.IsNullOrWhiteSpace(_options.Directory) ? Service.DefaultDirectory : _options.Directory; set { Save(_options with { Directory = Path.GetFullPath(value) }); _retryAfter = default; Notify(); if (_automatic.IsEnabled) _ = CheckAutomaticAsync(); } }
     public int Keep { get => _options.Keep; set { Save(_options with { Keep = Math.Clamp(value, 1, 30) }); Notify(); } }
+    public string ScreenshotDirectory
+    {
+        get => _store.GetSetting("files.screenshotDirectory") ?? Path.Combine(Service.ProfileDirectory, "screenshots");
+        set { _store.SaveSetting("files.screenshotDirectory", Path.GetFullPath(value)); Notify(); }
+    }
     public bool IsBusy { get => _busy; private set { _busy = value; Notify(); Notify(nameof(CanOperate)); Notify(nameof(CanRestore)); } }
     public bool CanOperate => !IsBusy && !_stopped;
     public bool CanRestore => CanOperate && _main.CanConfigure && !_main.HasUnsavedRecord;
-    public string RestoreHint => _main.CanConfigure && !_main.HasUnsavedRecord ? "恢复会替换当前数据，并重新启动软件。恢复前会自动备份当前内容。" : "请先结束本次计时或休息，并保存记录，再恢复备份。";
+    public string RestoreHint => UiText.Get(_main.CanConfigure && !_main.HasUnsavedRecord ? "恢复会替换当前数据，并重新启动软件。恢复前会自动备份当前内容。" : "请先结束本次计时或休息，并保存记录，再恢复备份。");
     public string Status { get => _status; private set { _status = value; Notify(); } }
-    public string LastBackup => _options.LastBackup is { } at ? $"最近备份：{at.LocalDateTime:yyyy-MM-dd HH:mm}\n{_options.LastFile}" : "尚未创建备份";
+    public string LastBackup => _options.LastBackup is { } at ? UiText.Format("最近备份：{0:yyyy-MM-dd HH:mm}\n{1}", at.LocalDateTime, _options.LastFile ?? "") : UiText.Get("尚未创建备份");
     public BackupSettingsViewModel(LocalBackupService service, IFocusStore store, MainViewModel main)
     {
         Service = service; _store = store; _main = main; _options = store.GetSetting(LocalBackupService.OptionsKey) is { } json ? JsonSerializer.Deserialize<BackupOptions>(json)! : new();

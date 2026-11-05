@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using FocusBloom.Desktop.ViewModels;
+using FocusBloom.Desktop.Presentation;
 using FocusBloom.Desktop.Windows;
 using FocusBloom.Infrastructure.Backup;
 using Microsoft.Win32;
@@ -19,14 +20,14 @@ public partial class BackupSettingsView : UserControl
     public BackupSettingsView() { InitializeComponent(); BackupRetentionSelector.ItemsSource = Enumerable.Range(1, 30).ToArray(); }
     private async void Create_Click(object sender, RoutedEventArgs args)
     {
-        var picker = new SaveFileDialog { Title = "保存 FocusBloom 备份", Filter = "FocusBloom 备份|*.fbbak", DefaultExt = ".fbbak", FileName = LocalBackupService.NewFileName(), InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "", AddExtension = true };
+        var picker = new SaveFileDialog { Title = UiText.Get("保存 FocusBloom 备份"), Filter = "FocusBloom 备份|*.fbbak", DefaultExt = ".fbbak", FileName = LocalBackupService.NewFileName(), InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "", AddExtension = true };
         if (picker.ShowDialog(Window.GetWindow(this)) != true) return;
         try { await Model.BackupAsync(picker.FileName); } catch (OperationCanceledException) { } catch (Exception error) { Model.ReportError(error); }
     }
     private async void Restore_Click(object sender, RoutedEventArgs args)
     {
         if (!Model.CanRestore) { ConfirmDeletionWindow.ShowNotice(Window.GetWindow(this), Model.RestoreHint, "暂时不能恢复"); return; }
-        var picker = new OpenFileDialog { Title = "选择 FocusBloom 备份", Filter = "FocusBloom 备份|*.fbbak", InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "" };
+        var picker = new OpenFileDialog { Title = UiText.Get("选择 FocusBloom 备份"), Filter = "FocusBloom 备份|*.fbbak", InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "" };
         if (picker.ShowDialog(Window.GetWindow(this)) == true) await OpenRestoreAsync(picker.FileName);
     }
     public async Task OpenRestoreAsync(string file)
@@ -41,7 +42,14 @@ public partial class BackupSettingsView : UserControl
         catch (OperationCanceledException) { } catch (Exception error) { Model.ReportError(error); }
     }
     private void ChooseFolder_Click(object sender, RoutedEventArgs args)
-    { var picker = new OpenFolderDialog { Title = "选择备份保存位置", InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "" }; if (picker.ShowDialog(Window.GetWindow(this)) == true) Model.DirectoryPath = picker.FolderName; }
+    { var picker = new OpenFolderDialog { Title = UiText.Get("选择备份保存位置"), InitialDirectory = Directory.Exists(Model.DirectoryPath) ? Model.DirectoryPath : "" }; if (picker.ShowDialog(Window.GetWindow(this)) == true) Model.DirectoryPath = picker.FolderName; }
     private void OpenFolder_Click(object sender, RoutedEventArgs args)
     { try { Directory.CreateDirectory(Model.DirectoryPath); Process.Start(new ProcessStartInfo(Model.DirectoryPath) { UseShellExecute = true }); } catch (Exception error) { Model.ReportError(error); } }
+    private void ChooseScreenshotFolder_Click(object sender, RoutedEventArgs args)
+    {
+        var picker = new OpenFolderDialog { Title = UiText.Get("选择截图保存位置"), InitialDirectory = Directory.Exists(Model.ScreenshotDirectory) ? Model.ScreenshotDirectory : "" };
+        if (picker.ShowDialog(Window.GetWindow(this)) != true) return;
+        try { Model.ScreenshotDirectory = picker.FolderName; }
+        catch (Exception error) { Model.ReportError(error); }
+    }
 }

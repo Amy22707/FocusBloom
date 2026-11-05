@@ -41,4 +41,4 @@
 
 备份包使用ZIP，包含`manifest.json`、`database.sqlite`与`assets`。SQLite Backup API生成快照，临时文件写完后发布为目标文件；恢复先在工作目录验证数据库并重建素材引用，确认后在旧界面与服务关闭后应用。数据库更新使用SQLite Backup API，未通过准备检查的备份不会替换现有数据。
 
-备份偏好保存在`backup.options`。默认备份目录为`%LOCALAPPDATA%/FocusBloom/guest/backups`。使用备份不需要账号或云服务。
+备份偏好保存在`backup.options`。默认备份位于当前访客或账号数据目录下的`backups`。备份只包含当前本地资料，不包含邮箱登录凭证；恢复到另一台电脑后需重新登录。使用本地备份不需要云服务。

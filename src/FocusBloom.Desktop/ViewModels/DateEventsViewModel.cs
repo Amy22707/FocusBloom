@@ -22,8 +22,8 @@ public sealed class DateEventRow(DateEvent item, DateOnly today) : ObservableObj
     public DateOnly? Next => CalendarRules.NextDate(Item, today);
     public int Days => Item.Mode == DateCountMode.CountUp ? today.DayNumber - Item.Date.DayNumber : (Next ?? Item.Date).DayNumber - today.DayNumber;
     public string Number => Item.Mode == DateCountMode.Countdown && Item.Repeat != DateRepeat.None && Next is null ? "—" : Math.Abs(Days).ToString();
-    public string Label => Item.Mode == DateCountMode.Countdown && Item.Repeat != DateRepeat.None && Next is null ? "循环已结束" : Item.Mode == DateCountMode.CountUp ? Days >= 0 ? "已经" : "距离开始" : Days >= 0 ? "还有" : "已过去";
-    public string Detail => $"{Next ?? Item.Date:yyyy-MM-dd}" + (Item.Time is { } time ? $" {time:HH:mm}" : "") + (Item.Repeat != DateRepeat.None ? " · " + (Item.Repeat switch { DateRepeat.Daily => "每日", DateRepeat.Monthly => "每月", _ => "每年" }) : "") + (Item.Pinned ? " · 置顶" : "");
+    public string Label => UiText.Get(Item.Mode == DateCountMode.Countdown && Item.Repeat != DateRepeat.None && Next is null ? "循环已结束" : Item.Mode == DateCountMode.CountUp ? Days >= 0 ? "已经" : "距离开始" : Days >= 0 ? "还有" : "已过去");
+    public string Detail => $"{Next ?? Item.Date:yyyy-MM-dd}" + (Item.Time is { } time ? $" {time:HH:mm}" : "") + (Item.Repeat != DateRepeat.None ? " · " + UiText.Get(Item.Repeat switch { DateRepeat.Daily => "每日", DateRepeat.Monthly => "每月", _ => "每年" }) : "") + (Item.Pinned ? UiText.Get(" · 置顶") : "");
     public string Notes => Item.Notes;
     public string? Cover => Item.CoverPath;
     public ImageSource? Thumbnail { get { _loading ??= LoadCover(); return _thumbnail; } }
@@ -37,11 +37,11 @@ public sealed class DateEventRow(DateEvent item, DateOnly today) : ObservableObj
 }
 public sealed record DateGroupChoice(string? Name)
 {
-    public string Label => Name ?? "全部分组";
+    public string Label => Name ?? UiText.Get("全部分组");
 }
 public sealed record DateEventGroup(string Name, IReadOnlyList<DateEventRow> Items)
 {
-    public string CountText => $"{Items.Count} 项";
+    public string CountText => UiText.Format("{0} 项", Items.Count);
     public bool IsEmpty => Items.Count == 0;
     public bool Editable => Name != "未分组";
 }
@@ -80,10 +80,10 @@ public sealed class DateEventsViewModel : ObservableObject
     }
     public bool ShowMixedGroups => ShowAllGroups && MixedView;
     public string MixedGroupSummary => GroupFilters.All(item => item.Selected) ? "全部分组" : $"已选 {GroupFilters.Count(item => item.Selected)} 组";
-    public string EmptyMessage => ShowMixedGroups && GroupFilters.All(item => !item.Selected) ? "请选择要查看的分组。" : "还没有日期事项，点击“新建日期事项”添加。";
+    public string EmptyMessage => ShowMixedGroups && GroupFilters.All(item => !item.Selected) ? UiText.Get("请选择要查看的分组。") : UiText.Get("还没有日期事项，点击“新建日期事项”添加。");
     public bool ShowBoard => ShowAllGroups && !MixedView && GroupNames.Count > 1;
     public bool ShowCards => !ShowBoard;
-    public string Heading => _selected?.Name ?? "日期事项";
+    public string Heading => _selected?.Name ?? UiText.Get("日期事项");
     public string Summary => $"{VisibleItems.Count} 个事项" + (ShowAllGroups ? $" · {(ShowMixedGroups ? GroupFilters.Count(item => item.Selected) : GroupNames.Count)} 个分组" : "");
     public DateEventsViewModel(IFocusStore store)
     {

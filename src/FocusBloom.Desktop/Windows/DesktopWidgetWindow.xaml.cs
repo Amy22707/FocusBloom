@@ -10,6 +10,8 @@ using System.Windows.Media;
 using FocusBloom.Core.Storage;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow : Window
@@ -28,7 +30,7 @@ public partial class DesktopWidgetWindow : Window
     public DesktopWidgetOption Option { get; }
     public DesktopWidgetWindow(MainViewModel main, IFocusStore store, DesktopWidgetOption option, DesktopWidgetManager manager, Action<DesktopWidgetKind, Guid?, DateOnly?> open)
     {
-        InitializeComponent(); _main = main; _store = store; Option = option; _manager = manager; _open = open; DataContext = option; Title = "一刻专注 · " + option.Name;
+        InitializeComponent(); _main = main; _store = store; Option = option; _manager = manager; _open = open; DataContext = option; Title = UiText.Get("一刻专注 · ") + option.Name;
         MinWidth = option.MinimumWidth; MinHeight = option.MinimumHeight; Width = option.Width; Height = option.Height;
         SourceInitialized += (_, _) =>
         {
@@ -115,7 +117,7 @@ public partial class DesktopWidgetWindow : Window
     }
     private void MonthPicker()
     {
-        var picker = new DatePicker { SelectedDate = _anchor.ToDateTime(TimeOnly.MinValue), MinHeight = 34, Width = 150, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8), ToolTip = "跳转年月日期" };
+        var picker = new DatePicker { SelectedDate = _anchor.ToDateTime(TimeOnly.MinValue), MinHeight = 34, Width = 150, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8), ToolTip = UiText.Get("跳转年月日期") };
         _datePicker = picker; picker.CalendarClosed += (_, _) => { if (_deferredRender) { _deferredRender = false; Dispatcher.BeginInvoke(new Action(Render)); } };
         picker.SelectedDateChanged += (_, _) => { if (picker.SelectedDate is { } date && DateOnly.FromDateTime(date) != _anchor) { _anchor = DateOnly.FromDateTime(date); Render(); } }; WidgetBody.Children.Add(picker);
     }

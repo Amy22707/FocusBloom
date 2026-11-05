@@ -21,6 +21,25 @@ public partial class TodoDetailsWindow : Window
         DataContext = row;
         var folder = _main.Todos.Folders.Single(item => item.Id == row.Item.FolderId);
         FolderLocation.Text = folder.Name;
+        DetailSteps.Children.Clear();
+        if (row.Item.Steps is not { Count: > 0 } steps) return;
+        var heading = new TextBlock { Text = $"子任务 · {steps.Count(step => step.Completed)}/{steps.Count}", Margin = new Thickness(0, 0, 0, 8) };
+        heading.SetResourceReference(FrameworkElement.StyleProperty, "Caption");
+        DetailSteps.Children.Add(heading);
+        for (var i = 0; i < steps.Count; i++)
+        {
+            var index = i;
+            var box = new CheckBox { Content = new TextBlock { Text = steps[i].Title, TextWrapping = TextWrapping.Wrap }, IsChecked = steps[i].Completed, Margin = new Thickness(0, 0, 0, 6) };
+            box.Click += (_, _) =>
+            {
+                var updated = steps.ToArray();
+                updated[index] = updated[index] with { Completed = box.IsChecked == true };
+                if (_main.Todos.SaveItem(row.Item with { Steps = updated }))
+                    Refresh(_main.Todos.Items.Single(item => item.Id == _id));
+                else box.IsChecked = steps[index].Completed;
+            };
+            DetailSteps.Children.Add(box);
+        }
     }
     private void Edit_Click(object sender, RoutedEventArgs e)
     {

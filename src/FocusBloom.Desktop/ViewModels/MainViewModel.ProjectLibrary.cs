@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using FocusBloom.Core.Projects;
+using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
@@ -14,7 +15,7 @@ public sealed partial class MainViewModel
         set { _projectLibraryScope = value; _store.SaveSetting("projects.scope", value); Notify(); RefreshProjectLibrary(); }
     }
     public IEnumerable<FocusProject> ProjectLibraryItems => ProjectLibraryScope == "全部文件夹" ? Projects : FolderProjects;
-    public string ProjectLibraryTitle => ProjectLibraryScope == "全部文件夹" ? "全部项目" : FolderTitle;
+    public string ProjectLibraryTitle => ProjectLibraryScope == "全部文件夹" ? UiText.Get("全部项目") : FolderTitle;
     public string ProjectLibrarySummary => $"{ProjectLibraryItems.Count()} 个项目 · 选择后可在专注页开始计时";
     public bool ProjectLibraryEmpty => !ProjectLibraryItems.Any();
     public FocusProject? SelectedLibraryProject

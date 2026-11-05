@@ -139,7 +139,8 @@ public sealed class CalendarUiTests
                     Save(window, "calendar-" + mode + "-light.png");
                 }
                 main.Calendar.Mode = "月"; Flush(); window.UpdateLayout(); calendar.Render(); Flush();
-                Assert.InRange(((ScrollViewer)calendar.FindName("CalendarViewport")).ScrollableHeight, 0, 1);
+                var monthDays = Descendants<ScrollViewer>(calendar).Where(item => item.Name == "MonthDayEntries").ToArray();
+                Assert.Equal(42, monthDays.Length); Assert.All(monthDays, item => Assert.True(item.ViewportHeight >= 48));
                 main.Calendar.Mode = "日"; main.Calendar.Move(1); Assert.Equal(day.AddDays(1), main.Calendar.Date); main.Calendar.Date = day;
                 var view = (ScrollViewer)calendar.FindName("CalendarViewport"); view.ScrollToVerticalOffset(13 * 48); Flush(); Save(window, "calendar-day-timeline.png");
                 var entries = Descendants<Button>(calendar).Where(button => button.Tag is CalendarEntry).ToArray(); Assert.DoesNotContain(entries, button => ((CalendarEntry)button.Tag).Kind == "专注");

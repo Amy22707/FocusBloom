@@ -63,9 +63,9 @@ public sealed class WorkspaceVisualRefreshTests
                         if (key == "calendar")
                         {
                             var calendar = (CalendarView)window.FindName("CalendarPage"); Assert.InRange(((FrameworkElement)calendar.FindName("CalendarToolbar")).ActualHeight, 30, 40); Assert.True(((ScrollViewer)calendar.FindName("CalendarViewport")).ActualHeight > calendar.ActualHeight * .75);
-                            Assert.Contains(Descendants<Button>(calendar), item => item.Tag is CalendarEntry); Assert.Contains(Descendants<Button>(calendar), item => item.Content is string text && text.StartsWith("＋"));
+                            Assert.Contains(Descendants<Button>(calendar), item => item.Tag is CalendarEntry); Assert.Contains(Descendants<ScrollViewer>(calendar), item => item.Name == "MonthDayEntries" && item.ScrollableHeight > 0);
                             ((Button)calendar.FindName("CalendarDateButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush(); Assert.True(((Popup)calendar.FindName("CalendarDatePopup")).IsOpen); var year = (ComboBox)calendar.FindName("CalendarYearSelector"); year.SelectedItem = today.Year - 10; Flush(); Assert.Equal(today.Year - 10, main.Calendar.Date.Year); year.SelectedItem = today.Year; ((Popup)calendar.FindName("CalendarDatePopup")).IsOpen = false; Flush();
-                            Descendants<Button>(calendar).First(item => item.Content is string text && text.StartsWith("＋")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush(); Assert.Equal("日", main.Calendar.Mode); Assert.Equal(today, main.Calendar.Date); main.Calendar.Mode = "月"; Flush();
+                            Descendants<Button>(calendar).First(item => Equals(item.Content, today.Day.ToString())).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush(); Assert.Equal("日", main.Calendar.Mode); Assert.Equal(today, main.Calendar.Date); main.Calendar.Mode = "月"; Flush();
                         }
                         GoalsUiTests.Save(window, $"refresh-{key}-{suffix}.png");
                     }

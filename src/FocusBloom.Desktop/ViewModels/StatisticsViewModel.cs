@@ -71,13 +71,13 @@ public sealed partial class StatisticsViewModel : ObservableObject
     public bool IsStatistics => !ReviewMode;
     public InterceptionStatistics Interceptions { get; private set; } = new(0, 0, 0, 0);
     public string RangeLabel => $"{Snapshot.Filter.From:yyyy-MM-dd} — {Snapshot.Filter.To:yyyy-MM-dd}";
-    public string ValidationText => IsCustom && CustomTo < CustomFrom ? "结束日期不能早于开始日期。" : "";
+    public string ValidationText => IsCustom && CustomTo < CustomFrom ? UiText.Get("结束日期不能早于开始日期。") : "";
     public bool IsValid => ValidationText.Length == 0;
     public string SelectionLabel => string.Join(" · ", new[] { SelectedFolder?.Name, SelectedProject?.Name, SelectedTodo?.Name }.Where(name => name is not null));
-    public string FilterSummary => SelectedFolder?.Folder is null && SelectedProject?.Id is null && SelectedTodo?.Id is null ? "筛选范围 · 全部项目" : "筛选范围 · " + SelectionLabel;
-    public string TaskSummary => $"关联待办当前状态：{Tasks.Count(task => task.Status == "已完成")} / {Tasks.Count} 已完成";
+    public string FilterSummary => SelectedFolder?.Folder is null && SelectedProject?.Id is null && SelectedTodo?.Id is null ? UiText.Get("筛选范围 · 全部项目") : UiText.Format("筛选范围 · {0}", SelectionLabel);
+    public string TaskSummary => UiText.Format("关联待办当前状态：{0} / {1} 已完成", Tasks.Count(task => task.Status == "已完成"), Tasks.Count);
     public string QuantitySummary { get; private set; } = "";
-    public string OutcomeSummary => $"本范围内结束的专注 · {Outcomes.Count} 条成果";
+    public string OutcomeSummary => UiText.Format("本范围内结束的专注 · {0} 条成果", Outcomes.Count);
     public RelayCommand PreviousCommand { get; }
     public RelayCommand NextCommand { get; }
     public RelayCommand TodayCommand { get; }
@@ -117,12 +117,12 @@ public sealed partial class StatisticsViewModel : ObservableObject
         try
         {
             var folder = SelectedFolder?.Folder; var project = SelectedProject?.Id; var todo = SelectedTodo?.Id;
-            FolderChoices.Clear(); FolderChoices.Add(new("全部文件夹")); foreach (var name in _projects.Select(item => item.Category).Distinct().Order()) FolderChoices.Add(new(name, Folder: name));
+            FolderChoices.Clear(); FolderChoices.Add(new(UiText.Get("全部文件夹"))); foreach (var name in _projects.Select(item => item.Category).Distinct().Order()) FolderChoices.Add(new(name, Folder: name));
             _folder = FolderChoices.FirstOrDefault(item => item.Folder == folder) ?? FolderChoices[0];
-            ProjectChoices.Clear(); ProjectChoices.Add(new("全部项目")); foreach (var item in _projects.Where(item => _folder.Folder is null || item.Category == _folder.Folder)) ProjectChoices.Add(new(_folder.Folder is null ? item.Category + " / " + item.Name : item.Name, item.Id));
+            ProjectChoices.Clear(); ProjectChoices.Add(new(UiText.Get("全部项目"))); foreach (var item in _projects.Where(item => _folder.Folder is null || item.Category == _folder.Folder)) ProjectChoices.Add(new(_folder.Folder is null ? item.Category + " / " + item.Name : item.Name, item.Id));
             _project = ProjectChoices.FirstOrDefault(item => item.Id == project) ?? ProjectChoices[0];
             var projects = ProjectFilter(); var linked = _records.Where(record => projects is null || projects.Contains(record.ProjectId)).Select(record => record.TodoId).ToHashSet();
-            TodoChoices.Clear(); TodoChoices.Add(new("全部待办")); foreach (var item in _todos.Where(item => projects is null || linked.Contains(item.Id) || item.PreferredProjectId is { } id && projects.Contains(id))) TodoChoices.Add(new((_folders.FirstOrDefault(folder => folder.Id == item.FolderId)?.Name ?? "历史文件夹") + " / " + item.Title, item.Id));
+            TodoChoices.Clear(); TodoChoices.Add(new(UiText.Get("全部待办"))); foreach (var item in _todos.Where(item => projects is null || linked.Contains(item.Id) || item.PreferredProjectId is { } id && projects.Contains(id))) TodoChoices.Add(new((_folders.FirstOrDefault(folder => folder.Id == item.FolderId)?.Name ?? UiText.Get("历史文件夹")) + " / " + item.Title, item.Id));
             _todo = TodoChoices.FirstOrDefault(item => item.Id == todo) ?? TodoChoices[0];
             Notify(nameof(SelectedFolder)); Notify(nameof(SelectedProject)); Notify(nameof(SelectedTodo));
         }
@@ -171,30 +171,32 @@ public sealed partial class StatisticsViewModel : ObservableObject
         var quantities = Snapshot.Sessions.Where(item => item.EndedInRange).Select(item => _outcomes.GetValueOrDefault(item.Record.Id)).Where(outcome => outcome?.Quantity is not null).GroupBy(outcome => outcome!.Unit.Trim());
         QuantitySummary = string.Join(" · ", quantities.Select(group => $"{group.Sum(item => item!.Quantity!.Value):0.##} {group.Key}"));
     }
-    public string ProjectName(Guid id) => _projects.FirstOrDefault(item => item.Id == id)?.Name ?? "已删除项目";
-    public string TodoName(Guid? id) => id is { } todo ? _todos.FirstOrDefault(item => item.Id == todo)?.Title ?? "已删除待办" : "";
+    public string ProjectName(Guid id) => _projects.FirstOrDefault(item => item.Id == id)?.Name ?? UiText.Get("已删除项目");
+    public string TodoName(Guid? id) => id is { } todo ? _todos.FirstOrDefault(item => item.Id == todo)?.Title ?? UiText.Get("已删除待办") : "";
     public string OutcomeText(Guid recordId) => _outcomes.TryGetValue(recordId, out var outcome) ? OutcomeText(outcome) : "";
     private static string OutcomeText(FocusOutcome outcome) => string.Join(" · ", new[] { outcome.Summary, outcome.Quantity is { } quantity ? $"{quantity:0.##} {outcome.Unit}" : "" }.Where(text => text.Length > 0));
     public StatisticsSnapshot Drill(DateOnly from, DateOnly to, IReadOnlySet<Guid>? projects = null, int? hour = null) => FocusStatistics.Build(_records, new(from, to, projects ?? ProjectFilter(), SelectedTodo?.Id, hour));
-    public static string Duration(TimeSpan duration) => duration.TotalHours >= 1 ? $"{(int)duration.TotalHours}小时{duration.Minutes}分钟" : duration.TotalMinutes >= 1 ? $"{(int)duration.TotalMinutes}分钟" : $"{duration.TotalSeconds:0}秒";
+    public static string Duration(TimeSpan duration) => duration.TotalHours >= 1 ? UiText.Format("{0}小时{1}分钟", (int)duration.TotalHours, duration.Minutes) : duration.TotalMinutes >= 1 ? UiText.Format("{0}分钟", (int)duration.TotalMinutes) : UiText.Format("{0:0}秒", duration.TotalSeconds);
     public string Export(bool csv)
     {
         if (csv)
         {
             string Cell(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
-            var text = new StringBuilder("项目,待办,开始,结束,本范围有效秒数,完整有效秒数,成果,下一步\r\n");
+            var text = new StringBuilder(UiText.Get("项目,待办,开始,结束,本范围有效秒数,完整有效秒数,成果,下一步") + "\r\n");
             foreach (var item in Snapshot.Sessions) text.AppendLine(string.Join(",", new[] { ProjectName(item.Record.ProjectId), TodoName(item.Record.TodoId), item.Record.StartedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.Record.EndedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), item.IncludedDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), item.Record.FocusDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture), OutcomeText(item.Record.Id), _outcomes.GetValueOrDefault(item.Record.Id)?.NextStep ?? "" }.Select(Cell)));
             return text.ToString();
         }
-        var result = new StringBuilder($"# 专注复盘\n\n{RangeLabel}\n\n{SelectionLabel}\n\n");
-        foreach (var item in Metrics) result.AppendLine($"- {item.Name}：{item.Value}");
-        result.AppendLine("\n次数按会话结束日计，时长按实际日期分配，平均按完整会话计算。\n\n## 投入分布\n");
-        foreach (var item in Shares) result.AppendLine($"- {item.Name}：{Duration(item.Duration)}，{item.Count}次");
-        if (GoalProgress.Count > 0) { result.AppendLine($"\n## 目标进度\n\n截至{GoalDate:yyyy-MM-dd}，按目标自身项目与周期累计。\n"); foreach (var goal in GoalProgress) result.AppendLine($"- {goal.Name}（{goal.Scope}）：{goal.ValueText} · {goal.State}"); }
-        result.AppendLine("\n## 关联待办\n\n" + TaskSummary + "\n");
-        foreach (var item in Tasks) result.AppendLine($"- {item.Title}（{item.Folder}）：{item.Status}，累计投入{item.Invested}，预估{item.Estimated}；{item.Difference}" + (item.NextStep.Length > 0 ? $"\n  下一步：{item.NextStep}" : ""));
-        result.AppendLine("\n## 成果\n\n" + QuantitySummary + "\n");
-        foreach (var item in Outcomes) result.AppendLine($"- {item.Date} · {item.Project}" + (item.Todo.Length > 0 ? " / " + item.Todo : "") + $"：{item.Text}" + (item.NextStep.Length > 0 ? $"\n  下一步：{item.NextStep}" : ""));
+        var result = new StringBuilder($"# {UiText.Get("专注复盘")}\n\n{RangeLabel}\n\n{SelectionLabel}\n\n");
+        foreach (var item in Metrics) result.AppendLine($"- {UiText.Get(item.Name)} · {item.Value}");
+        result.AppendLine($"\n{UiText.Get("次数按会话结束日计，时长按实际日期分配，平均按完整会话计算。")}\n\n## {UiText.Get("投入分布")}\n");
+        foreach (var item in Shares) result.AppendLine($"- {item.Name} · {Duration(item.Duration)} · {UiText.Format("{0}次", item.Count)}");
+        if (GoalProgress.Count > 0) { result.AppendLine($"\n## {UiText.Get("目标进度")}\n\n{UiText.Format("截至{0:yyyy-MM-dd}，按目标自身项目与周期累计。", GoalDate)}\n"); foreach (var goal in GoalProgress) result.AppendLine($"- {goal.Name} ({goal.Scope}) · {goal.ValueText} · {goal.State}"); }
+        result.AppendLine($"\n## {UiText.Get("关联待办")}\n\n{TaskSummary}\n");
+        foreach (var item in Tasks) result.AppendLine($"- {item.Title} ({item.Folder}) · {UiText.Get(item.Status)} · {UiText.Format("累计投入{0}，预估{1}", item.Invested, item.Estimated)} · {item.Difference}" + NextStep(item.NextStep));
+        result.AppendLine($"\n## {UiText.Get("成果")}\n\n{QuantitySummary}\n");
+        foreach (var item in Outcomes) result.AppendLine($"- {item.Date} · {item.Project}" + (item.Todo.Length > 0 ? " / " + item.Todo : "") + $" · {item.Text}" + NextStep(item.NextStep));
         return result.ToString();
     }
+
+    private static string NextStep(string note) => note.Length > 0 ? "\n  " + UiText.Get("下一步：") + note : "";
 }

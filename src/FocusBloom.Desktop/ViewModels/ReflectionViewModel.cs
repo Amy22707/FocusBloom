@@ -35,7 +35,7 @@ public sealed class ReflectionViewModel : ObservableObject
     public bool HasFeeling => Feeling.Length > 0;
     public bool HasHighlights => Highlights.Length > 0;
     public bool HasNextStep => NextStep.Length > 0;
-    public string DaySummaryLabel => "当天投入 · " + FocusText;
+    public string DaySummaryLabel => UiText.Format("当天投入 · {0}", FocusText);
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
     public DateTime Date { get => _date; set { if (_date == value.Date) return; _date = value.Date; Notify(); RefreshSelection(); } }
     public DateOnly Day => DateOnly.FromDateTime(Date);
@@ -44,33 +44,33 @@ public sealed class ReflectionViewModel : ObservableObject
     public IReadOnlyList<DailyReflection> MonthEntries => Entries.Where(item => item.Date.Year == Day.Year && item.Date.Month == Day.Month).ToArray();
     public DailyReflection? SelectedEntry => Entries.FirstOrDefault(item => item.Date == Day);
     public ReflectionDaySummary Summary { get; private set; } = new(TimeSpan.Zero, 0, Array.Empty<TodoItem>(), 0, 0, Array.Empty<FocusOutcome>());
-    public string DateLabel => $"{Day:yyyy年M月d日}";
-    public string MonthLabel => $"{Day:yyyy年M月}";
+    public string DateLabel => Day.ToString(UiText.IsEnglish ? "MMM d, yyyy" : "yyyy年M月d日", UiText.DateCulture);
+    public string MonthLabel => Day.ToString(UiText.IsEnglish ? "MMMM yyyy" : "yyyy年M月", UiText.DateCulture);
     public bool CanEdit => Day <= Today;
-    public string EditLabel => SelectedEntry is not null ? "编辑这一天" : Day == Today ? "记录今天" : "补记这一天";
+    public string EditLabel => UiText.Get(SelectedEntry is not null ? "编辑这一天" : Day == Today ? "记录今天" : "补记这一天");
     public int MoodValue => SelectedEntry?.Mood ?? 0;
     public bool HasMood => SelectedEntry?.Mood is not null;
-    public string MoodTitle => SelectedEntry?.Mood is { } value ? ReflectionRules.Mood(value).Name : SelectedEntry is not null ? "这一天的复盘" : CanEdit ? "这一天，还没有留下记录" : "未来的心情，留到那天再写";
+    public string MoodTitle => UiText.Get(SelectedEntry?.Mood is { } value ? ReflectionRules.Mood(value).Name : SelectedEntry is not null ? "这一天的复盘" : CanEdit ? "这一天，还没有留下记录" : "未来的心情，留到那天再写");
     public string Tags => SelectedEntry is { Tags.Length: > 0 } entry ? string.Join(" · ", entry.Tags) : "";
     public bool HasTags => Tags.Length > 0;
     public string Feeling => SelectedEntry?.Feeling ?? "";
     public string Highlights => SelectedEntry?.Highlights ?? "";
     public string NextStep => SelectedEntry?.NextStep ?? "";
     public string FocusText => StatisticsViewModel.Duration(Summary.Duration);
-    public string SessionText => $"{Summary.Sessions} 次专注结束";
-    public string TodoText => $"{Summary.CompletedTodos.Count} 项待办完成";
-    public string HabitText => $"{Summary.CheckedHabits} / {Summary.PlannedHabits} 项习惯打卡";
-    public IReadOnlyList<string> OutcomeLines => Summary.Outcomes.Select(item => string.Join(" · ", new[] { item.Summary, item.Quantity is { } quantity ? $"{quantity:0.##} {item.Unit}" : "", item.NextStep.Length > 0 ? "下一步：" + item.NextStep : "" }.Where(text => text.Length > 0))).ToArray();
+    public string SessionText => UiText.Format("{0} 次专注结束", Summary.Sessions);
+    public string TodoText => UiText.Format("{0} 项待办完成", Summary.CompletedTodos.Count);
+    public string HabitText => UiText.Format("{0} / {1} 项习惯打卡", Summary.CheckedHabits, Summary.PlannedHabits);
+    public IReadOnlyList<string> OutcomeLines => Summary.Outcomes.Select(item => string.Join(" · ", new[] { item.Summary, item.Quantity is { } quantity ? $"{quantity:0.##} {item.Unit}" : "", item.NextStep.Length > 0 ? UiText.Get("下一步：") + item.NextStep : "" }.Where(text => text.Length > 0))).ToArray();
     public string MonthSummary
     {
         get
         {
             var groups = MonthEntries.Where(item => item.Mood is not null).GroupBy(item => item.Mood!.Value).ToArray();
-            return $"本月记录 {MonthEntries.Count} 天" + (groups.Length == 0 ? "" : " · 较多出现 " + string.Join("、", groups.Where(group => group.Count() == groups.Max(value => value.Count())).Select(group => ReflectionRules.Moods.Single(mood => mood.Value == group.Key).Name)));
+            return UiText.Format("本月记录 {0} 天", MonthEntries.Count) + (groups.Length == 0 ? "" : UiText.Get(" · 较多出现 ") + string.Join(UiText.IsEnglish ? ", " : "、", groups.Where(group => group.Count() == groups.Max(value => value.Count())).Select(group => UiText.Get(ReflectionRules.Moods.Single(mood => mood.Value == group.Key).Name))));
         }
     }
     public ReflectionReminder Reminder { get; private set; }
-    public string ReminderLabel => Reminder.Enabled ? $"提醒 {(Reminder.Time ?? new TimeOnly(21, 0)):HH:mm}" : "每日提醒 · 关闭";
+    public string ReminderLabel => Reminder.Enabled ? UiText.Format("提醒 {0:HH:mm}", Reminder.Time ?? new TimeOnly(21, 0)) : UiText.Get("每日提醒 · 关闭");
     public bool SummaryExpanded { get => _summaryExpanded; set { if (_summaryExpanded == value) return; _summaryExpanded = value; _store.SaveSetting("reflection.summary.expanded", value.ToString()); Notify(); } }
     public RelayCommand PreviousMonthCommand { get; }
     public RelayCommand NextMonthCommand { get; }

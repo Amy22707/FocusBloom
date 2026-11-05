@@ -120,7 +120,8 @@ public sealed partial class MainViewModel
                 _activeProjectId = checkpoint.Options.ProjectId;
                 _activeTodoId = checkpoint.Options.TodoId;
                 ActiveProjectName = RecoveryProject;
-                _activeTodoTitle = _store.GetTodos(includeDeleted: true).FirstOrDefault(todo => todo.Id == _activeTodoId)?.Title ?? "";
+                _activeTodoTitle = checkpoint.Options.PlannerTitle
+                    ?? _store.GetTodos(includeDeleted: true).FirstOrDefault(todo => todo.Id == _activeTodoId)?.Title ?? "";
                 _sessionApplications = entry.Applications; _sessionWebsites = entry.Websites;
                 SessionApplicationMode = entry.ApplicationMode; SessionWebsiteMode = entry.WebsiteMode;
                 _mediaSessionId = _timer.SessionId;

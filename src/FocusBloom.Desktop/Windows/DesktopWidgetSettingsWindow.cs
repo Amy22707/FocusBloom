@@ -8,6 +8,8 @@ using System.IO;
 using Microsoft.Win32;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class DesktopWidgetSettingsWindow : Window
@@ -15,29 +17,29 @@ public sealed class DesktopWidgetSettingsWindow : Window
     private sealed record Scope(Guid? Id, string Name);
     public DesktopWidgetSettingsWindow(MainViewModel main, DesktopWidgetOption option)
     {
-        Title = option.Name + " · 组件设置"; Width = 470; Height = Math.Min(660, SystemParameters.WorkArea.Height - 60); MinWidth = 390; MinHeight = 350; ShowInTaskbar = false; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Title = UiText.Format("{0} · 组件设置", option.Name); Width = 470; Height = Math.Min(660, SystemParameters.WorkArea.Height - 60); MinWidth = 390; MinHeight = 350; ShowInTaskbar = false; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         SetResourceReference(StyleProperty, typeof(Window)); WindowAppearance.Attach(this); DataContext = option; NameScope.SetNameScope(this, new NameScope());
         SourceInitialized += (_, _) => { if (Owner is DesktopWidgetWindow widget) Closed += (_, _) => widget.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(widget.ApplyWindowLevel)); };
         var root = new DockPanel { Margin = new Thickness(22) }; Content = root;
-        var done = new Button { Content = "完成", IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) }; done.SetResourceReference(StyleProperty, "PrimaryButton"); DockPanel.SetDock(done, Dock.Bottom); root.Children.Add(done);
+        var done = new Button { Content = UiText.Get("完成"), IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) }; done.SetResourceReference(StyleProperty, "PrimaryButton"); DockPanel.SetDock(done, Dock.Bottom); root.Children.Add(done);
         var fields = new StackPanel(); root.Children.Add(new ScrollViewer { Content = fields, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        void Caption(string text) { var label = new TextBlock { Text = text, FontSize = 12, Margin = new Thickness(0, 12, 0, 7), TextWrapping = TextWrapping.Wrap }; label.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush"); fields.Children.Add(label); }
-        void BindCheck(string name, string text, string property) { var check = new CheckBox { Content = text, Margin = new Thickness(0, 8, 0, 6) }; check.SetBinding(CheckBox.IsCheckedProperty, new Binding(property) { Mode = BindingMode.TwoWay }); RegisterName(name, check); fields.Children.Add(check); }
+        void Caption(string text) { var label = new TextBlock { Text = UiText.Get(text), FontSize = 12, Margin = new Thickness(0, 12, 0, 7), TextWrapping = TextWrapping.Wrap }; label.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush"); fields.Children.Add(label); }
+        void BindCheck(string name, string text, string property) { var check = new CheckBox { Content = UiText.Get(text), Margin = new Thickness(0, 8, 0, 6) }; check.SetBinding(CheckBox.IsCheckedProperty, new Binding(property) { Mode = BindingMode.TwoWay }); RegisterName(name, check); fields.Children.Add(check); }
         fields.Children.Add(new TextBlock { Text = option.Name, FontSize = 22, FontWeight = FontWeights.SemiBold }); Caption("选择即时保存。组件可独立拖动和缩放，主窗口进入托盘后继续显示。");
-        Caption("显示方式"); var view = new ComboBox { ItemsSource = option.Views }; view.SetBinding(ComboBox.SelectedItemProperty, new Binding("View") { Mode = BindingMode.TwoWay }); RegisterName("WidgetViewSelector", view); fields.Children.Add(view);
+        Caption("显示方式"); var view = new ComboBox { ItemsSource = option.Views }; view.SetResourceReference(ItemsControl.ItemTemplateProperty, "UiStringItem"); view.SetBinding(ComboBox.SelectedItemProperty, new Binding("View") { Mode = BindingMode.TwoWay }); RegisterName("WidgetViewSelector", view); fields.Children.Add(view);
         BindCheck("WidgetTopmostInput", "置顶于其他窗口", "Topmost"); Caption("透明度：0%不透明，70%最透明");
         var transparency = new Slider { Minimum = 0, Maximum = 70, TickFrequency = 5, IsSnapToTickEnabled = true }; transparency.SetBinding(Slider.ValueProperty, new Binding("Transparency") { Mode = BindingMode.TwoWay }); RegisterName("WidgetTransparencySlider", transparency); fields.Children.Add(transparency);
-        Caption("组件背景"); var background = new ComboBox { ItemsSource = option.BackgroundModes }; background.SetBinding(ComboBox.SelectedItemProperty, new Binding("BackgroundMode") { Mode = BindingMode.TwoWay }); RegisterName("WidgetBackgroundSelector", background); fields.Children.Add(background);
+        Caption("组件背景"); var background = new ComboBox { ItemsSource = option.BackgroundModes }; background.SetResourceReference(ItemsControl.ItemTemplateProperty, "UiStringItem"); background.SetBinding(ComboBox.SelectedItemProperty, new Binding("BackgroundMode") { Mode = BindingMode.TwoWay }); RegisterName("WidgetBackgroundSelector", background); fields.Children.Add(background);
         var colors = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) }; fields.Children.Add(colors);
         foreach (var hex in new[] { "#EDE7F3", "#F5E2E6", "#E2EDDF", "#E0EBF4", "#F5EAD6", "#FFFFFF", "#28313E", "#3C3448", "#29443E" })
         {
             var swatch = new Button { Width = 30, Height = 30, Padding = new Thickness(0), Margin = new Thickness(0, 0, 8, 7), Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)), ToolTip = hex };
             swatch.Click += (_, _) => { option.BackgroundColor = hex; option.BackgroundMode = "纯色"; }; colors.Children.Add(swatch);
         }
-        var custom = new DockPanel(); var apply = new Button { Content = "应用颜色", Margin = new Thickness(8, 0, 0, 0) }; DockPanel.SetDock(apply, Dock.Right); custom.Children.Add(apply);
-        var colorInput = new TextBox { ToolTip = "颜色代码，例如 #EDE7F3" }; colorInput.SetBinding(TextBox.TextProperty, new Binding("BackgroundColor") { Mode = BindingMode.OneWay }); RegisterName("WidgetColorInput", colorInput); custom.Children.Add(colorInput); fields.Children.Add(custom);
+        var custom = new DockPanel(); var apply = new Button { Content = UiText.Get("应用颜色"), Margin = new Thickness(8, 0, 0, 0) }; DockPanel.SetDock(apply, Dock.Right); custom.Children.Add(apply);
+        var colorInput = new TextBox { ToolTip = UiText.Get("颜色代码，例如 #EDE7F3") }; colorInput.SetBinding(TextBox.TextProperty, new Binding("BackgroundColor") { Mode = BindingMode.OneWay }); RegisterName("WidgetColorInput", colorInput); custom.Children.Add(colorInput); fields.Children.Add(custom);
         apply.Click += (_, _) => { try { var color = (Color)ColorConverter.ConvertFromString(colorInput.Text.Trim()); option.BackgroundColor = $"#{color.R:X2}{color.G:X2}{color.B:X2}"; option.BackgroundMode = "纯色"; } catch (Exception ex) when (ex is FormatException or NotSupportedException) { ConfirmDeletionWindow.ShowNotice(this, "请输入有效的颜色代码，例如 #EDE7F3。"); } };
-        var pickImage = new Button { Content = "选择背景图片…", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 5) }; RegisterName("WidgetImageButton", pickImage); fields.Children.Add(pickImage);
+        var pickImage = new Button { Content = UiText.Get("选择背景图片…"), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 5) }; RegisterName("WidgetImageButton", pickImage); fields.Children.Add(pickImage);
         var imageName = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 11 }; imageName.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush"); imageName.SetBinding(TextBlock.TextProperty, new Binding("BackgroundImage") { TargetNullValue = "尚未选择图片；图片背景自动搭配深色遮罩。" }); fields.Children.Add(imageName);
         pickImage.Click += (_, _) => { var picker = new OpenFileDialog { Filter = "背景图片|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp", CheckFileExists = true }; if (picker.ShowDialog(this) == true) { if (FocusMediaViewModel.LoadImage(picker.FileName, 80) is null) { ConfirmDeletionWindow.ShowNotice(this, "无法读取这张图片，请选择 PNG、JPG、BMP 或 GIF 图片。"); return; } option.BackgroundImage = Path.GetFullPath(picker.FileName); option.BackgroundMode = "图片"; } };
         Caption("宽度"); var width = new Slider { Minimum = option.MinimumWidth, Maximum = 1000, TickFrequency = 10, IsSnapToTickEnabled = true }; width.SetBinding(Slider.ValueProperty, new Binding("Width") { Mode = BindingMode.TwoWay }); RegisterName("WidgetWidthSlider", width); fields.Children.Add(width);
@@ -67,7 +69,7 @@ public sealed class DesktopWidgetSettingsWindow : Window
         if (option.Kind == DesktopWidgetKind.Dates)
         {
             Caption("日期分组 · 卡片、列表混合显示所选分组，分组视图按列显示");
-            var all = new CheckBox { Content = "显示全部分组", IsChecked = option.AllDateGroups, Margin = new Thickness(0, 5, 0, 8) }; RegisterName("WidgetAllDateGroups", all); fields.Children.Add(all);
+            var all = new CheckBox { Content = UiText.Get("显示全部分组"), IsChecked = option.AllDateGroups, Margin = new Thickness(0, 5, 0, 8) }; RegisterName("WidgetAllDateGroups", all); fields.Children.Add(all);
             var groups = new StackPanel { IsEnabled = !option.AllDateGroups }; RegisterName("WidgetDateGroups", groups);
             foreach (var name in main.DateEvents.GroupNames)
             {

@@ -1,6 +1,8 @@
 using System.Windows;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class RenameBackgroundWindow : Window
@@ -15,7 +17,7 @@ public partial class RenameBackgroundWindow : Window
     }
     private void Save_Click(object sender, RoutedEventArgs args)
     {
-        if (string.IsNullOrWhiteSpace(NameInput.Text)) { ValidationMessage.Text = "请填写背景名称。"; return; }
+        if (string.IsNullOrWhiteSpace(NameInput.Text)) { ValidationMessage.Text = UiText.Get("请填写背景名称。"); return; }
         if (_model.RenameImage(_image, NameInput.Text)) DialogResult = true;
     }
 }

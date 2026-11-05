@@ -8,6 +8,8 @@ using FocusBloom.Core.Todos;
 using FocusBloom.Core.Focus;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class TodoStartWindow : Window
@@ -15,7 +17,7 @@ public partial class TodoStartWindow : Window
     private sealed record CategoryChoice(string? Value, string Name);
     private sealed record ProjectChoice(FocusProject? Project, string Name);
     private readonly MainViewModel _main;
-    private readonly TodoItem _todo;
+    private readonly Func<FocusProject?, string?, bool> _start;
     private sealed class CycleDraft(MainViewModel main)
     {
         public string PomodoroFocusMinutes { get; set; } = main.PomodoroFocusMinutes;
@@ -31,16 +33,28 @@ public partial class TodoStartWindow : Window
     }
     private readonly CycleDraft _cycle;
     public TodoStartWindow(MainViewModel main, TodoItem todo, int? minutes = null)
+        : this(main, todo.Title, todo.PreferredProjectId, minutes, (project, category) => main.StartFromTodo(todo.Id, project, category: category))
     {
-        _main = main; _todo = todo; _cycle = new(main);
+    }
+
+    public TodoStartWindow(MainViewModel main, ChecklistEntry item)
+        : this(main, item.Text, null, null, (project, category) => main.StartFromPlanner(item, project, category))
+    {
+        Title = UiText.Get("从计划本开始专注");
+        ProjectHint.Text = UiText.Get("专注记录归入所选项目，结束后可回计划本勾选这项计划。");
+    }
+
+    private TodoStartWindow(MainViewModel main, string title, Guid? preferredProjectId, int? minutes, Func<FocusProject?, string?, bool> start)
+    {
+        _main = main; _start = start; _cycle = new(main);
         InitializeComponent(); WindowAppearance.Attach(this);
-        TodoHeading.Text = todo.Title; StartHint.Text = "设置本次计时，选择要归入的项目。";
+        TodoHeading.Text = title; StartHint.Text = UiText.Get("设置本次计时，选择要归入的项目。");
         CycleSettings.DataContext = _cycle;
         DurationInput.Text = minutes?.ToString(CultureInfo.CurrentCulture) ?? main.DurationMinutes;
         RestrictionSelector.ItemsSource = main.RestrictionModes; RestrictionSelector.SelectedItem = main.SelectedRestrictionMode;
         TimerSelector.ItemsSource = main.TimerModes; TimerSelector.SelectedItem = minutes is null ? main.SelectedTimerMode : main.TimerModes.Single(choice => choice.Mode == TimerMode.Countdown);
         CategorySelector.ItemsSource = new[] { new CategoryChoice(null, "不选择 · 未分类") }.Concat(main.Folders.Select(folder => new CategoryChoice(folder.Name, folder.Name))).ToArray();
-        var preferred = main.Projects.FirstOrDefault(project => project.Id == todo.PreferredProjectId);
+        var preferred = main.Projects.FirstOrDefault(project => project.Id == preferredProjectId);
         CategorySelector.SelectedItem = CategorySelector.Items.Cast<CategoryChoice>().FirstOrDefault(choice => choice.Value == preferred?.Category) ?? CategorySelector.Items[0];
         if (preferred is not null) ProjectSelector.SelectedItem = ProjectSelector.Items.Cast<ProjectChoice>().FirstOrDefault(choice => choice.Project?.Id == preferred.Id);
     }
@@ -66,7 +80,7 @@ public partial class TodoStartWindow : Window
         _main.SelectedTimerMode = timer; _main.SelectedRestrictionMode = (RestrictionChoice)RestrictionSelector.SelectedItem;
         _main.DurationMinutes = DurationInput.Text;
         if (timer.Mode == TimerMode.Pomodoro) _cycle.Apply(_main);
-        if (_main.StartFromTodo(_todo.Id, (ProjectSelector.SelectedItem as ProjectChoice)?.Project, category: (CategorySelector.SelectedItem as CategoryChoice)?.Value)) DialogResult = true;
+        if (_start((ProjectSelector.SelectedItem as ProjectChoice)?.Project, (CategorySelector.SelectedItem as CategoryChoice)?.Value)) DialogResult = true;
         else
         {
             _main.SelectedTimerMode = originalTimer; _main.SelectedRestrictionMode = originalRestriction;

@@ -17,6 +17,8 @@ public partial class TodosView : UserControl
     private MainViewModel Main => (MainViewModel)Window.GetWindow(this).DataContext;
     private TodoLibraryViewModel Library => (TodoLibraryViewModel)DataContext;
     public TodosView() => InitializeComponent();
+    private void PeriodicChecklist_Click(object sender, RoutedEventArgs e) =>
+        Main.Navigation.Items.Single(item => item.Key == "planner").OpenCommand.Execute(null);
     private void GroupMove_Requested(object sender, RoutedEventArgs e)
     {
         var move = (GroupMoveEventArgs)e; var row = (TodoRow)move.Item; var offsets = CaptureGroupOffsets();

@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using FocusBloom.Desktop.ViewModels;
+using FocusBloom.Desktop.Presentation;
 using System.ComponentModel;
 
 namespace FocusBloom.Desktop.Windows;
@@ -21,23 +22,23 @@ public sealed class TrayIcon : IDisposable
         using var sourceIcon = new Icon(iconStream);
         _applicationIcon = (Icon)sourceIcon.Clone();
         var menu = new ContextMenuStrip();
-        menu.Items.Add("打开一刻专注", null, (_, _) => open());
-        _floatMenu = new ToolStripMenuItem("桌面计时浮窗") { Checked = viewModel.TimerFloatVisible };
+        menu.Items.Add(UiText.Get("打开一刻专注"), null, (_, _) => open());
+        _floatMenu = new ToolStripMenuItem(UiText.Get("桌面计时浮窗")) { Checked = viewModel.TimerFloatVisible };
         _floatMenu.Click += (_, _) => viewModel.TimerFloatVisible = !viewModel.TimerFloatVisible;
         menu.Items.Add(_floatMenu);
         viewModel.PropertyChanged += OnPreferenceChanged;
-        menu.Items.Add("暂停／继续", null, (_, _) =>
+        menu.Items.Add(UiText.Get("暂停／继续"), null, (_, _) =>
         {
             if (viewModel.PauseCommand.CanExecute(null)) viewModel.PauseCommand.Execute(null);
             else if (viewModel.ResumeCommand.CanExecute(null)) viewModel.ResumeCommand.Execute(null);
         });
-        menu.Items.Add("结束专注", null, (_, _) => viewModel.EndCommand.Execute(null));
+        menu.Items.Add(UiText.Get("结束专注"), null, (_, _) => viewModel.EndCommand.Execute(null));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("退出", null, (_, _) => exit());
+        menu.Items.Add(UiText.Get("退出"), null, (_, _) => exit());
         _icon = new NotifyIcon
         {
             Icon = _applicationIcon,
-            Text = "一刻专注 · FocusBloom",
+            Text = UiText.Get("一刻专注 · FocusBloom"),
             ContextMenuStrip = menu,
             Visible = true
         };

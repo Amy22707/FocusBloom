@@ -20,6 +20,145 @@ namespace FocusBloom.Tests;
 public sealed class NavigationSettingsTests
 {
     [Fact]
+    public void EnglishUsesTranslatedNavigationAndTimerWithoutRenamingProjects()
+    {
+        WpfTestHost.Run(() =>
+        {
+            var root = Path.Combine(Path.GetTempPath(), "FocusBloomLanguage", Guid.NewGuid().ToString("N"));
+            MainWindow? window = null;
+            MainViewModel? model = null;
+            try
+            {
+                var store = new SqliteFocusStore(Path.Combine(root, "test.db"));
+                var project = new FocusBloom.Core.Projects.FocusProject(Guid.NewGuid(), "阅读", "学习", "#718578");
+                store.SaveProject(project);
+                store.SaveSetting(UiText.SettingKey, "en");
+                UiText.Configure(store.GetSetting(UiText.SettingKey));
+                var clock = new ManualClock();
+                model = new MainViewModel(store, new FocusTimer(clock));
+                window = new MainWindow(model, store, Path.Combine(root, "browser"));
+                window.Show(); Flush();
+                Assert.Equal("Focus Timer", model.Navigation.Items.Single(item => item.Key == "focus").Name);
+                Assert.Equal("Ready", model.StateText);
+                Assert.Equal("阅读", model.Projects.Single(item => item.Id == project.Id).Name);
+                Assert.Equal("A moment for yourself", ((TextBlock)window.FindName("FocusPageTitle")).Text);
+                Assert.Equal("Save focus screenshot", ((Button)window.FindName("FocusScreenshotButton")).ToolTip);
+                model.Navigation.Items.Single(item => item.Key == "settings").OpenCommand.Execute(null); Flush();
+                Assert.Equal("About", ((Expander)window.FindName("AboutSettingsSection")).Header);
+                Assert.Equal("en", ((ComboBox)window.FindName("LanguageSelector")).SelectedValue);
+                Assert.Equal("语言/Language", ((Expander)window.FindName("LanguageSettingsSection")).Header);
+                Assert.Contains(model.Media.BackgroundChoices, item => item.Name == "Lakeside Dusk");
+                Assert.Contains(model.Media.SoundChoices, item => item.Name == "Light Rain · Field Recording");
+                Assert.DoesNotContain(model.CardSizing.Options, option => System.Text.RegularExpressions.Regex.IsMatch(
+                    option.Name + option.PreviewTitle + option.PreviewDetail + option.PreviewDescription, @"[\p{IsCJKUnifiedIdeographs}]"));
+                Assert.Equal("All projects", model.Statistics.SelectedProject!.Name);
+                Assert.Equal("All tasks", model.Statistics.SelectedTodo!.Name);
+                var goal = new FocusBloom.Core.Goals.FocusGoal(Guid.NewGuid(), "阅读", FocusBloom.Core.Goals.GoalMetric.Sessions,
+                    5, FocusBloom.Core.Goals.GoalCycle.Weekly, new DateOnly(2026, 11, 2));
+                var row = new GoalRow(FocusBloom.Core.Goals.GoalRules.Progress(goal, [], [], new DateOnly(2026, 11, 5)), "阅读");
+                Assert.StartsWith("Weekly", row.Period);
+                Assert.Equal("Remaining: 5 sessions", row.State);
+                Assert.Equal("阅读", row.Name);
+                var audit = new List<string>();
+                foreach (var page in model.Navigation.VisibleItems.ToArray())
+                {
+                    page.OpenCommand.Execute(null); Flush();
+                    audit.AddRange(Descendants<TextBlock>(window).Where(text => text.IsVisible &&
+                        System.Text.RegularExpressions.Regex.IsMatch(text.Text, @"[\p{IsCJKUnifiedIdeographs}]"))
+                        .Select(text => page.Key + " · " + text.Text));
+                }
+                var auditPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/qa/english-page-audit.txt"));
+                File.WriteAllLines(auditPath, audit.Distinct());
+                model.Navigation.Items.Single(item => item.Key == "settings").OpenCommand.Execute(null); Flush();
+                model.SetCustomPalette("#336688");
+                Assert.Equal("custom", model.SelectedPalette.Id);
+                Assert.Equal("#336688", store.GetSetting("appearance.customPalette"));
+                Save(window, "settings-english.png");
+                var screenshotFolder = Path.Combine(root, "screenshots");
+                window.Backups!.ScreenshotDirectory = screenshotFolder;
+                Assert.Equal(screenshotFolder, store.GetSetting("files.screenshotDirectory"));
+                model.Navigation.Items.Single(item => item.Key == "todos").OpenCommand.Execute(null); Flush();
+                var todos = (TodosView)window.FindName("TodoPage");
+                ((Button)todos.FindName("PeriodicChecklistButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                var tab = (TabItem)window.FindName("PlannerTab");
+                Assert.Same(tab, ((TabControl)window.FindName("MainTabs")).SelectedItem);
+                var planner = Assert.IsType<PlannerView>(tab.Content);
+                var content = (DockPanel)planner.Content;
+                var draft = Descendants<TextBox>(content).Single(input => input.Name == "PlannerDraft");
+                var date = Descendants<DatePicker>(content).Single();
+                var add = Descendants<Button>(content).Single(button => button.Name == "PlannerAdd");
+                var day = DateTime.Today.AddDays(-3);
+                date.SelectedDate = day; Flush();
+                draft.Text = "阅读";
+                add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                var check = Descendants<CheckBox>(content).Single(box => box.Content is TextBlock { Text: "阅读" });
+                check.IsChecked = true;
+                check.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent)); Flush();
+                date.SelectedDate = day.AddDays(1); Flush();
+                Assert.DoesNotContain(Descendants<CheckBox>(content), box => box.Content is TextBlock { Text: "阅读" });
+                draft.Text = "Draft for this day";
+                date.SelectedDate = day; Flush();
+                var completed = Descendants<CheckBox>(content).Single(box => box.Content is TextBlock { Text: "阅读" });
+                Assert.True(completed.IsChecked);
+                Assert.Contains(((TextBlock)completed.Content).TextDecorations, decoration => decoration.Location == TextDecorationLocation.Strikethrough);
+                var calendar = Descendants<Calendar>(content).Single();
+                Assert.Equal("en-us", calendar.Language.IetfLanguageTag);
+                calendar.SelectedDate = day.AddDays(1); Flush();
+                Assert.Equal(day.AddDays(1), date.SelectedDate);
+                Assert.Equal("Draft for this day", draft.Text);
+                model.Navigation.Items.Single(item => item.Key == "todos").OpenCommand.Execute(null);
+                model.Navigation.Items.Single(item => item.Key == "planner").OpenCommand.Execute(null); Flush();
+                Assert.Equal(day.AddDays(1), date.SelectedDate);
+                date.SelectedDate = day; Flush();
+                Save(window, "planner-page-english.png");
+                Appearance.Apply(model.SelectedPalette, AppearanceMode.Dark); Flush();
+                var calendarItem = (System.Windows.Controls.Primitives.CalendarItem)calendar.Template.FindName("PART_CalendarItem", calendar);
+                var calendarSurface = (Border)calendarItem.Template.FindName("PART_Root", calendarItem);
+                Assert.Equal(((SolidColorBrush)window.FindResource("CardBrush")).Color, ((SolidColorBrush)calendarSurface.Background).Color);
+                model.RefreshSystemTheme(); Flush();
+                var focus = Descendants<Button>(content).Single(button => Equals(button.ToolTip, "Start focus"));
+                window.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    var dialog = window.OwnedWindows.OfType<FocusBloom.Desktop.Windows.TodoStartWindow>().Single();
+                    ((Button)dialog.FindName("StartButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    if (dialog.IsVisible) dialog.Close();
+                }));
+                focus.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                Assert.True(model.IsFocusActive);
+                Assert.Equal("阅读", model.FocusTodoText);
+                Assert.Same(window.FindName("FocusTab"), ((TabControl)window.FindName("MainTabs")).SelectedItem);
+                ((Button)window.FindName("FocusScreenshotButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                var screenshot = Assert.Single(Directory.GetFiles(screenshotFolder, "*.png"));
+                var toast = (Border)window.FindName("ScreenshotToast");
+                Assert.True(toast.IsVisible);
+                Assert.Contains(screenshot, ((TextBlock)toast.Child).Text);
+                var expiry = new DispatcherFrame();
+                var deadline = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5.5) };
+                deadline.Tick += (_, _) => { deadline.Stop(); expiry.Continue = false; };
+                deadline.Start();
+                Dispatcher.PushFrame(expiry);
+                Assert.False(toast.IsVisible);
+                clock.Advance(TimeSpan.FromSeconds(12));
+                model.EndCommand.Execute(null);
+                var savedRecord = Assert.Single(store.GetRecords());
+                Assert.Null(savedRecord.TodoId);
+                Assert.NotNull(savedRecord.PlannerItemId);
+                Assert.Equal("阅读", savedRecord.PlannerTitle);
+                Assert.Equal(savedRecord.PlannerItemId, Assert.Single(new SqliteFocusStore(Path.Combine(root, "test.db")).GetRecords()).PlannerItemId);
+                Assert.True(Assert.Single(model.Todos.Checklist.Read(FocusBloom.Core.Todos.ChecklistScope.For(
+                    FocusBloom.Core.Todos.ChecklistPeriod.Day, DateOnly.FromDateTime(day)))).Done);
+            }
+            finally
+            {
+                window?.DisposeBrowser(); window?.Close(); model?.Media.Dispose();
+                UiText.Configure(null);
+                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        });
+    }
+
+    [Fact]
     public void NavigationVisibilityDragOrderAndSettingsSearchPersistAndKeepTimerRunning()
     {
         WpfTestHost.Run(() =>
@@ -35,7 +174,7 @@ public sealed class NavigationSettingsTests
                 groups[0].IsExpanded = true; Flush(); var settingsItems = (ItemsControl)window.FindName("NavigationSettingsItems");
                 var record = main.Navigation.Items.Single(item => item.Key == "records");
                 var recordCheck = Descendants<CheckBox>(settingsItems).Single(box => box.DataContext == record); recordCheck.IsChecked = false; Flush();
-                var sidebar = (ItemsControl)tabs.Template.FindName("NavigationItems", tabs); Assert.Equal(8, sidebar.Items.Count);
+                var sidebar = (ItemsControl)tabs.Template.FindName("NavigationItems", tabs); Assert.Equal(9, sidebar.Items.Count);
                 Assert.False(Descendants<CheckBox>(settingsItems).Single(box => box.DataContext is NavigationOption item && item.Key == "settings").IsEnabled);
                 var handle = Descendants<ReorderButton>(settingsItems).Single(button => button.DataContext == record);
                 handle.RaiseEvent(new ReorderEventArgs(OrderMove.First)); Flush(); Assert.Same(record, main.Navigation.Items[0]); recordCheck.IsChecked = true; Flush(); Assert.Same(record, sidebar.Items[0]);
@@ -45,15 +184,35 @@ public sealed class NavigationSettingsTests
                 main.Navigation.Items.Single(item => item.Key == "settings").OpenCommand.Execute(null); Flush();
                 var search = (TextBox)window.FindName("SettingsSearchInput"); search.Text = "字体"; Flush();
                 Assert.True(groups[5].IsExpanded); Assert.Equal(Visibility.Visible, groups[5].Visibility); Assert.All(groups.Where(group => group != groups[5]), group => Assert.Equal(Visibility.Collapsed, group.Visibility));
+                var interfaceSection = (Expander)window.FindName("InterfaceFontSettingsSection");
+                Assert.True(interfaceSection.IsExpanded);
+                var interfaceSelector = (ComboBox)window.FindName("InterfaceFontSelector");
+                var focusFont = main.Typography.Chinese;
+                var interfaceFont = main.Typography.InterfaceFonts[1];
+                interfaceSelector.SelectedItem = interfaceFont; Flush();
+                Assert.Equal(interfaceFont.Family, ((TextBlock)window.FindName("SettingsPageTitle")).FontFamily.Source);
+                ((Slider)window.FindName("InterfaceSizeSelector")).Value = 120;
+                main.Typography.FocusSizePercent = 80; Flush();
+                Assert.Equal(26.4, ((TextBlock)window.FindName("SettingsPageTitle")).FontSize, 3);
+                Assert.Equal(57.6, ((TextBlock)window.FindName("TimerDisplay")).FontSize, 3);
+                Assert.Equal(interfaceFont.Family, store.GetSetting("appearance.interfaceFont"));
+                Assert.Same(focusFont, main.Typography.Chinese);
                 Assert.Null(store.GetSetting("ui.settings.expanded.fonts")); Save(window, "settings-search-fonts.png");
+                search.Text = "图标"; Flush();
+                var about = (Expander)window.FindName("AboutSettingsSection");
+                Assert.True(about.IsExpanded);
                 search.Text = ""; Flush(); Assert.False(groups[5].IsExpanded); Assert.True(groups[0].IsExpanded);
+                Assert.Same(about, ((Panel)about.Parent).Children.OfType<Expander>().Last(section => section.Visibility == Visibility.Visible));
                 groups[5].IsExpanded = true; groups[2].IsExpanded = true; main.SelectedAppearanceMode = main.AppearanceModes.Single(mode => mode.Mode == AppearanceMode.Dark); Flush(); Save(window, "settings-navigation-dark.png");
                 clock.Advance(TimeSpan.FromSeconds(12)); main.EndCommand.Execute(null); Assert.Single(store.GetRecords());
                 window.DisposeBrowser(); window.Close(); main.Media.Dispose(); main = new(new SqliteFocusStore(path)); window = new(main, store, Path.Combine(directory, "browser-reopened")); window.Show(); Flush();
                 Assert.Equal("records", main.Navigation.Items[0].Key); Assert.False(main.Navigation.Items.Single(item => item.Key == "focus").Visible); Assert.True(main.Navigation.Items.Single(item => item.Key == "settings").Visible);
+                Assert.Equal(interfaceFont.Family, main.Typography.InterfaceFont.Family);
+                Assert.Equal(120, main.Typography.InterfaceSizePercent);
+                Assert.Equal(80, main.Typography.FocusSizePercent);
                 Assert.True(((Expander)window.FindName("FontSettingsSection")).IsExpanded); Assert.True(((Expander)window.FindName("SizeSettingsSection")).IsExpanded); Assert.False(((Expander)window.FindName("TimerSettingsSection")).IsExpanded);
                 main.Navigation.Items.Single(item => item.Key == "focus").Visible = true; main.Navigation.Move(main.Navigation.Items.Single(item => item.Key == "settings"), OrderMove.First);
-                var reopened = new NavigationViewModel(new SqliteFocusStore(path)); Assert.Equal("settings", reopened.Items[0].Key); Assert.Equal(9, reopened.VisibleItems.Count);
+                var reopened = new NavigationViewModel(new SqliteFocusStore(path)); Assert.Equal("settings", reopened.Items[0].Key); Assert.Equal(10, reopened.VisibleItems.Count);
             }
             finally { window?.DisposeBrowser(); window?.Close(); main?.Media.Dispose(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }
         });

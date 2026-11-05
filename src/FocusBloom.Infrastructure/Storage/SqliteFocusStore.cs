@@ -96,6 +96,15 @@ public sealed partial class SqliteFocusStore : IFocusStore
             columns.CommandText = "ALTER TABLE sessions ADD COLUMN interceptions INTEGER";
             columns.ExecuteNonQuery();
         }
+        columns.CommandText = "PRAGMA table_info(sessions)";
+        var sessionColumns = new HashSet<string>();
+        using (var reader = columns.ExecuteReader()) while (reader.Read()) sessionColumns.Add(reader.GetString(1));
+        foreach (var name in new[] { "planner_item_id", "planner_title" })
+            if (!sessionColumns.Contains(name))
+            {
+                columns.CommandText = $"ALTER TABLE sessions ADD COLUMN {name} TEXT";
+                columns.ExecuteNonQuery();
+            }
         columns.CommandText = "PRAGMA table_info(todo_items)";
         var todoColumns = new HashSet<string>();
         using (var reader = columns.ExecuteReader()) while (reader.Read()) todoColumns.Add(reader.GetString(1));
@@ -121,19 +130,26 @@ public sealed partial class SqliteFocusStore : IFocusStore
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, name, category, color FROM projects WHERE deleted=0 OR $all=1 ORDER BY rowid";
+        command.CommandText = "SELECT id, name, category, color, (SELECT value FROM settings WHERE key='project.plan.' || projects.id) FROM projects WHERE deleted=0 OR $all=1 ORDER BY rowid";
         command.Parameters.AddWithValue("$all", includeDeleted ? 1 : 0);
         using var reader = command.ExecuteReader();
         List<FocusProject> projects = [];
         while (reader.Read()) projects.Add(new FocusProject(Guid.Parse(reader.GetString(0)),
-            reader.GetString(1), reader.GetString(2), reader.GetString(3)));
+            reader.GetString(1), reader.GetString(2), reader.GetString(3),
+            reader.IsDBNull(4) ? null : System.Text.Json.JsonSerializer.Deserialize<ProjectPlan>(reader.GetString(4), CalendarJson)));
         return projects;
     }
 
     public void SaveProject(FocusProject project)
     {
         using var connection = Open();
-        using var command = connection.CreateCommand();
+        using var transaction = connection.BeginTransaction();
+        SaveProject(connection, transaction, project);
+        transaction.Commit();
+    }
+    private static void SaveProject(SqliteConnection connection, SqliteTransaction transaction, FocusProject project)
+    {
+        using var command = connection.CreateCommand(); command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO projects (id, name, category, color) VALUES ($id, $name, $category, $color)
             ON CONFLICT(id) DO UPDATE SET name=$name, category=$category, color=$color
@@ -143,6 +159,34 @@ public sealed partial class SqliteFocusStore : IFocusStore
         command.Parameters.AddWithValue("$category", project.Category);
         command.Parameters.AddWithValue("$color", project.Color);
         command.ExecuteNonQuery();
+        if (project.Plan is { } plan)
+        {
+            command.Parameters.Clear();
+            command.CommandText = "INSERT INTO settings(key,value) VALUES($key,$value) ON CONFLICT(key) DO UPDATE SET value=$value";
+            command.Parameters.AddWithValue("$key", $"project.plan.{project.Id}");
+            command.Parameters.AddWithValue("$value", System.Text.Json.JsonSerializer.Serialize(plan, CalendarJson));
+            command.ExecuteNonQuery();
+        }
+    }
+    public void CreateProjectFromPreset(FocusProject project, ProjectPreset preset)
+    {
+        using var connection = Open(); using var transaction = connection.BeginTransaction();
+        SaveProject(connection, transaction, project);
+        if (preset.Tasks.Count > 0)
+        {
+            var folderId = Guid.NewGuid();
+            using var command = connection.CreateCommand(); command.Transaction = transaction;
+            command.CommandText = """
+                INSERT OR IGNORE INTO todo_categories VALUES ('项目待办');
+                INSERT INTO todo_folders(id,name,category) VALUES($id,$name,'项目待办');
+                """;
+            command.Parameters.AddWithValue("$id", folderId.ToString());
+            command.Parameters.AddWithValue("$name", project.Name);
+            command.ExecuteNonQuery();
+            foreach (var task in preset.Tasks)
+                SaveTodo(connection, transaction, new(Guid.NewGuid(), folderId, task.Title, EstimatedMinutes: task.Minutes, PreferredProjectId: project.Id));
+        }
+        transaction.Commit();
     }
 
     public IReadOnlyList<string> GetFolders()
@@ -219,8 +263,8 @@ public sealed partial class SqliteFocusStore : IFocusStore
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT OR IGNORE INTO sessions (id, project_id, mode, started_at, ended_at, end_reason, strict, todo_id, interceptions)
-            VALUES ($id, $project, $mode, $start, $end, $reason, $strict, $todo, $interceptions)
+            INSERT OR IGNORE INTO sessions (id, project_id, mode, started_at, ended_at, end_reason, strict, todo_id, interceptions, planner_item_id, planner_title)
+            VALUES ($id, $project, $mode, $start, $end, $reason, $strict, $todo, $interceptions, $planner, $plannerTitle)
             """;
         command.Parameters.AddWithValue("$id", record.Id.ToString());
         command.Parameters.AddWithValue("$project", record.ProjectId.ToString());
@@ -231,6 +275,8 @@ public sealed partial class SqliteFocusStore : IFocusStore
         command.Parameters.AddWithValue("$strict", record.Strict ? 1 : 0);
         command.Parameters.AddWithValue("$todo", (object?)record.TodoId?.ToString() ?? DBNull.Value);
         command.Parameters.AddWithValue("$interceptions", (object?)record.InterceptionCount ?? DBNull.Value);
+        command.Parameters.AddWithValue("$planner", (object?)record.PlannerItemId?.ToString() ?? DBNull.Value);
+        command.Parameters.AddWithValue("$plannerTitle", (object?)record.PlannerTitle ?? DBNull.Value);
         if (command.ExecuteNonQuery() > 0)
         {
             for (var i = 0; i < record.Intervals.Count; i++)
@@ -256,7 +302,7 @@ public sealed partial class SqliteFocusStore : IFocusStore
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT s.id, s.project_id, s.mode, s.started_at, s.ended_at, s.end_reason, s.strict,
-                   i.kind, i.started_at, i.ended_at, s.todo_id, s.interceptions
+                   i.kind, i.started_at, i.ended_at, s.todo_id, s.interceptions, s.planner_item_id, s.planner_title
             FROM sessions s LEFT JOIN intervals i ON s.id = i.session_id
             ORDER BY s.started_at DESC, s.id, i.ordinal
             """;
@@ -273,7 +319,8 @@ public sealed partial class SqliteFocusStore : IFocusStore
                 records.Add(new FocusRecord(id, Guid.Parse(reader.GetString(1)),
                     (TimerMode)reader.GetInt32(2), Parse(reader.GetString(3)), Parse(reader.GetString(4)),
                     (EndReason)reader.GetInt32(5), intervals, reader.GetInt32(6) != 0,
-                    reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetInt32(11)));
+                    reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                    reader.IsDBNull(12) ? null : Guid.Parse(reader.GetString(12)), reader.IsDBNull(13) ? null : reader.GetString(13)));
                 currentId = id;
             }
             if (!reader.IsDBNull(7)) intervals!.Add(new FocusInterval((IntervalKind)reader.GetInt32(7),

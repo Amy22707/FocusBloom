@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Windows;
@@ -18,9 +19,12 @@ public sealed class FocusTypographyViewModel : ObservableObject
 {
     private readonly IFocusStore _store;
     private readonly Action<string> _report;
+    private FontChoice _interfaceFont;
     private FontChoice _chinese;
     private FontChoice _english;
     private FontChoice _timer;
+    private double _interfaceSizePercent;
+    private double _focusSizePercent;
     private sealed record FontPreferences(string Chinese, string English, string Timer);
 
     public FocusTypographyViewModel(IFocusStore store, Action<string> report)
@@ -29,14 +33,21 @@ public sealed class FocusTypographyViewModel : ObservableObject
         var installed = Fonts.SystemFontFamilies.SelectMany(font => font.FamilyNames.Values.Append(font.Source)).ToArray();
         FontChoice[] Available(FontChoice[] choices) => choices.Where(choice => installed.Contains(choice.Family, StringComparer.OrdinalIgnoreCase)).ToArray();
         ChineseFonts = Available([
+            new("KaiTi", "楷体", "执着于理想，纯粹于当下。"),
             new("Microsoft YaHei", "微软雅黑", "执着于理想，纯粹于当下。"),
             new("DengXian", "等线", "执着于理想，纯粹于当下。"),
             new("SimSun", "宋体", "执着于理想，纯粹于当下。"),
-            new("KaiTi", "楷体", "执着于理想，纯粹于当下。"),
             new("FangSong", "仿宋", "执着于理想，纯粹于当下。")
         ]);
+        if (ChineseFonts.Count == 0) ChineseFonts = [new("Global User Interface", "系统中文字体", "执着于理想，纯粹于当下。")];
+        InterfaceFonts = [new("Microsoft YaHei UI", "系统默认", ""), .. ChineseFonts];
+        var interfaceFont = store.GetSetting("appearance.interfaceFont");
+        _interfaceFont = InterfaceFonts.FirstOrDefault(font => font.Family == interfaceFont) ?? InterfaceFonts[0];
+        _interfaceSizePercent = ReadSize("appearance.interfaceSize");
+        _focusSizePercent = ReadSize("appearance.focusSize");
+        ApplyInterfaceFont();
         EnglishFonts = Available([
-            new("Segoe UI", "Segoe UI", "Make time for what matters."),
+            new("Segoe UI", "系统默认", "Make time for what matters."),
             new("Calibri", "Calibri", "Make time for what matters."),
             new("Arial", "Arial", "Make time for what matters."),
             new("Georgia", "Georgia", "Make time for what matters."),
@@ -60,16 +71,77 @@ public sealed class FocusTypographyViewModel : ObservableObject
         _timer = TimerFonts.FirstOrDefault(font => font.Family == preferences?.Timer) ?? TimerFonts[0];
         ResetCommand = new RelayCommand(Reset);
         Apply();
+        ApplySizes();
     }
 
     public IReadOnlyList<FontChoice> ChineseFonts { get; }
     public IReadOnlyList<FontChoice> EnglishFonts { get; }
     public IReadOnlyList<FontChoice> TimerFonts { get; }
+    public IReadOnlyList<FontChoice> InterfaceFonts { get; }
     public RelayCommand ResetCommand { get; }
+    public FontChoice InterfaceFont
+    {
+        get => _interfaceFont;
+        set
+        {
+            if (value is null || value == _interfaceFont) return;
+            _interfaceFont = value;
+            ApplyInterfaceFont();
+            Notify();
+            try { _store.SaveSetting("appearance.interfaceFont", value.Family); }
+            catch (Exception error) { _report($"软件字体保存失败：{error.Message}"); }
+        }
+    }
     public FontChoice Chinese { get => _chinese; set { if (value is null || value == _chinese) return; _chinese = value; Notify(); Save(); } }
     public FontChoice English { get => _english; set { if (value is null || value == _english) return; _english = value; Notify(); Save(); } }
     public FontChoice Timer { get => _timer; set { if (value is null || value == _timer) return; _timer = value; Notify(); Save(); } }
     public FontFamily TextTypeface { get; private set; } = new("Segoe UI, Microsoft YaHei");
+    public double InterfaceSizePercent
+    {
+        get => _interfaceSizePercent;
+        set => SetSize(ref _interfaceSizePercent, value, "appearance.interfaceSize", nameof(InterfaceSizePercent));
+    }
+    public double FocusSizePercent
+    {
+        get => _focusSizePercent;
+        set => SetSize(ref _focusSizePercent, value, "appearance.focusSize", nameof(FocusSizePercent));
+    }
+
+    private double ReadSize(string key) =>
+        double.TryParse(_store.GetSetting(key), CultureInfo.InvariantCulture, out var value) ? Math.Clamp(value, 80, 120) : 100;
+
+    private void SetSize(ref double field, double value, string key, string property)
+    {
+        value = Math.Clamp(value, 80, 120);
+        if (field == value) return;
+        field = value;
+        ApplySizes();
+        Notify(property);
+        try { _store.SaveSetting(key, value.ToString(CultureInfo.InvariantCulture)); }
+        catch (Exception error) { _report($"字号保存失败：{error.Message}"); }
+    }
+
+    private void ApplySizes()
+    {
+        if (Application.Current is not { } app) return;
+        var ui = InterfaceSizePercent / 100;
+        var focus = FocusSizePercent / 100;
+        app.Resources["InterfaceTextSize"] = 14 * ui;
+        app.Resources["InterfaceCaptionSize"] = 12 * ui;
+        app.Resources["InterfaceNavigationSize"] = 13 * ui;
+        app.Resources["InterfaceTitleSize"] = 22 * ui;
+        app.Resources["InterfaceSectionSize"] = 15 * ui;
+        app.Resources["FocusTimerSize"] = 72 * focus;
+        app.Resources["FullscreenTimerSize"] = 138 * focus;
+        app.Resources["FocusHeadingSize"] = 21 * focus;
+        app.Resources["FocusQuoteSize"] = 18 * focus;
+        app.Resources["FullscreenFocusTextSize"] = 26 * focus;
+    }
+
+    private void ApplyInterfaceFont()
+    {
+        if (Application.Current is { } app) app.Resources["InterfaceFont"] = InterfaceFont.Typeface;
+    }
 
     private void Apply()
     {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Todos;
 using Microsoft.Data.Sqlite;
@@ -73,7 +74,8 @@ public sealed partial class SqliteFocusStore
     {
         using var connection = Open(); using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent,completed_at
+            SELECT id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent,completed_at,
+                   (SELECT value FROM settings WHERE key='todo.steps.' || todo_items.id)
             FROM todo_items WHERE deleted=0 OR $all=1 ORDER BY rowid
             """;
         command.Parameters.AddWithValue("$all", includeDeleted ? 1 : 0);
@@ -84,12 +86,19 @@ public sealed partial class SqliteFocusStore
             reader.IsDBNull(6) ? null : TimeOnly.ParseExact(reader.GetString(6), "HH:mm", CultureInfo.InvariantCulture), reader.GetString(7),
             reader.IsDBNull(8) ? null : reader.GetInt32(8), reader.GetString(9),
             reader.IsDBNull(10) ? null : Guid.Parse(reader.GetString(10)), reader.GetInt32(11) != 0, reader.GetInt32(12) != 0,
-            reader.IsDBNull(13) ? null : DateTimeOffset.Parse(reader.GetString(13), CultureInfo.InvariantCulture)));
+            reader.IsDBNull(13) ? null : DateTimeOffset.Parse(reader.GetString(13), CultureInfo.InvariantCulture),
+            reader.IsDBNull(14) ? null : JsonSerializer.Deserialize<TodoStep[]>(reader.GetString(14), CalendarJson)));
         return todos;
     }
     public void SaveTodo(TodoItem todo)
     {
-        using var connection = Open(); using var command = connection.CreateCommand();
+        using var connection = Open(); using var transaction = connection.BeginTransaction();
+        SaveTodo(connection, transaction, todo);
+        transaction.Commit();
+    }
+    private static void SaveTodo(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction transaction, TodoItem todo)
+    {
+        using var command = connection.CreateCommand(); command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO todo_items (id,folder_id,title,status,priority,due_date,due_time,notes,estimated_minutes,resume_note,preferred_project_id,important,urgent,completed_at)
             VALUES ($id,$folder,$title,$status,$priority,$date,$time,$notes,$estimate,$resume,$project,$important,$urgent,$completed)
@@ -108,6 +117,15 @@ public sealed partial class SqliteFocusStore
         command.Parameters.AddWithValue("$important", todo.Important ? 1 : 0); command.Parameters.AddWithValue("$urgent", todo.Urgent ? 1 : 0);
         command.Parameters.AddWithValue("$completed", todo.Status == TodoStatus.Completed ? Format(todo.CompletedAt ?? DateTimeOffset.Now) : DBNull.Value);
         command.ExecuteNonQuery();
+        if (todo.Steps is { } steps)
+        {
+            command.Parameters.Clear();
+            command.CommandText = steps.Count == 0 ? "DELETE FROM settings WHERE key=$key"
+                : "INSERT INTO settings(key,value) VALUES($key,$value) ON CONFLICT(key) DO UPDATE SET value=excluded.value";
+            command.Parameters.AddWithValue("$key", $"todo.steps.{todo.Id}");
+            if (steps.Count > 0) command.Parameters.AddWithValue("$value", JsonSerializer.Serialize(steps, CalendarJson));
+            command.ExecuteNonQuery();
+        }
     }
     public void DeleteTodo(Guid id)
     {

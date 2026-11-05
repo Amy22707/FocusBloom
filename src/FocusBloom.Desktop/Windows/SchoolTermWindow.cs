@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class SchoolTermWindow : CalendarFormWindow
@@ -21,7 +23,7 @@ public sealed class SchoolTermWindow : CalendarFormWindow
     protected override void Save()
     {
         if (_date.SelectedDate is null || _date.SelectedDate.Value.DayOfWeek != DayOfWeek.Monday || !int.TryParse(_weeks.Text, out var weeks) || weeks is < 1 or > 60)
-        { Message.Text = "请选择第1周周一，并填写1至60的教学周数。"; return; }
+        { Message.Text = UiText.Get("请选择第1周周一，并填写1至60的教学周数。"); return; }
         try
         {
             var periods = _periods.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(line =>
@@ -33,11 +35,11 @@ public sealed class SchoolTermWindow : CalendarFormWindow
                 return new ClassPeriod(number, start.Value, end.Value);
             }).OrderBy(period => period.Number).ToArray();
             if (periods.Length == 0 || periods.Select(period => period.Number).Distinct().Count() != periods.Length || periods.Zip(periods.Skip(1)).Any(pair => pair.First.End > pair.Second.Start))
-            { Message.Text = "节次不能重复，时间须按节次先后排列且不能重叠。"; return; }
+            { Message.Text = UiText.Get("节次不能重复，时间须按节次先后排列且不能重叠。"); return; }
             var required = Main.Calendar.Store.GetCourses().SelectMany(CalendarRules.Meetings).SelectMany(meeting => new[] { meeting.StartPeriod, meeting.EndPeriod })
                 .Concat(Main.Calendar.Store.GetCourseChanges().SelectMany(change => new[] { change.StartPeriod, change.EndPeriod }).Where(number => number.HasValue).Select(number => number!.Value));
-            if (required.Any(number => periods.All(period => period.Number != number))) { Message.Text = "请保留已有课程和调课使用的节次，或先调整对应课程。"; return; }
-            if (Main.Calendar.Store.GetCourses().SelectMany(CalendarRules.Meetings).Any(meeting => meeting.LastWeek > weeks)) { Message.Text = "请先调整结束周超过新学期范围的课程。"; return; }
+            if (required.Any(number => periods.All(period => period.Number != number))) { Message.Text = UiText.Get("请保留已有课程和调课使用的节次，或先调整对应课程。"); return; }
+            if (Main.Calendar.Store.GetCourses().SelectMany(CalendarRules.Meetings).Any(meeting => meeting.LastWeek > weeks)) { Message.Text = UiText.Get("请先调整结束周超过新学期范围的课程。"); return; }
             Commit(() => Main.Calendar.Store.SaveSchoolTerm(new(DateOnly.FromDateTime(_date.SelectedDate.Value), weeks, periods)));
         }
         catch (FormatException ex) { Message.Text = ex.Message; }

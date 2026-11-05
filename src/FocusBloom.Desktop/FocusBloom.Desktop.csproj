@@ -9,9 +9,14 @@
     <ApplicationIcon>Resources/Branding/FocusBloom.ico</ApplicationIcon>
     <IncludePackageReferencesDuringMarkupCompilation>false</IncludePackageReferencesDuringMarkupCompilation>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OfflineRelease)' == 'true'">
+    <DefineConstants>$(DefineConstants);FOCUSBLOOM_OFFLINE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
+    <Content Include="../../cloudbase.local.json" Link="cloud-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(OfflineRelease)' != 'true' And '$(IncludeLocalCloudConfig)' != 'false' And Exists('../../cloudbase.local.json')" />
     <Resource Include="Resources/Branding/FocusBloom.png" />
     <Resource Include="Resources/Branding/FocusBloom.ico" />
+    <EmbeddedResource Include="Resources/English.json" LogicalName="FocusBloom.English.json" />
     <Content Include="Resources/Focus/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Resources/ThirdParty/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../FocusBloom.Core/FocusBloom.Core.csproj" />

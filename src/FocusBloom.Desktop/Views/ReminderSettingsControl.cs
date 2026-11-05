@@ -4,11 +4,13 @@ using System.Windows;
 using System.Windows.Controls;
 using FocusBloom.Core.Calendar;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Views;
 
 public sealed class ReminderSettingsControl : StackPanel
 {
-    private readonly CheckBox _enabled = new() { Content = "提醒我", Margin = new Thickness(0, 8, 0, 8) };
+    private readonly CheckBox _enabled = new() { Content = UiText.Get("提醒我"), Margin = new Thickness(0, 8, 0, 8) };
     private readonly TextBox _lead = new();
     private readonly TextBox _dayTime = new();
     private readonly StackPanel _leadArea = new();

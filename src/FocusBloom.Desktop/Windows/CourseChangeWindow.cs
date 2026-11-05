@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class CourseChangeWindow : CalendarFormWindow
@@ -33,7 +35,7 @@ public sealed class CourseChangeWindow : CalendarFormWindow
     protected override void Save()
     {
         if (_date.SelectedDate is null || _start.SelectedItem is not PeriodChoice start || _end.SelectedItem is not PeriodChoice end || end.Number < start.Number)
-        { Message.Text = "请选择日期及有效开始、结束节次。"; return; }
+        { Message.Text = UiText.Get("请选择日期及有效开始、结束节次。"); return; }
         Commit(() => Main.Calendar.Store.SaveCourseChange(new(_item?.Id ?? Guid.NewGuid(), _course.Id, _original, _cancel.IsChecked == true,
             DateOnly.FromDateTime(_date.SelectedDate.Value), start.Number, end.Number, _room.Text.Trim(), _meetingId)));
     }

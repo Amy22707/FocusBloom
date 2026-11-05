@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Windows.Controls;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class ReflectionReminderWindow : CalendarFormWindow
@@ -19,7 +21,7 @@ public sealed class ReflectionReminderWindow : CalendarFormWindow
     }
     protected override void Save()
     {
-        if (!TimeOnly.TryParseExact(_time.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)) { Message.Text = "请输入有效的提醒时间，例如 21:00。"; return; }
+        if (!TimeOnly.TryParseExact(_time.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)) { Message.Text = UiText.Get("请输入有效的提醒时间，例如 21:00。"); return; }
         Commit(() => Main.Reflection.SaveReminder(new(_enabled.IsChecked == true, time)));
     }
 }

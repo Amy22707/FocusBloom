@@ -519,7 +519,7 @@ public sealed class DesktopFlowTests
         tabs.SelectedIndex = 0; content.UpdateLayout(); FlushBindings();
         SavePreview(content, window.Background, "focus-custom-fonts.png");
         typography.ResetCommand.Execute(null); FlushBindings();
-        Assert.Equal("Microsoft YaHei", new FocusTypographyViewModel(store, _ => { }).Chinese.Family);
+        Assert.Equal(typography.ChineseFonts[0].Family, new FocusTypographyViewModel(store, _ => { }).Chinese.Family);
         Assert.Equal("Segoe UI", ((TextBlock)window.FindName("TimerDisplay")).FontFamily.Source);
     }
 

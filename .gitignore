@@ -17,6 +17,9 @@ obj/
 .tools/
 TestResults/
 artifacts/
+cloudbase.local.json
+/extensions/browser/cloud-config.json
+node_modules/
 *.db
 *.db-shm
 *.db-wal

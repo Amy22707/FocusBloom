@@ -5,6 +5,7 @@ using System.Linq;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Todos;
+using FocusBloom.Desktop.Presentation;
 
 namespace FocusBloom.Desktop.ViewModels;
 
@@ -103,9 +104,24 @@ public sealed partial class MainViewModel
         && !(HasUnsavedRecord && _timer.LastRecord!.TodoId == id);
     public bool StartFromTodo(Guid id, FocusProject? project = null, int? quickMinutes = null, string? category = null)
     {
-        if (!CanConfigure || HasUnsavedRecord) { StatusMessage = "请先结束当前计时并保存记录，再开始另一项待办。"; return false; }
+        if (!CanConfigure || HasUnsavedRecord) { StatusMessage = UiText.Get("请先结束当前计时并保存记录，再开始另一项待办。"); return false; }
         var item = Todos.Items.FirstOrDefault(item => item.Id == id);
         if (item is null) { StatusMessage = "该待办已删除。"; return false; }
+        return StartFromList(project, quickMinutes, category, todoId: id);
+    }
+
+    public bool StartFromPlanner(ChecklistEntry item, FocusProject? project, string? category)
+    {
+        if (!CanConfigure || HasUnsavedRecord)
+        {
+            StatusMessage = UiText.Get("请先结束当前计时并保存记录，再开始新的专注。");
+            return false;
+        }
+        return StartFromList(project, null, category, plannerTitle: item.Text, plannerItemId: item.Id);
+    }
+
+    private bool StartFromList(FocusProject? project, int? quickMinutes, string? category, Guid? todoId = null, string? plannerTitle = null, Guid? plannerItemId = null)
+    {
         if (quickMinutes is { } minutes) { SelectedTimerMode = TimerModes.Single(mode => mode.Mode == TimerMode.Countdown); DurationMinutes = minutes.ToString(CultureInfo.CurrentCulture); }
         if (Countdown)
         {
@@ -126,9 +142,9 @@ public sealed partial class MainViewModel
         }
         SelectedFolder = Folders.Single(folder => folder.Name == project.Category);
         SelectedProject = FolderProjects.Single(item => item.Id == project.Id);
-        SelectedFocusTodo = FocusTodoChoices.Single(choice => choice.Id == id);
-        StartCommand.Execute(null);
-        return IsFocusActive && _activeTodoId == id;
+        SelectedFocusTodo = FocusTodoChoices.Single(choice => choice.Id == todoId);
+        StartSession(plannerTitle, plannerItemId);
+        return IsFocusActive && _activeTodoId == todoId;
     }
     public FocusOutcome? GetOutcome(Guid id) => _store.GetOutcome(id);
     public FocusRecord? GetRecord(Guid id) => _store.GetRecords().FirstOrDefault(record => record.Id == id);

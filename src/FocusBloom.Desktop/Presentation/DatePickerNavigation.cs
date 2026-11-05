@@ -28,8 +28,8 @@ public static class DatePickerNavigation
     {
         var picker = (DatePicker)sender!;
         if (picker.Template.FindName("PART_Popup", picker) is not Popup popup || popup.Child is not Calendar calendar) return;
-        var years = new ComboBox { Width = 88, ItemsSource = Enumerable.Range(DateTime.Today.Year - 100, 201).ToArray(), ToolTip = "年份", Margin = new Thickness(0, 0, 8, 0) };
-        var months = new ComboBox { Width = 80, ItemsSource = Enumerable.Range(1, 12).ToArray(), ToolTip = "月份" };
+        var years = new ComboBox { Width = 88, ItemsSource = Enumerable.Range(DateTime.Today.Year - 100, 201).ToArray(), ToolTip = UiText.Get("年份"), Margin = new Thickness(0, 0, 8, 0) };
+        var months = new ComboBox { Width = 80, ItemsSource = Enumerable.Range(1, 12).ToArray(), ToolTip = UiText.Get("月份") };
         var toolbar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 8, 10, 4) }; toolbar.Children.Add(years); toolbar.Children.Add(months);
         var content = new DockPanel(); content.SetResourceReference(Panel.BackgroundProperty, "CardBrush"); DockPanel.SetDock(toolbar, Dock.Top); content.Children.Add(toolbar);
         popup.Child = null; content.Children.Add(calendar); popup.Child = content;

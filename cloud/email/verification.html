@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FocusBloom 邮箱验证码</title></head>
+<body style="margin:0;padding:32px 16px;background:#f6f5f8;color:#253344;font-family:Arial,'Microsoft YaHei',sans-serif;">
+  <table role="presentation" style="width:100%;max-width:520px;margin:auto;border-spacing:0;background:#ffffff;border-radius:24px;">
+    <tr><td style="padding:36px 36px 20px;"><span style="font-size:22px;font-weight:bold;color:#528777;">FocusBloom</span><p style="margin:8px 0 0;color:#87919b;font-size:13px;">一刻专注，让每一段投入都有回响。</p></td></tr>
+    <tr><td style="padding:8px 36px 36px;"><h1 style="margin:0 0 18px;font-size:24px;">验证你的邮箱</h1><p style="font-size:15px;line-height:1.8;">你正在登录或注册 FocusBloom。请在软件中输入下方验证码：</p>
+      <p style="margin:24px 0;padding:22px 12px;background:#f1f6f3;border-radius:16px;text-align:center;font-size:34px;font-weight:bold;letter-spacing:8px;color:#467768;">{{.VerificationCode}}</p>
+      <p style="font-size:14px;line-height:1.8;">验证码在 {{.ExpireMinutes}} 分钟内有效。请勿将验证码告知他人。</p><p style="margin:24px 0 0;font-size:12px;line-height:1.8;color:#87919b;">如果这不是你的操作，忽略这封邮件即可。此邮件由系统自动发送，无需回复。</p>
+    </td></tr>
+  </table>
+</body>
+</html>

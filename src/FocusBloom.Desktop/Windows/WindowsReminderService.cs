@@ -9,6 +9,8 @@ using FocusBloom.Desktop.ViewModels;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Windows.UI.Notifications;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class WindowsReminderService : IDisposable
@@ -106,7 +108,7 @@ public sealed class WindowsReminderService : IDisposable
             { var item = missed[0]; var tag = _scheduled.FirstOrDefault(schedule => schedule.Key == item.Key)?.Tag ?? Guid.NewGuid().ToString("N")[..16]; _notifier.Show(new ToastNotification(Content(item).GetToastContent().GetXml()) { Tag = tag, Group = "FocusBloom" }); }
             else if (missed.Count > 1)
             {
-                var content = new ToastContentBuilder().AddArgument("kind", "汇总").AddArgument("id", Guid.Empty.ToString()).AddText($"{missed.Count} 项待处理提醒").AddText(string.Join("；", missed.Take(3).Select(item => item.Title)));
+                var content = new ToastContentBuilder().AddArgument("kind", "汇总").AddArgument("id", Guid.Empty.ToString()).AddText(UiText.Format("{0} 项待处理提醒", missed.Count)).AddText(string.Join("；", missed.Take(3).Select(item => item.Title)));
                 _notifier.Show(new ToastNotification(content.GetToastContent().GetXml()) { Tag = "missed", Group = "FocusBloom" });
             }
             foreach (var item in missed) _store.MarkReminderHandled(item.Key);
@@ -117,7 +119,7 @@ public sealed class WindowsReminderService : IDisposable
     private static ToastContentBuilder Content(ReminderOccurrence item) => new ToastContentBuilder().AddArgument("kind", item.Kind).AddArgument("id", item.Id.ToString()).AddArgument("key", item.Key)
         .AddArgument("date", item.HappensAt.LocalDateTime.ToString("yyyy-MM-dd")).AddArgument("original", item.OriginalDate?.ToString("yyyy-MM-dd") ?? "")
         .AddArgument("meeting", item.MeetingId?.ToString() ?? "")
-        .AddText(item.Title).AddText(item.HappensAt.LocalDateTime.ToString(item.AllDay ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm") + " · " + item.Detail);
+        .AddText(item.Title).AddText(item.HappensAt.LocalDateTime.ToString(item.AllDay ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm") + " · " + UiText.Get(item.Detail));
     private void Activated(ToastNotificationActivatedEventArgsCompat args)
     {
         var arguments = ToastArguments.Parse(args.Argument);

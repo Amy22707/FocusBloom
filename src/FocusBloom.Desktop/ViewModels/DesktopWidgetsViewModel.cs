@@ -52,7 +52,7 @@ public sealed class DesktopWidgetOption : ObservableObject
     public event EventHandler? Changed;
     public DesktopWidgetOption(IFocusStore store, DesktopWidgetKind kind, string name, string[] views, double height)
     {
-        _store = store; Kind = kind; Name = name; Views = views;
+        _store = store; Kind = kind; Name = UiText.Get(name); Views = views;
         _value = store.GetSetting("widgets." + kind) is { } json ? JsonSerializer.Deserialize<DesktopWidgetPreferences>(json)! : new(Height: height, Width: kind == DesktopWidgetKind.Calendar ? 460 : kind == DesktopWidgetKind.Todos ? 420 : 340);
         if (!views.Contains(_value.View)) _value = _value with { View = views[0] };
     }

@@ -15,11 +15,12 @@ public sealed class TodoRow(TodoItem item, TimeSpan invested) : ObservableObject
     public Guid Id => Item.Id;
     public string Title => Item.Title;
     public bool Completed => Item.Status == TodoStatus.Completed;
-    public string StatusText => Item.Status switch { TodoStatus.InProgress => "进行中", TodoStatus.Completed => "已完成", _ => "待办" };
-    public string PriorityText => Item.Priority switch { TodoPriority.High => "高优先级", TodoPriority.Low => "低优先级", _ => "普通优先级" };
-    public string QuadrantText => (Item.Important ? "重要" : "不重要") + " · " + (Item.Urgent ? "紧急" : "不紧急");
-    public string DueText => Item.DueDate is { } date ? $"截止 {date:yyyy-MM-dd}" + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "无截止日期";
-    public string DueDisplayText => Item.DueDate is { } date ? "截止 " + (date.Year == DateTime.Today.Year ? date.ToString("M月d日") : date.ToString("yyyy/M/d")) + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "";
+    internal string StatusKey => Item.Status switch { TodoStatus.InProgress => "进行中", TodoStatus.Completed => "已完成", _ => "待办" };
+    public string StatusText => UiText.Get(StatusKey);
+    public string PriorityText => UiText.Get(Item.Priority switch { TodoPriority.High => "高优先级", TodoPriority.Low => "低优先级", _ => "普通优先级" });
+    public string QuadrantText => UiText.Get(Item.Important ? "重要" : "不重要") + " · " + UiText.Get(Item.Urgent ? "紧急" : "不紧急");
+    public string DueText => Item.DueDate is { } date ? UiText.Format("截止 {0}", $"{date:yyyy-MM-dd}") + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : UiText.Get("无截止日期");
+    public string DueDisplayText => Item.DueDate is { } date ? UiText.Format("截止 {0}", date.Year == DateTime.Today.Year ? date.ToString(UiText.IsEnglish ? "MMM d" : "M月d日", UiText.DateCulture) : date.ToString("yyyy/M/d")) + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "";
     public bool HasDueDate => Item.DueDate is not null;
     public string DueCompactText => Item.DueDate is { } date ? $"{date:MM-dd}" + (Item.DueTime is { } time ? $" {time:HH:mm}" : "") : "";
     public bool Overdue => !Completed && Item.DueDate is { } date &&
@@ -27,8 +28,8 @@ public sealed class TodoRow(TodoItem item, TimeSpan invested) : ObservableObject
     public string Notes => Item.Notes;
     public bool HasNotes => Item.Notes.Length > 0;
     public bool HasResumeNote => Item.ResumeNote.Length > 0;
-    public string ResumeText => string.IsNullOrEmpty(Item.ResumeNote) ? "" : "下一步：" + Item.ResumeNote;
-    public string InvestmentText => $"已投入 {(int)invested.TotalHours:00}:{invested.Minutes:00}:{invested.Seconds:00}" + (Item.EstimatedMinutes is { } estimate ? $" · 预计 {estimate} 分钟" : "");
+    public string ResumeText => string.IsNullOrEmpty(Item.ResumeNote) ? "" : UiText.Get("下一步：") + Item.ResumeNote;
+    public string InvestmentText => UiText.Format("已投入 {0}", $"{(int)invested.TotalHours:00}:{invested.Minutes:00}:{invested.Seconds:00}") + (Item.EstimatedMinutes is { } estimate ? UiText.Format(" · 预计 {0} 分钟", estimate) : "");
     public void RefreshDeadline() { Notify(nameof(Overdue)); Notify(nameof(DueDisplayText)); }
 }
 
@@ -38,10 +39,10 @@ public sealed class TodoQuadrant(bool important, bool urgent, string hint) : Obs
     public bool Urgent { get; } = urgent;
     public int Row => Urgent ? 0 : 1;
     public int Column => Important ? 1 : 0;
-    public string Title => (Important ? "重要" : "不重要") + "且" + (Urgent ? "紧急" : "不紧急");
-    public string Hint { get; } = hint;
+    public string Title => UiText.Get(Important ? "重要" : "不重要") + UiText.Get("且") + UiText.Get(Urgent ? "紧急" : "不紧急");
+    public string Hint => UiText.Get(hint);
     public ObservableCollection<TodoRow> Items { get; } = [];
-    public string CountText => $"{Items.Count} 项";
+    public string CountText => UiText.Format("{0} 项", Items.Count);
     public bool IsEmpty => Items.Count == 0;
     public void Refresh() { Notify(nameof(CountText)); Notify(nameof(IsEmpty)); }
 }
@@ -54,8 +55,8 @@ public sealed class TodoFolderGroup : ObservableObject
     public string Name => Folder.Name;
     public IReadOnlyList<TodoRow> Pending { get; }
     public IReadOnlyList<TodoRow> Completed { get; }
-    public string CountText => $"{Pending.Count + Completed.Count} 项";
-    public string CompletedLabel => $"已完成 · {Completed.Count}";
+    public string CountText => UiText.Format("{0} 项", Pending.Count + Completed.Count);
+    public string CompletedLabel => UiText.Format("已完成 · {0}", Completed.Count);
     public bool HasCompleted => Completed.Count > 0;
     public bool IsEmpty => Pending.Count + Completed.Count == 0;
     public bool CompletedExpanded { get => _completedExpanded; set { _completedExpanded = value; _store.SaveSetting("ui.todos.completedExpanded." + Folder.Id, value.ToString()); Notify(); } }
@@ -82,6 +83,7 @@ public sealed class TodoLibraryViewModel : ObservableObject
     private string _quadrantScope;
     private string _listScope;
     public event EventHandler? Changed;
+    public PeriodicChecklist Checklist { get; }
     public ObservableCollection<string> Categories { get; } = [];
     public ObservableCollection<TodoFolder> Folders { get; } = [];
     public ObservableCollection<TodoRow> Items { get; } = [];
@@ -128,13 +130,14 @@ public sealed class TodoLibraryViewModel : ObservableObject
     public TodoFolder? SelectedFolder { get => _folder; set { _folder = value; RefreshItems(); Notify(); Notify(nameof(Heading)); SaveSelection(); } }
     public string Search { get => _search; set { _search = value; RefreshItems(); Notify(); } }
     public string Filter { get => _filter; set { _filter = value; RefreshItems(); Notify(); } }
-    public string Heading => ShowAllFolders ? "全部待办" : SelectedFolder?.Name ?? "待办事项";
+    public string Heading => ShowAllFolders ? UiText.Get("全部待办") : SelectedFolder?.Name ?? UiText.Get("待办事项");
     public string Summary => $"{VisibleItems.Count} 个事项 · {VisibleItems.Count(item => item.Completed)} 个已完成" + (ShowAllFolders ? " · 所有文件夹" : "");
     public bool IsEmpty => VisibleItems.Count == 0;
 
     public TodoLibraryViewModel(IFocusStore store, Action<string> report, Func<Guid, bool> canDelete)
     {
         _store = store; _report = report; _canDelete = canDelete;
+        Checklist = new(store);
         _viewMode = store.GetSetting("todos.view") == "四象限" ? "四象限" : "列表";
         _quadrantScope = store.GetSetting("todos.quadrantScope") == "当前文件夹" ? "当前文件夹" : "全部文件夹";
         _listScope = store.GetSetting("todos.listScope") == "全部文件夹" ? "全部文件夹" : "当前文件夹";
@@ -164,7 +167,7 @@ public sealed class TodoLibraryViewModel : ObservableObject
     private void RefreshItems()
     {
         VisibleItems.Clear();
-        foreach (var item in Items.Where(item => (ShowAllFolders || item.Item.FolderId == _folder?.Id) && (_filter == "全部" || item.StatusText == _filter)
+        foreach (var item in Items.Where(item => (ShowAllFolders || item.Item.FolderId == _folder?.Id) && (_filter == "全部" || item.StatusKey == _filter)
             && (string.IsNullOrWhiteSpace(_search) || item.Title.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase) || item.Notes.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase))).OrderBy(item => item.Completed)) VisibleItems.Add(item);
         FolderGroups.Clear();
         foreach (var folder in Folders)

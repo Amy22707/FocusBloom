@@ -13,22 +13,23 @@ public sealed record GoalRow(GoalProgress Progress, string Scope)
 {
     public Guid Id => Progress.Goal.Id;
     public string Name => Progress.Goal.Name;
-    public string Period => Progress.Goal.Cycle == GoalCycle.Daily ? $"每天 · {Progress.From:M/d}" : Progress.Goal.Cycle == GoalCycle.Total && Progress.Goal.Until is null ? $"累计 · {Progress.From:M/d}起" : (Progress.Goal.Cycle switch { GoalCycle.Weekly => "每周", GoalCycle.Monthly => "每月", _ => "累计" }) + $" · {Progress.From:M/d}—{Progress.To:M/d}";
+    public string Period => Progress.Goal.Cycle == GoalCycle.Daily ? UiText.Format("每天 · {0}", Date(Progress.From)) : Progress.Goal.Cycle == GoalCycle.Total && Progress.Goal.Until is null ? UiText.Format("累计 · {0}起", Date(Progress.From)) : UiText.Get(Progress.Goal.Cycle switch { GoalCycle.Weekly => "每周", GoalCycle.Monthly => "每月", _ => "累计" }) + $" · {Date(Progress.From)}—{Date(Progress.To)}";
+    private static string Date(DateOnly date) => date.ToString(UiText.IsEnglish ? "MMM d" : "M/d", UiText.DateCulture);
     public string ValueText => Amount(Progress.Goal.Metric, Progress.Value) + " / " + Amount(Progress.Goal.Metric, Progress.Goal.Target);
     public double Ratio => Progress.Ratio;
-    public string State => !Progress.Active ? Progress.Goal.Start > Progress.AsOf ? $"{Progress.Goal.Start:M月d日}开始" : Progress.Complete ? "已结束 · 已达成" : "已结束" : Progress.Complete ? "已达成 ✓" : "还差 " + Amount(Progress.Goal.Metric, Progress.Goal.Target - Progress.Value);
-    public static string Amount(GoalMetric metric, double value) => metric == GoalMetric.Minutes ? value >= 60 && value % 60 == 0 ? $"{value / 60:0}小时" : StatisticsViewModel.Duration(TimeSpan.FromMinutes(value)) : $"{value:0.##}" + (metric == GoalMetric.Sessions ? "次" : "天");
+    public string State => !Progress.Active ? Progress.Goal.Start > Progress.AsOf ? UiText.Format("{0}开始", Date(Progress.Goal.Start)) : UiText.Get(Progress.Complete ? "已结束 · 已达成" : "已结束") : Progress.Complete ? UiText.Get("已达成 ✓") : UiText.Format("还差 {0}", Amount(Progress.Goal.Metric, Progress.Goal.Target - Progress.Value));
+    public static string Amount(GoalMetric metric, double value) => metric == GoalMetric.Minutes ? value >= 60 && value % 60 == 0 ? UiText.Format("{0:0}小时", value / 60) : StatisticsViewModel.Duration(TimeSpan.FromMinutes(value)) : UiText.Format(metric == GoalMetric.Sessions ? "{0:0.##}次" : "{0:0.##}天", value);
 }
 public sealed record HabitRow(Habit Habit, HabitProgress Progress, bool CheckedToday, bool CanCheck, string Scope, DateOnly Today)
 {
     public Guid Id => Habit.Id;
     public string Name => Habit.Name;
     public string Schedule => ScheduleFor(Habit);
-    public static string ScheduleFor(Habit habit) => habit.Weekdays.Count == 7 ? "每天" : habit.Weekdays.SequenceEqual(new[] { 1, 2, 3, 4, 5 }) ? "工作日" : string.Join("、", habit.Weekdays.Select(day => "周" + "一二三四五六日"[day - 1]));
-    public string Streak => $"连续完成 {Progress.Streak} 个计划日";
-    public string Month => $"本月 {Progress.Completed} / {Progress.Planned}" + (Progress.Planned > 0 ? $" · {(double)Progress.Completed / Progress.Planned:P0}" : "");
-    public string Reminder => Habit.Reminder ? $"{Habit.ReminderTime ?? new TimeOnly(20, 0):HH:mm} 提醒" : "未开启提醒";
-    public string CheckText => CheckedToday ? "已打卡 ✓" : Habit.Start > Today ? "尚未开始" : Habit.Until < Today ? "已结束" : !CanCheck ? "今天不执行" : "今天打卡";
+    public static string ScheduleFor(Habit habit) => habit.Weekdays.Count == 7 ? UiText.Get("每天") : habit.Weekdays.SequenceEqual(new[] { 1, 2, 3, 4, 5 }) ? UiText.Get("工作日") : string.Join(UiText.IsEnglish ? ", " : "、", habit.Weekdays.Select(day => UiText.Get("周" + "一二三四五六日"[day - 1])));
+    public string Streak => UiText.Format("连续完成 {0} 个计划日", Progress.Streak);
+    public string Month => UiText.Format("本月 {0} / {1}", Progress.Completed, Progress.Planned) + (Progress.Planned > 0 ? $" · {(double)Progress.Completed / Progress.Planned:P0}" : "");
+    public string Reminder => Habit.Reminder ? UiText.Format("提醒 {0:HH:mm}", Habit.ReminderTime ?? new TimeOnly(20, 0)) : UiText.Get("未开启提醒");
+    public string CheckText => UiText.Get(CheckedToday ? "已打卡 ✓" : Habit.Start > Today ? "尚未开始" : Habit.Until < Today ? "已结束" : !CanCheck ? "今天不执行" : "今天打卡");
 }
 
 public sealed partial class GoalsViewModel : ObservableObject

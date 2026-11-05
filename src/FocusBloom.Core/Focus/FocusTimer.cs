@@ -30,7 +30,7 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
         if (!IsActive) return null;
         var now = _clock.GetUtcNow();
         var intervals = _intervals.Append(new FocusInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, _phaseStartedAt, now)).ToArray();
-        return new(_sessionId, _options!.ProjectId, _options.Mode, _startedAt, now, EndReason.Manual, intervals, _options.Strict, _options.TodoId, InterceptionCount);
+        return new(_sessionId, _options!.ProjectId, _options.Mode, _startedAt, now, EndReason.Manual, intervals, _options.Strict, _options.TodoId, InterceptionCount, _options.PlannerItemId, _options.PlannerTitle);
     }
     public FocusCheckpoint? CaptureCheckpoint(bool includeLastRecord = false)
     {
@@ -174,7 +174,7 @@ public sealed class FocusTimer(TimeProvider? timeProvider = null)
     {
         CloseInterval(State == FocusState.Paused ? IntervalKind.Pause : IntervalKind.Focus, endedAt);
         LastRecord = new FocusRecord(_sessionId, _options!.ProjectId, _options.Mode,
-            _startedAt, endedAt, reason, _intervals.ToArray(), _options.Strict, _options.TodoId, InterceptionCount);
+            _startedAt, endedAt, reason, _intervals.ToArray(), _options.Strict, _options.TodoId, InterceptionCount, _options.PlannerItemId, _options.PlannerTitle);
         if (IsPomodoro)
         {
             if (reason != EndReason.CountdownElapsed || !takeRest || Round >= TotalRounds)

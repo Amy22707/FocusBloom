@@ -9,6 +9,8 @@ using FocusBloom.Core.Calendar;
 using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Views;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class CourseEditorWindow : CalendarFormWindow
@@ -28,7 +30,7 @@ public sealed class CourseEditorWindow : CalendarFormWindow
         _name = AddTextInput("NameInput", "课程名称", item?.Name ?? "");
         _teacher = AddTextInput("TeacherInput", "教师", item?.Teacher ?? "");
         Caption("上课时段 · 每个时段分别设置星期、节次与周次"); Fields.Children.Add(_meetingPanel);
-        var add = new Button { Content = "＋ 添加上课时段", Margin = new Thickness(0, 0, 0, 8), HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 7, 12, 7) };
+        var add = new Button { Content = UiText.Get("＋ 添加上课时段"), Margin = new Thickness(0, 0, 0, 8), HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 7, 12, 7) };
         RegisterName("AddMeetingButton", add); add.Click += (_, _) =>
         {
             CourseMeeting meeting;
@@ -52,7 +54,7 @@ public sealed class CourseEditorWindow : CalendarFormWindow
         foreach (var meeting in item is null ? new[] { new CourseMeeting(Guid.Empty, 1, term.Periods[0].Number, term.Periods[Math.Min(1, term.Periods.Count - 1)].Number, LastWeek: term.Weeks) } : CalendarRules.Meetings(item)) AddMeeting(meeting, _meetings.Count == 0);
         if (occurrence is not null && item is not null)
         {
-            var adjust = new Button { Content = "临时调整这一次", Margin = new Thickness(0, 14, 0, 0) };
+            var adjust = new Button { Content = UiText.Get("临时调整这一次"), Margin = new Thickness(0, 14, 0, 0) };
             adjust.Click += (_, _) => { new CourseChangeWindow(main, item, occurrence.OriginalDate ?? occurrence.Date, occurrence.MeetingId) { Owner = this }.ShowDialog(); Preview(); }; Fields.Children.Add(adjust);
         }
         if (item is not null) { var links = FocusLinks(null, () => ((ProjectChoice)_project.SelectedItem).Id); _project.SelectionChanged += (_, _) => links(); }
@@ -98,9 +100,9 @@ public sealed class CourseEditorWindow : CalendarFormWindow
     {
         try
         {
-            if (_name.Text.Trim().Length == 0) { Message.Text = "请填写课程名称。"; return; }
-            if (!Regex.IsMatch(_customColor.Text.Trim(), "^#[0-9a-fA-F]{6}$")) { Message.Text = "颜色格式为#RRGGBB，例如#7B97A6。"; return; }
-            if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = "请填写有效的提醒设置。"; return; }
+            if (_name.Text.Trim().Length == 0) { Message.Text = UiText.Get("请填写课程名称。"); return; }
+            if (!Regex.IsMatch(_customColor.Text.Trim(), "^#[0-9a-fA-F]{6}$")) { Message.Text = UiText.Get("颜色格式为#RRGGBB，例如#7B97A6。"); return; }
+            if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = UiText.Get("请填写有效的提醒设置。"); return; }
             var item = Draft() with { Reminder = reminder }; Commit(() => Main.Calendar.Store.SaveCourse(item));
         }
         catch (FormatException ex) { Message.Text = ex.Message; }

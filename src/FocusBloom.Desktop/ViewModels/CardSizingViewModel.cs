@@ -44,10 +44,10 @@ public sealed class CardSizeOption : ObservableObject
     public double PreviewHeight => _key switch { "Todo" => 104, "Quadrant" => 32, "DateEvent" => 150, "Media" => 180, "Calendar" => 80, "Timetable" => 86, "Mood" => 60, _ => 120 };
     public double PreviewWidth => _key switch { "Quadrant" => 240, "DateEvent" => 240, "Media" => 180, "FocusCalendar" => 240, "Mood" => 64, _ => 220 };
     public Thickness PreviewPadding => _key == "Quadrant" ? new(8, 0, 8, 0) : _key == "Mood" ? new(4) : new(12);
-    public string PreviewTitle => _key switch { "Project" => "示例项目", "Todo" or "Quadrant" => "完成课程实验", "DateEvent" => "期末考试", "Media" => "湖光与山影", "Timetable" => "示例课程", "Mood" => "16", _ => "复习课程笔记" };
-    public string PreviewDetail => _key switch { "Project" => "学习", "Todo" => "截止 10月22日 · 待办", "DateEvent" => "还有 30 天", "Media" => "默认 · 背景素材", "Timetable" => "第1—2节 · 教室101", "Mood" => "愉快", _ => "14:00—15:00 · 1小时" };
+    public string PreviewTitle => UiText.Get(_key switch { "Project" => "示例项目", "Todo" or "Quadrant" => "完成课程实验", "DateEvent" => "期末考试", "Media" => "湖光与山影", "Timetable" => "示例课程", "Mood" => "16", _ => "复习课程笔记" });
+    public string PreviewDetail => UiText.Get(_key switch { "Project" => "学习", "Todo" => "截止 10月22日 · 待办", "DateEvent" => "还有 30 天", "Media" => "默认 · 背景素材", "Timetable" => "第1—2节 · 教室101", "Mood" => "愉快", _ => "14:00—15:00 · 1小时" });
     public bool ShowPreviewDetail => _key != "Quadrant";
-    public string PreviewDescription => _columns == 1 || _key == "Media" ? "示例随滑块实时缩放" : $"每行 {ColumnsForPreview} 个 · 示例随滑块实时缩放";
+    public string PreviewDescription => _columns == 1 || _key == "Media" ? UiText.Get("示例随滑块实时缩放") : UiText.Format("每行 {0} 个 · 示例随滑块实时缩放", ColumnsForPreview);
     private int ColumnsForPreview => Percentage <= 80 ? _columns + 1 : Percentage >= 120 ? _columns - 1 : _columns;
     public RelayCommand ResetCommand { get; }
     public double Percentage
@@ -64,7 +64,7 @@ public sealed class CardSizeOption : ObservableObject
     }
     public CardSizeOption(IFocusStore store, string key, string name, int columns, Action? refresh = null)
     {
-        _store = store; _key = key; Name = name; _columns = columns; _refresh = refresh;
+        _store = store; _key = key; Name = UiText.Get(name); _columns = columns; _refresh = refresh;
         _percentage = double.TryParse(store.GetSetting("ui.cardScale." + key), CultureInfo.InvariantCulture, out var saved) ? Math.Clamp(saved, 70, 140) : 100;
         ResetCommand = new RelayCommand(() => Percentage = 100);
         Apply();

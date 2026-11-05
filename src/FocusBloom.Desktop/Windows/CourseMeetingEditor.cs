@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using FocusBloom.Core.Calendar;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 internal sealed class CourseMeetingEditor : Expander
@@ -22,7 +24,7 @@ internal sealed class CourseMeetingEditor : Expander
     {
         Id = item.Id; Margin = new Thickness(0, 0, 0, 10); HorizontalContentAlignment = HorizontalAlignment.Stretch;
         SetResourceReference(ForegroundProperty, "TextBrush");
-        var header = new DockPanel(); RemoveButton = new Button { Content = "移除", Padding = new Thickness(8, 3, 8, 3), FontSize = 11, Margin = new Thickness(12, 0, 0, 0) };
+        var header = new DockPanel(); RemoveButton = new Button { Content = UiText.Get("移除"), Padding = new Thickness(8, 3, 8, 3), FontSize = 11, Margin = new Thickness(12, 0, 0, 0) };
         RemoveButton.Click += (_, _) => remove(); DockPanel.SetDock(RemoveButton, Dock.Right); header.Children.Add(RemoveButton); header.Children.Add(_heading); Header = header;
         var fields = new StackPanel(); var border = new Border { Padding = new Thickness(12), CornerRadius = new CornerRadius(10), Child = fields, Margin = new Thickness(0, 8, 0, 0) };
         border.SetResourceReference(Border.BackgroundProperty, "FieldBrush"); Content = border;

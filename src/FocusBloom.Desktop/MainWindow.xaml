@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:FocusBloom.Desktop.Views"
         xmlns:present="clr-namespace:FocusBloom.Desktop.Presentation" xmlns:projects="clr-namespace:FocusBloom.Core.Projects;assembly=FocusBloom.Core"
-        Title="一刻专注 · FocusBloom" Style="{StaticResource {x:Type Window}}"
+        Title="{present:Translate '一刻专注 · FocusBloom'}" Style="{StaticResource {x:Type Window}}"
         Icon="{StaticResource BrandLogo}"
         Width="1120" Height="720" MinWidth="900" MinHeight="560" WindowStartupLocation="Manual">
     <Window.Resources>
@@ -11,7 +11,7 @@
             <Setter Property="Margin" Value="0,0,0,10" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><StackPanel>
                 <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Content="{TemplateBinding Header}">
-                    <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16,12" Cursor="Hand"><DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" Foreground="{DynamicResource MutedBrush}" FontSize="16" /><ContentPresenter TextElement.FontSize="15" TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource TextBrush}" /></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="－" /></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
+                    <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16,12" Cursor="Hand"><DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" Foreground="{DynamicResource MutedBrush}" FontSize="16" /><ContentPresenter TextElement.FontSize="{DynamicResource InterfaceSectionSize}" TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource TextBrush}" /></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="－" /></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
                 </ToggleButton>
                 <ContentPresenter x:Name="Details" Visibility="Collapsed" />
             </StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Details" Property="Visibility" Value="Visible" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
@@ -22,76 +22,77 @@
     </Window.Resources>
     <Grid>
     <Grid x:Name="WorkspaceView">
-        <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="*" /><RowDefinition Height="24" /></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition x:Name="WorkspaceHeaderRow" Height="52" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition x:Name="WorkspaceStatusRow" Height="24" /></Grid.RowDefinitions>
         <Border x:Name="WorkspaceHeader" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="恢复上次专注" Click="RecoverFocus_Click" Visibility="{Binding HasPendingRecovery, Converter={StaticResource BoolVisibility}}" Margin="0,0,12,0" />
-                    <CheckBox x:Name="TimerFloatToggle" Content="&#xE8A7;" IsChecked="{Binding TimerFloatVisible}" Style="{StaticResource ShellToggle}" ToolTip="显示或隐藏计时浮窗" Margin="0,0,4,0" AutomationProperties.Name="计时浮窗" />
-                    <CheckBox Content="&#xE718;" IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource ShellToggle}" ToolTip="窗口置顶" Margin="0,0,4,0" AutomationProperties.Name="窗口置顶" />
-                    <Button x:Name="EnterFullscreenButton" Content="↗" Click="ToggleFullscreen_Click" Style="{StaticResource QuietTool}" Width="34" Height="32" FontSize="18" Padding="0" ToolTip="内容全屏（F11），Esc 返回" AutomationProperties.Name="内容全屏" />
+                    <Button Content="{present:Translate '恢复上次专注'}" Click="RecoverFocus_Click" Visibility="{Binding HasPendingRecovery, Converter={StaticResource BoolVisibility}}" Margin="0,0,12,0" />
+                    <CheckBox x:Name="TimerFloatToggle" Content="&#xE8A7;" IsChecked="{Binding TimerFloatVisible}" Style="{StaticResource ShellToggle}" ToolTip="{present:Translate '显示或隐藏计时浮窗'}" Margin="0,0,4,0" AutomationProperties.Name="{present:Translate '计时浮窗'}" />
+                    <CheckBox Content="&#xE718;" IsChecked="{Binding Topmost, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource ShellToggle}" ToolTip="{present:Translate '窗口置顶'}" Margin="0,0,4,0" AutomationProperties.Name="{present:Translate '窗口置顶'}" />
+                    <Button x:Name="EnterFullscreenButton" Content="↗" Click="ToggleFullscreen_Click" Style="{StaticResource QuietTool}" Width="34" Height="32" FontSize="18" Padding="0" ToolTip="{present:Translate '内容全屏（F11），Esc 返回'}" AutomationProperties.Name="{present:Translate '内容全屏'}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Image x:Name="HeaderLogo" Source="{StaticResource BrandLogo}" Width="28" Height="28" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality">
                         <Image.Clip><RectangleGeometry Rect="0,0,28,28" RadiusX="7" RadiusY="7" /></Image.Clip>
                     </Image>
                     <StackPanel>
-                        <TextBlock Text="一刻专注" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{present:Translate '一刻专注'}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>
         </Border>
-        <TabControl x:Name="MainTabs" Grid.Row="1" TabStripPlacement="Left" SelectionChanged="MainTabs_SelectionChanged">
-            <TabItem x:Name="FocusTab" ToolTip="专注时刻">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="专注时刻" /></StackPanel></TabItem.Header>
+        <Border x:Name="LoginExpiredBanner" Grid.Row="1" DataContext="{Binding Accounts, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding LoginExpired, Converter={StaticResource BoolVisibility}}" Background="{DynamicResource SelectedBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,1" Padding="18,10"><DockPanel><Button DockPanel.Dock="Right" Content="{present:Translate '重新登录'}" Command="{Binding OpenAccountCommand}" Style="{StaticResource PrimaryButton}" Margin="18,0,0,0" /><StackPanel VerticalAlignment="Center"><TextBlock Text="{present:Translate '登录已失效，请重新登录'}" FontWeight="SemiBold" Foreground="{DynamicResource AccentTextBrush}" /><TextBlock Text="{present:Translate '本机数据已保留，重新登录后恢复同步。'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" /></StackPanel></DockPanel></Border>
+        <TabControl x:Name="MainTabs" Grid.Row="2" TabStripPlacement="Left" SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem x:Name="FocusTab" ToolTip="{present:Translate '专注计时'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '专注计时'}" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <StackPanel Margin="0,0,0,14">
-                        <TextBlock Text="留一刻，给自己" Style="{StaticResource PageTitle}" />
-                        <TextBlock Text="选一件想做的事，让专注慢慢发生。" Style="{StaticResource PageSubtitle}" />
-                    </StackPanel>
+                    <TextBlock x:Name="FocusPageTitle" Text="{present:Translate '留一刻，给自己'}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="20" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
-                        <Border CornerRadius="24" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <Border x:Name="WindowFocusScene" CornerRadius="24" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                             <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="{DynamicResource HeroStartColor}" Offset="0" /><GradientStop Color="{DynamicResource HeroMiddleColor}" Offset="0.55" /><GradientStop Color="{DynamicResource HeroEndColor}" Offset="1" /></LinearGradientBrush></Border.Background>
                             <Grid>
                                 <views:FocusBackgroundView x:Name="FocusBackground" DataContext="{Binding Media}" BackgroundImage="{Binding Background}" AnimatedUri="{Binding BackgroundGifUri}" VideoUri="{Binding BackgroundVideoUri}" CornerRadius="24" />
-                                <Border CornerRadius="24" Background="#6B0D1826" Visibility="{Binding Media.HasBackground, Converter={StaticResource BoolVisibility}}" />
+                                <Border CornerRadius="24" Background="#520D1826" Visibility="{Binding Media.HasBackground, Converter={StaticResource BoolVisibility}}" />
                                 <Grid Margin="24,20">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                    <DockPanel>
+                                    <DockPanel x:Name="WindowFocusHeader">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                             <TextBlock Text="{Binding SessionModeText}" Style="{StaticResource SceneCaption}" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                            <Button x:Name="OpenStudyBrowserButton" Content="学习浏览器  ↗" Click="OpenStudyBrowser_Click" Style="{StaticResource SceneQuietButton}" ToolTip="打开学习浏览器" />
+                                            <Button x:Name="FocusScreenshotButton" FontSize="17" Content="&#xE722;" FontFamily="Segoe MDL2 Assets" Click="FocusScreenshot_Click" Style="{StaticResource SceneQuietButton}" ToolTip="{present:Translate '保存专注截图'}" AutomationProperties.Name="{present:Translate '保存专注截图'}" Margin="0,0,8,0" />
+                                            <Button x:Name="OpenStudyBrowserButton" Content="{present:Translate '学习浏览器  ↗'}" Click="OpenStudyBrowser_Click" Style="{StaticResource SceneQuietButton}" ToolTip="{present:Translate '打开学习浏览器'}" />
                                         </StackPanel>
                                         <TextBlock Text="F O C U S B L O O M" Style="{StaticResource SceneCaption}" FontSize="11" />
                                     </DockPanel>
                                     <Viewbox Grid.Row="1" Margin="0,12" Stretch="Uniform" StretchDirection="DownOnly">
                                         <StackPanel Width="420" HorizontalAlignment="Center">
-                                            <TextBlock Text="{Binding FocusHeading}" Style="{StaticResource SceneText}" FontSize="21" FontWeight="Medium" HorizontalAlignment="Center" TextAlignment="Center" />
+                                            <TextBlock Text="{Binding FocusHeading}" Style="{StaticResource SceneText}" FontSize="{DynamicResource FocusHeadingSize}" FontWeight="Medium" HorizontalAlignment="Center" TextAlignment="Center" />
                                             <TextBlock Text="{Binding FocusTodoText}" Style="{StaticResource SceneCaption}" FontSize="13" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" Visibility="{Binding HasFocusTodo, Converter={StaticResource BoolVisibility}}" />
-                                            <TextBlock x:Name="TimerDisplay" Text="{Binding TimerText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusTimerFont}" FontWeight="Light" Typography.NumeralAlignment="Tabular" FontSize="72" HorizontalAlignment="Center" Margin="0,16,0,10" />
+                                            <TextBlock x:Name="TimerDisplay" Text="{Binding TimerText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusTimerFont}" FontWeight="Light" Typography.NumeralAlignment="Tabular" FontSize="{DynamicResource FocusTimerSize}" HorizontalAlignment="Center" Margin="0,16,0,10" />
                                             <TextBlock Text="{Binding StateText}" Style="{StaticResource SceneText}" HorizontalAlignment="Center" />
                                             <TextBlock Text="{Binding PhaseText}" Style="{StaticResource SceneCaption}" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0" />
-                                            <TextBlock x:Name="FocusQuoteDisplay" Text="{Binding Media.QuoteText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusQuoteFont}" TextAlignment="Center" FontSize="18" LineHeight="30" MaxHeight="120" TextTrimming="CharacterEllipsis" Margin="15,24,15,0" />
+                                            <TextBlock x:Name="FocusQuoteDisplay" Text="{Binding Media.QuoteText}" Style="{StaticResource SceneText}" FontFamily="{DynamicResource FocusQuoteFont}" TextAlignment="Center" FontSize="{DynamicResource FocusQuoteSize}" LineHeight="30" MaxHeight="120" TextTrimming="CharacterEllipsis" Margin="15,24,15,0" />
                                             <present:QuoteAttributionText Quote="{Binding Media.CurrentQuote}" Style="{StaticResource SceneCaption}" FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0" ToolTip="{Binding Media.QuoteSource}" />
                                         </StackPanel>
                                     </Viewbox>
-                                    <Grid Grid.Row="2">
+                                    <Grid x:Name="WindowFocusActions" Grid.Row="2">
                                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <StackPanel>
                                         <WrapPanel HorizontalAlignment="Center">
-                                            <Button x:Name="StartButton" Content="开始专注  →" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="200" Padding="24,12" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
-                                            <Button x:Name="PauseButton" Content="暂停" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Margin="0,0,10,0" Width="110" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
-                                            <Button x:Name="ResumeButton" Content="继续专注" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" Width="120" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
-                                            <Button x:Name="EndButton" Content="结束" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="100" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,10,0" />
-                                            <Button Content="跳过休息" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="180" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
+                                            <Button x:Name="StartButton" Content="{present:Translate '开始专注  →'}" Command="{Binding StartCommand}" Style="{StaticResource PrimaryButton}" Width="200" Padding="24,12" Visibility="{Binding ShowStart, Converter={StaticResource BoolVisibility}}" />
+                                            <Button x:Name="PauseButton" Content="{present:Translate '暂停'}" Command="{Binding PauseCommand}" Style="{StaticResource SceneButton}" Margin="0,0,10,0" Width="110" Visibility="{Binding ShowPause, Converter={StaticResource BoolVisibility}}" />
+                                            <Button x:Name="ResumeButton" Content="{present:Translate '继续专注'}" Command="{Binding ResumeCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" Width="120" Visibility="{Binding ShowResume, Converter={StaticResource BoolVisibility}}" />
+                                            <Button x:Name="EndButton" Content="{present:Translate '结束'}" Command="{Binding EndCommand}" Style="{StaticResource SceneButton}" Width="100" Visibility="{Binding ShowEnd, Converter={StaticResource BoolVisibility}}" Margin="0,0,10,0" />
+                                            <Button Content="{present:Translate '跳过休息'}" Command="{Binding SkipRestCommand}" Style="{StaticResource PrimaryButton}" Width="180" Visibility="{Binding ShowSkipRest, Converter={StaticResource BoolVisibility}}" />
                                         </WrapPanel>
+                                        </StackPanel>
                                         <Grid Grid.Row="1" Margin="0,18,0,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                            <ToggleButton x:Name="FocusKeepScreenOnButton" Content="常亮" IsChecked="{Binding KeepScreenOn}" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Left" ToolTip="保持屏幕常亮，专注与暂停时生效" />
+                                            <ToggleButton x:Name="FocusKeepScreenOnButton" Content="{present:Translate '常亮'}" IsChecked="{Binding KeepScreenOn}" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Left" ToolTip="{present:Translate '保持屏幕常亮，专注与暂停时生效'}" />
                                             <Button Grid.Column="1" ToolTip="{Binding Media.ImageSourceInfo}" Command="{Binding Media.OpenImageSourceCommand}" Opacity="0.5" FontSize="9" VerticalAlignment="Center" MaxWidth="170"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource SceneQuietButton}"><Style.Triggers><DataTrigger Binding="{Binding ShowOutcomeEntry}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style><TextBlock Text="{Binding Media.ImageCredit}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" /></Button>
-                                            <ToggleButton x:Name="FocusSoundPanelButton" Grid.Column="2" Content="声音" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Right" ToolTip="音源、播放与音量" />
-                                            <Button Grid.Column="1" Content="补记成果（可选）" Click="LatestOutcome_Click" Style="{StaticResource SceneQuietButton}" FontSize="11" Visibility="{Binding ShowOutcomeEntry, Converter={StaticResource BoolVisibility}}" />
+                                            <ToggleButton x:Name="FocusSoundPanelButton" Grid.Column="2" Content="{present:Translate '声音'}" Style="{StaticResource SceneUtilityToggle}" HorizontalAlignment="Right" ToolTip="{present:Translate '音源、播放与音量'}" />
+                                            <Button Grid.Column="1" Content="{present:Translate '补记成果（可选）'}" Click="LatestOutcome_Click" Style="{StaticResource SceneQuietButton}" FontSize="11" Visibility="{Binding ShowOutcomeEntry, Converter={StaticResource BoolVisibility}}" />
                                         </Grid>
                                         <Popup x:Name="FocusSoundPopup" IsOpen="{Binding IsChecked, ElementName=FocusSoundPanelButton}" PlacementTarget="{Binding ElementName=FocusSoundPanelButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True">
                                             <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16" Padding="20" Width="340" DataContext="{Binding Media}"><views:FocusAudioControls /></Border>
@@ -102,41 +103,41 @@
                         </Border>
                         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Bottom" Text="计时说明 ⓘ" FontSize="11" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" Margin="0,12,0,0" ToolTip="暂停和休息不计入专注时长。番茄循环每轮单独记录，专注不足10秒不计入。" />
+                                <TextBlock DockPanel.Dock="Bottom" Text="{present:Translate '计时说明 ⓘ'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" Margin="0,12,0,0" ToolTip="{present:Translate '暂停和休息不计入专注时长。番茄循环每轮单独记录，专注不足10秒不计入。'}" />
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                     <StackPanel>
-                                        <TextBlock Text="这次，专注什么？" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,22" />
-                                        <TextBlock x:Name="FocusConfigurationHint" Text="结束本次专注或休息后，可修改项目和计时设置。" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14">
+                                        <TextBlock Text="{present:Translate '这次，专注什么？'}" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,22" />
+                                        <TextBlock x:Name="FocusConfigurationHint" Text="{present:Translate '结束本次专注或休息后，可修改项目和计时设置。'}" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14">
                                             <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanConfigure}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                         </TextBlock>
                                         <StackPanel IsEnabled="{Binding CanConfigure}">
-                                            <TextBlock Text="文件夹" Style="{StaticResource Caption}" />
+                                            <TextBlock Text="{present:Translate '文件夹'}" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="FocusFolderSelector" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" DisplayMemberPath="Name" Margin="0,0,0,16" />
-                                            <TextBlock Text="专注项目" Style="{StaticResource Caption}" />
+                                            <TextBlock Text="{present:Translate '专注项目'}" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="ProjectSelector" ItemsSource="{Binding FolderProjects}" SelectedItem="{Binding SelectedProject}" DisplayMemberPath="Name" Margin="0,0,0,16" />
-                                            <Expander x:Name="FocusTodoOptions" Header="关联待办（可选）" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14"><StackPanel Margin="0,10,0,0"><TextBlock Text="待办文件夹" Style="{StaticResource Caption}" />
+                                            <Expander x:Name="FocusTodoOptions" Header="{present:Translate '关联待办（可选）'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14"><StackPanel Margin="0,10,0,0"><TextBlock Text="{present:Translate '待办文件夹'}" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="FocusTodoFolderSelector" ItemsSource="{Binding FocusTodoFolderChoices}" SelectedItem="{Binding SelectedFocusTodoFolder}" DisplayMemberPath="Name" Margin="0,0,0,16" />
-                                            <TextBlock Text="关联待办事项" Style="{StaticResource Caption}" />
+                                            <TextBlock Text="{present:Translate '关联待办事项'}" Style="{StaticResource Caption}" />
                                             <ComboBox x:Name="FocusTodoSelector" ItemsSource="{Binding FolderFocusTodoChoices}" SelectedItem="{Binding SelectedFocusTodo}" DisplayMemberPath="Title" IsEnabled="{Binding HasFocusTodoFolder}" Margin="0,0,0,4" /></StackPanel></Expander>
-                                            <TextBlock Text="计时方式" Style="{StaticResource Caption}" />
-                                            <ComboBox x:Name="TimerModeSelector" ItemsSource="{Binding TimerModes}" SelectedItem="{Binding SelectedTimerMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
-                                            <TextBlock Text="专注模式" Style="{StaticResource Caption}" />
-                                            <ComboBox x:Name="RestrictionModeSelector" ItemsSource="{Binding RestrictionModes}" SelectedItem="{Binding SelectedRestrictionMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
+                                            <TextBlock Text="{present:Translate '计时方式'}" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="TimerModeSelector" ItemsSource="{Binding TimerModes}" SelectedItem="{Binding SelectedTimerMode}" ItemTemplate="{StaticResource UiNameItem}" Margin="0,0,0,16" />
+                                            <TextBlock Text="{present:Translate '专注模式'}" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="RestrictionModeSelector" ItemsSource="{Binding RestrictionModes}" SelectedItem="{Binding SelectedRestrictionMode}" ItemTemplate="{StaticResource UiNameItem}" Margin="0,0,0,16" />
                                             <StackPanel Visibility="{Binding Countdown, Converter={StaticResource BoolVisibility}}" Margin="0,0,0,16">
-                                                <TextBlock Text="专注时长 / 分钟" Style="{StaticResource Caption}" />
+                                                <TextBlock Text="{present:Translate '专注时长 / 分钟'}" Style="{StaticResource Caption}" />
                                                 <TextBox Text="{Binding DurationMinutes, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                             <Grid Visibility="{Binding SingleTimer, Converter={StaticResource BoolVisibility}}">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                                <StackPanel><TextBlock Text="暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                                <StackPanel Grid.Column="2"><TextBlock Text="休息 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                                <StackPanel><TextBlock Text="{present:Translate '暂停 / 分钟'}" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                                <StackPanel Grid.Column="2"><TextBlock Text="{present:Translate '休息 / 分钟'}" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                                             </Grid>
                                             <views:PomodoroSettingsView x:Name="PomodoroConfiguration" Visibility="{Binding Pomodoro, Converter={StaticResource BoolVisibility}}" />
                                             <StackPanel Visibility="{Binding Pomodoro, Converter={StaticResource BoolVisibility}}" Margin="0,14,0,0">
-                                                <TextBlock Text="暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock Text="{present:Translate '暂停 / 分钟'}" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                         </StackPanel>
-                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="10" Padding="12" Margin="0,16,0,0" Visibility="{Binding HasResumeNote, Converter={StaticResource BoolVisibility}}"><StackPanel><TextBlock Text="接着上次继续" FontSize="11" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,6" /><TextBlock Text="{Binding FocusResumeNote}" FontSize="12" TextWrapping="Wrap" /></StackPanel></Border>
+                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="10" Padding="12" Margin="0,16,0,0" Visibility="{Binding HasResumeNote, Converter={StaticResource BoolVisibility}}"><StackPanel><TextBlock Text="{present:Translate '接着上次继续'}" FontSize="11" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,6" /><TextBlock Text="{Binding FocusResumeNote}" FontSize="12" TextWrapping="Wrap" /></StackPanel></Border>
                                     </StackPanel>
                                 </ScrollViewer>
                             </DockPanel>
@@ -144,20 +145,23 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="ProjectsTab" ToolTip="项目库">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="项目库" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="ProjectsTab" ToolTip="{present:Translate '项目库'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '项目库'}" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="190" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
+                            <ColumnDefinition x:Name="ProjectSidebarColumn"><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="{Binding ProjectSidebarWidth}" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
                             <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="20" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
                             <ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <present:SidebarSplitter x:Name="ProjectSidebarSplitter" Grid.Column="1" PaneWidth="{Binding ProjectSidebarWidth, Mode=TwoWay}">
+                            <present:SidebarSplitter.Style><Style TargetType="{x:Type present:SidebarSplitter}" BasedOn="{StaticResource {x:Type present:SidebarSplitter}}"><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></present:SidebarSplitter.Style>
+                        </present:SidebarSplitter>
                         <Border x:Name="ProjectFoldersPane" Padding="10,14"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Style.Triggers><DataTrigger Binding="{Binding IsChecked, ElementName=ProjectSidebarToggle}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Border.Style>
                             <DockPanel>
-                                <StackPanel DockPanel.Dock="Top" Margin="4,0,4,14"><TextBlock Text="专注文件夹" Foreground="{DynamicResource MutedBrush}" FontWeight="SemiBold" FontSize="12" /></StackPanel>
+                                <StackPanel DockPanel.Dock="Top" Margin="4,0,4,14"><TextBlock Text="{present:Translate '专注文件夹'}" Foreground="{DynamicResource MutedBrush}" FontWeight="SemiBold" FontSize="12" /></StackPanel>
                                 <Border x:Name="NewFolderArea" DockPanel.Dock="Bottom" Margin="6,10,6,0">
-                                    <Button x:Name="AddFolderButton" Content="＋ 新建文件夹" Click="NewFolder_Click" Padding="10,8" Height="36" FontSize="12" />
+                                    <Button x:Name="AddFolderButton" Content="{present:Translate '＋ 新建文件夹'}" Click="NewFolder_Click" Padding="10,8" Height="36" FontSize="12" />
                                 </Border>
                                 <ListBox x:Name="FolderList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder}" ItemContainerStyle="{StaticResource FolderItem}">
                                     <ListBox.ItemTemplate><DataTemplate>
@@ -166,7 +170,7 @@
                                             <Path Data="M 2,5 L 9,5 L 12,8 L 22,8 L 22,21 L 2,21 Z" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource AccentSoftBrush}" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Margin="0,4,8,0" />
                                             <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" /><TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,5,0,0" /></StackPanel>
                                             <present:ReorderButton Grid.Column="2" VerticalAlignment="Top" ReorderRequested="FolderOrder_Requested" />
-                                            <Button Grid.Column="3" Content="···" Click="EditFolder_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" Background="Transparent" ToolTip="修改或删除文件夹" />
+                                            <Button Grid.Column="3" Click="EditFolder_Click" Style="{StaticResource FolderMenuButton}" VerticalAlignment="Top" ToolTip="{present:Translate '修改或删除文件夹'}" />
                                         </Grid>
                                     </DataTemplate></ListBox.ItemTemplate>
                                 </ListBox>
@@ -175,15 +179,15 @@
                         <Border x:Name="ProjectContentCard" Grid.Column="2" Style="{StaticResource Card}" Padding="16">
                             <DockPanel>
                                 <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-                                    <Border x:Name="NewProjectArea" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center"><Button x:Name="AddProjectButton" Content="＋ 新建项目" Click="NewProject_Click" Style="{StaticResource PrimaryButton}" Padding="12,7" Height="36" FontSize="12" /></Border>
-                                    <ComboBox x:Name="ProjectLibraryScopeSelector" DockPanel.Dock="Right" ItemsSource="{Binding ProjectLibraryScopes}" SelectedItem="{Binding ProjectLibraryScope}" Width="126" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center" /><ToggleButton x:Name="ProjectSidebarToggle" DockPanel.Dock="Left" Style="{StaticResource SidebarToggle}" ToolTip="展开或收起文件夹" Margin="0,0,12,0" VerticalAlignment="Center" />
-                                    <StackPanel><TextBlock Text="{Binding ProjectLibraryTitle}" FontSize="20" FontWeight="SemiBold" /><TextBlock Text="{Binding ProjectLibrarySummary}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" /></StackPanel>
+                                    <Border x:Name="NewProjectArea" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center"><Button x:Name="AddProjectButton" Content="{present:Translate '＋ 新建项目'}" Click="NewProject_Click" Style="{StaticResource PrimaryButton}" Padding="12,7" Height="36" FontSize="12" /></Border>
+                                    <ComboBox x:Name="ProjectLibraryScopeSelector" DockPanel.Dock="Right" ItemsSource="{Binding ProjectLibraryScopes}" SelectedItem="{Binding ProjectLibraryScope}" Width="126" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"  ItemTemplate="{StaticResource UiStringItem}" /><ToggleButton x:Name="ProjectSidebarToggle" DockPanel.Dock="Left" Style="{StaticResource SidebarToggle}" ToolTip="{present:Translate '展开或收起文件夹'}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ProjectLibraryTitle}" Style="{StaticResource PageTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
                                 <Grid>
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding ProjectLibraryEmpty, Converter={StaticResource BoolVisibility}}">
                                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" FontSize="46" Foreground="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center" />
-                                        <TextBlock Text="这里还没有项目" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,8" HorizontalAlignment="Center" />
-                                        <TextBlock Text="添加第一个想专注的项目吧" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                        <TextBlock Text="{present:Translate '这里还没有项目'}" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,8" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{present:Translate '添加第一个想专注的项目吧'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
                                     </StackPanel>
                                     <ListBox x:Name="ProjectList" present:ReorderButton.EnableDrop="True" ItemsSource="{Binding ProjectLibraryItems}" SelectedItem="{Binding SelectedLibraryProject}" ScrollViewer.VerticalScrollBarVisibility="Visible">
                                         <ListBox.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource {x:Type ScrollBar}}"><Style.Triggers><Trigger Property="Maximum" Value="0"><Setter Property="Opacity" Value="0" /></Trigger></Style.Triggers></Style></ListBox.Resources>
@@ -193,12 +197,12 @@
                                             <Border present:GroupDragDrop.Source="True" LayoutTransform="{DynamicResource ProjectCardTransform}" Height="120" Padding="12" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Background="{DynamicResource FieldBrush}">
                                                 <StackPanel>
                                                     <DockPanel Margin="0,0,0,8">
-                                                        <Button DockPanel.Dock="Right" Content="···" Click="EditProject_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" HorizontalAlignment="Right" Background="Transparent" ToolTip="修改或删除项目" />
+                                                        <Button DockPanel.Dock="Right" Content="···" Click="EditProject_Click" Width="26" Height="26" Padding="0" FontSize="16" VerticalAlignment="Top" HorizontalAlignment="Right" Background="Transparent" ToolTip="{present:Translate '修改或删除项目'}" />
                                                         <present:ReorderButton DockPanel.Dock="Right" VerticalAlignment="Top" ReorderRequested="ProjectOrder_Requested" />
                                                         <Border Background="{DynamicResource SubtleBrush}" Width="32" Height="32" CornerRadius="8" HorizontalAlignment="Left"><Path Data="M 3,1 L 16,1 L 23,8 L 23,31 L 3,31 Z M 16,1 L 16,8 L 23,8" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" Fill="{DynamicResource AccentSoftBrush}" StrokeThickness="1.5" Margin="9,6" /></Border>
                                                     </DockPanel>
                                                     <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                                    <TextBlock Text="{Binding Category}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding PlanSummary}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate></ListBox.ItemTemplate>
@@ -209,46 +213,47 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="TodoTab" ToolTip="待办事项">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73A;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="待办事项" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="TodoTab" ToolTip="{present:Translate '待办事项'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73A;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '待办事项'}" /></StackPanel></TabItem.Header>
                 <views:TodosView x:Name="TodoPage" DataContext="{Binding Todos}" />
             </TabItem>
-            <TabItem x:Name="CalendarTab" ToolTip="日历与课表">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE787;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="日历与课表" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="CalendarTab" ToolTip="{present:Translate '日历与课表'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE787;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '日历与课表'}" /></StackPanel></TabItem.Header>
                 <views:CalendarView x:Name="CalendarPage" DataContext="{Binding Calendar}" />
             </TabItem>
-            <TabItem x:Name="DateEventsTab" ToolTip="日期事项">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="日期事项" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="DateEventsTab" ToolTip="{present:Translate '日期事项'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE916;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '日期事项'}" /></StackPanel></TabItem.Header>
                 <views:DateEventsView DataContext="{Binding DateEvents}" />
             </TabItem>
-            <TabItem x:Name="RecordsTab" ToolTip="专注记录">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="专注记录" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="RecordsTab" ToolTip="{present:Translate '专注记录'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D9;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '专注记录'}" /></StackPanel></TabItem.Header>
                 <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <DockPanel Margin="0,0,0,8">
-                        <Button DockPanel.Dock="Right" Content="重试保存" Command="{Binding RetrySaveCommand}" Visibility="{Binding HasUnsavedRecord, Converter={StaticResource BoolVisibility}}" />
-                        <TextBlock DockPanel.Dock="Left" Text="专注记录" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,18,0" />
+                    <DockPanel Margin="0,0,0,14">
+                        <Button DockPanel.Dock="Right" Content="{present:Translate '重试保存'}" Command="{Binding RetrySaveCommand}" Visibility="{Binding HasUnsavedRecord, Converter={StaticResource BoolVisibility}}" />
+                        <TextBlock DockPanel.Dock="Left" Text="{present:Translate '专注记录'}" Style="{StaticResource PageTitle}" Margin="0,0,18,0" />
                         <StackPanel Orientation="Horizontal">
-                            <Button x:Name="RecordTimelineButton" Content="时间轴" Tag="时间轴" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="时间轴"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
-                            <Button x:Name="RecordStatisticsButton" Content="统计" Tag="统计" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="统计"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
-                            <Button x:Name="RecordReviewButton" Content="复盘" Tag="复盘" Click="RecordPage_Click" Padding="12,6" FontSize="12"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="复盘"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                            <Button x:Name="RecordTimelineButton" Content="{present:Translate '时间轴'}" Tag="时间轴" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="时间轴"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                            <Button x:Name="RecordStatisticsButton" Content="{present:Translate '统计'}" Tag="统计" Click="RecordPage_Click" Padding="12,6" FontSize="12" Margin="0,0,6,0"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="统计"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+                            <Button x:Name="RecordReviewButton" Content="{present:Translate '复盘'}" Tag="复盘" Click="RecordPage_Click" Padding="12,6" FontSize="12"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding RecordPage}" Value="复盘"><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger></Style.Triggers></Style></Button.Style></Button>
                         </StackPanel>
                     </DockPanel>
                     <views:CalendarView x:Name="FocusCalendarPage" Grid.Row="1" DataContext="{Binding FocusCalendar}" Visibility="{Binding DataContext.ShowRecordCalendar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
                     <views:StatisticsView x:Name="StatisticsPage" Grid.Row="1" DataContext="{Binding Statistics}" Visibility="{Binding DataContext.ShowRecordStatistics, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
                 </Grid>
             </TabItem>
-            <TabItem x:Name="PreferencesTab" ToolTip="偏好设置">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="偏好设置" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="PreferencesTab" ToolTip="{present:Translate '偏好设置'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '偏好设置'}" /></StackPanel></TabItem.Header>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <StackPanel Margin="0,0,0,14"><TextBlock Text="偏好设置" Style="{StaticResource PageTitle}" /><TextBlock Text="按功能展开，或搜索要调整的设置。" Style="{StaticResource PageSubtitle}" /></StackPanel>
-                    <DockPanel Grid.Row="1" Margin="0,0,0,12"><TextBlock Text="搜索设置" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource MutedBrush}" /><TextBox x:Name="SettingsSearchInput" TextChanged="SettingsSearch_Changed" ToolTip="输入字体、背景、颜色、提醒等关键词" /></DockPanel>
+                    <TextBlock x:Name="SettingsPageTitle" Text="{present:Translate '偏好设置'}" Style="{StaticResource PageTitle}" Margin="0,0,0,14" />
+                    <DockPanel Grid.Row="1" Margin="0,0,0,12"><TextBlock Text="{present:Translate '搜索设置'}" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource MutedBrush}" /><TextBox x:Name="SettingsSearchInput" TextChanged="SettingsSearch_Changed" ToolTip="{present:Translate '输入字体、背景、颜色、提醒等关键词'}" /></DockPanel>
                     <ScrollViewer x:Name="PreferencesScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto" ScrollChanged="PreferencesScroll_Changed">
                         <StackPanel>
-                            <TextBlock x:Name="SettingsSearchEmpty" Text="没有匹配的设置，试试字体、背景或提醒等关键词。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed" />
-                            <Expander x:Name="NavigationSettingsSection" Header="导航展示与顺序" Style="{StaticResource SettingsSection}">
+                            <TextBlock x:Name="SettingsSearchEmpty" Text="{present:Translate '没有匹配的设置，试试字体、背景或提醒等关键词。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed" />
+                            <Expander x:Name="AccountSettingsSection" Header="{present:Translate '账号与同步'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><views:AccountSettingsView x:Name="AccountSettings" /></Border></Expander>
+                            <Expander x:Name="NavigationSettingsSection" Header="{present:Translate '导航展示与顺序'}" Style="{StaticResource SettingsSection}">
                                 <Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
-                                    <TextBlock Text="勾选要显示的栏目，拖动右侧手柄调整顺序。偏好设置入口始终保留。" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,12" />
+                                    <TextBlock Text="{present:Translate '勾选要显示的栏目，拖动右侧手柄调整顺序。偏好设置入口始终保留。'}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,12" />
                                     <ItemsControl x:Name="NavigationSettingsItems" ItemsSource="{Binding Navigation.Items}" present:ReorderButton.EnableDrop="True"><ItemsControl.ItemTemplate><DataTemplate>
                                         <Border Background="{DynamicResource FieldBrush}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6"><DockPanel>
                                             <present:ReorderButton DockPanel.Dock="Right" ReorderRequested="NavigationOrder_Requested" />
@@ -259,54 +264,78 @@
                                 </StackPanel></Border>
                             </Expander>
 
-                            <Expander x:Name="MediaSettingsSection" Header="专注图文与声音" Style="{StaticResource SettingsSection}"><Border x:Name="FocusMediaSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusMediaSettingsView DataContext="{Binding Media}" /></Border></Expander>
-                            <Expander x:Name="AppearanceSettingsSection" Header="外观与配色" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                            <Expander x:Name="MediaSettingsSection" Header="{present:Translate '专注图文与声音'}" Style="{StaticResource SettingsSection}"><Border x:Name="FocusMediaSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusMediaSettingsView DataContext="{Binding Media}" /></Border></Expander>
+                            <Expander x:Name="AppearanceSettingsSection" Header="{present:Translate '外观与配色'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
-                                    <TextBlock Text="马卡龙与莫兰迪，选一种今天喜欢的颜色。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,20" />
                                     <ListBox Style="{StaticResource FlowCardList}" x:Name="PaletteSelector" ItemsSource="{Binding Palettes}" SelectedItem="{Binding SelectedPalette}" ItemContainerStyle="{StaticResource ProjectItem}">
                                         <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Border Width="210" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="14">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Ellipse Width="25" Height="25" Fill="{Binding Swatch}" Margin="0,0,12,0" />
-                                                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Name, Converter={StaticResource UiTextConverter}}" FontSize="12" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate></ListBox.ItemTemplate>
                                     </ListBox>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="明暗模式" Foreground="{DynamicResource MutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,18,0" />
-                                        <ComboBox x:Name="AppearanceModeSelector" Width="180" ItemsSource="{Binding AppearanceModes}" SelectedItem="{Binding SelectedAppearanceMode}" DisplayMemberPath="Name" />
-                                        <TextBlock Text="选择后立即应用，并在本机保存" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                        <Button Content="{present:Translate '自定义配色'}" Click="CustomPalette_Click" Margin="0,0,12,0" />
+                                        <TextBlock Text="{present:Translate '明暗模式'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,18,0" />
+                                        <ComboBox x:Name="AppearanceModeSelector" Width="180" ItemsSource="{Binding AppearanceModes}" SelectedItem="{Binding SelectedAppearanceMode}" ItemTemplate="{StaticResource UiNameItem}" />
+                                        <TextBlock Text="{present:Translate '选择后立即应用，并在本机保存'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border></Expander>
-                            <Expander x:Name="FontSettingsSection" Header="专注字体" Style="{StaticResource SettingsSection}"><Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border></Expander>
-                            <Expander x:Name="FloatSettingsSection" Header="桌面浮窗与组件" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                            <Expander x:Name="InterfaceFontSettingsSection" Header="{present:Translate '软件字体'}" Style="{StaticResource SettingsSection}">
+                                <Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                                    <StackPanel DataContext="{Binding Typography}">
+                                        <ComboBox x:Name="InterfaceFontSelector" ItemsSource="{Binding InterfaceFonts}" SelectedItem="{Binding InterfaceFont}" ItemTemplate="{StaticResource UiNameItem}" Width="200" HorizontalAlignment="Left" AutomationProperties.Name="{present:Translate '软件字体'}" />
+                                        <DockPanel Margin="0,12,0,0" MaxWidth="350" HorizontalAlignment="Left">
+                                            <TextBlock DockPanel.Dock="Left" Text="{present:Translate '界面字号'}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding InterfaceSizePercent, StringFormat={}{0:0}%}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                            <Slider x:Name="InterfaceSizeSelector" Width="180" Minimum="80" Maximum="120" TickFrequency="10" IsSnapToTickEnabled="True" Value="{Binding InterfaceSizePercent}" AutomationProperties.Name="{present:Translate '界面字号'}" />
+                                        </DockPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Expander>
+                            <Expander x:Name="FontSettingsSection" Header="{present:Translate '专注字体'}" Style="{StaticResource SettingsSection}"><Border x:Name="FocusFontSettingsCard" Style="{StaticResource Card}" Margin="0,8,0,0"><views:FocusFontSettingsView DataContext="{Binding Typography}" /></Border></Expander>
+                            <Expander x:Name="LanguageSettingsSection" Header="语言/Language" Style="{StaticResource SettingsSection}">
+                                <Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+                                    <DockPanel HorizontalAlignment="Left">
+                                        <ComboBox x:Name="LanguageSelector" SelectedValuePath="Tag" Width="160">
+                                            <ComboBoxItem Tag="zh-CN">简体中文</ComboBoxItem>
+                                            <ComboBoxItem Tag="en">English</ComboBoxItem>
+                                        </ComboBox>
+                                        <Button Content="{present:Translate '保存语言'}" Click="SaveLanguage_Click" Margin="12,0,0,0" />
+                                    </DockPanel>
+                                    <TextBlock Text="{present:Translate '重开软件后应用语言设置。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
+                                </StackPanel></Border>
+                            </Expander>
+                            <Expander x:Name="FloatSettingsSection" Header="{present:Translate '桌面浮窗与组件'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
-                                    <CheckBox Content="显示计时浮窗" IsChecked="{Binding TimerFloatVisible}" />
-                                    <TextBlock Text="共用当前计时，主窗口进入托盘后继续显示。在浮窗设置里选择置顶、背景和透明度；关闭浮窗不会结束专注。" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
+                                    <CheckBox Content="{present:Translate '显示计时浮窗'}" IsChecked="{Binding TimerFloatVisible}" />
+                                    <TextBlock Text="{present:Translate '共用当前计时，主窗口进入托盘后继续显示。在浮窗设置里选择置顶、背景和透明度；关闭浮窗不会结束专注。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
                                     <views:DesktopWidgetSettingsView x:Name="DesktopWidgetSettings" DataContext="{Binding Widgets}" />
                                 </StackPanel>
                             </Border></Expander>
-                            <Expander x:Name="SizeSettingsSection" Header="事项块大小" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+                            <Expander x:Name="SizeSettingsSection" Header="{present:Translate '事项块大小'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
 
-                                <TextBlock Text="按板块调整大小，立即生效并保存。100% 为默认大小。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,8,0,14" />
+                                <TextBlock Text="{present:Translate '按板块调整大小，立即生效并保存。100% 为默认大小。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,8,0,14" />
                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="选择板块" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="{present:Translate '选择板块'}" Style="{StaticResource Caption}" />
                                         <ComboBox x:Name="CardSizeSelector" ItemsSource="{Binding CardSizing.Options}" SelectedItem="{Binding CardSizing.PreviewOption}" DisplayMemberPath="Name" />
                                         <StackPanel DataContext="{Binding CardSizing.PreviewOption}" Margin="0,18,0,0">
-                                            <DockPanel><TextBlock Text="大小" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="{Binding PercentageText}" HorizontalAlignment="Right" FontWeight="SemiBold" /></DockPanel>
+                                            <DockPanel><TextBlock Text="{present:Translate '大小'}" Foreground="{DynamicResource MutedBrush}" /><TextBlock Text="{Binding PercentageText}" HorizontalAlignment="Right" FontWeight="SemiBold" /></DockPanel>
                                             <Slider x:Name="CardSizeSlider" Minimum="70" Maximum="140" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Percentage, UpdateSourceTrigger=PropertyChanged}" Margin="0,12,0,12" />
                                             <TextBlock Text="{Binding PreviewDescription}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
-                                            <Button Content="恢复默认大小" Command="{Binding ResetCommand}" Padding="10,7" FontSize="11" HorizontalAlignment="Left" Margin="0,18,0,0" />
+                                            <Button Content="{present:Translate '恢复默认大小'}" Command="{Binding ResetCommand}" Padding="10,7" FontSize="11" HorizontalAlignment="Left" Margin="0,18,0,0" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" DataContext="{Binding CardSizing.PreviewOption}">
-                                        <TextBlock Text="实时预览" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" />
+                                        <TextBlock Text="{present:Translate '实时预览'}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" />
                                         <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="12" Padding="14" Height="285">
                                             <Border x:Name="CardSizePreview" Width="{Binding PreviewWidth}" Height="{Binding PreviewHeight}" LayoutTransform="{Binding PreviewTransform}" Background="{DynamicResource FieldBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="{Binding PreviewPadding}" HorizontalAlignment="Left" VerticalAlignment="Top">
                                                 <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding PreviewTitle}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding PreviewDetail}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" Visibility="{Binding ShowPreviewDetail, Converter={StaticResource BoolVisibility}}" /></StackPanel>
@@ -315,99 +344,116 @@
                                     </StackPanel>
                                 </Grid>
                             </StackPanel></Border></Expander>
-                            <Expander x:Name="ReminderSettingsSection" Header="日历与软件提醒" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+                            <Expander x:Name="ReminderSettingsSection" Header="{present:Translate '日历与软件提醒'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
 
-                                <CheckBox x:Name="SoftwareReminderToggle" Content="开启软件提醒" IsChecked="{Binding SoftwareRemindersEnabled}" />
-                                <TextBlock Text="总开关控制待办截止、日期事项、课程及计划安排的系统通知；关闭后保留各事项设置。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,14" />
-                                <CheckBox x:Name="OutlookSyncToggle" Content="与 Windows／Outlook 日历同步（待接入）" IsChecked="{Binding OutlookSyncRequested}" />
-                                <TextBlock Text="{Binding OutlookSyncStatus}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
+                                <CheckBox x:Name="SoftwareReminderToggle" Content="{present:Translate '开启软件提醒'}" IsChecked="{Binding SoftwareRemindersEnabled}" />
+                                <TextBlock Text="{present:Translate '总开关控制待办截止、日期事项、课程及计划安排的系统通知；关闭后保留各事项设置。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,14" />
+                                <StackPanel x:Name="OutlookSettings">
+                                    <CheckBox x:Name="OutlookSyncToggle" Content="{present:Translate '与 Windows／Outlook 日历同步（待接入）'}" IsChecked="{Binding OutlookSyncRequested}" />
+                                    <TextBlock Text="{Binding OutlookSyncStatus}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
+                                </StackPanel>
                             </StackPanel></Border></Expander>
-                            <Expander x:Name="TimerSettingsSection" Header="计时与番茄" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                            <Expander x:Name="TimerSettingsSection" Header="{present:Translate '计时与番茄'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
                                     <Grid MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="默认计时方式" Style="{StaticResource Caption}" />
-                                            <ComboBox x:Name="DefaultTimerModeSelector" ItemsSource="{Binding TimerModes}" SelectedItem="{Binding DefaultTimerMode}" DisplayMemberPath="Name" />
+                                            <TextBlock Text="{present:Translate '默认计时方式'}" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="DefaultTimerModeSelector" ItemsSource="{Binding TimerModes}" SelectedItem="{Binding DefaultTimerMode}" ItemTemplate="{StaticResource UiNameItem}" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="默认专注模式" Style="{StaticResource Caption}" />
-                                            <ComboBox x:Name="DefaultRestrictionModeSelector" ItemsSource="{Binding RestrictionModes}" SelectedItem="{Binding DefaultRestrictionMode}" DisplayMemberPath="Name" />
+                                            <TextBlock Text="{present:Translate '默认专注模式'}" Style="{StaticResource Caption}" />
+                                            <ComboBox x:Name="DefaultRestrictionModeSelector" ItemsSource="{Binding RestrictionModes}" SelectedItem="{Binding DefaultRestrictionMode}" ItemTemplate="{StaticResource UiNameItem}" />
                                         </StackPanel>
                                     </Grid>
                                     <Grid MaxWidth="540" HorizontalAlignment="Left" Width="540">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                        <StackPanel><TextBlock Text="默认暂停 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                        <StackPanel Grid.Column="2"><TextBlock Text="默认休息 / 分钟" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                        <StackPanel><TextBlock Text="{present:Translate '默认暂停 / 分钟'}" Style="{StaticResource Caption}" /><TextBox Text="{Binding PauseMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                        <StackPanel Grid.Column="2"><TextBlock Text="{present:Translate '默认休息 / 分钟'}" Style="{StaticResource Caption}" /><TextBox Text="{Binding RestMinutes, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                                     </Grid>
-                                    <TextBlock Text="保存后，每次开始默认采用所选方式和模式；也可在专注页临时调整本次选择。当前会话保持原设置，休息 0 分钟表示不休息。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,20" />
+                                    <TextBlock Text="{present:Translate '保存后，每次开始默认采用所选方式和模式；也可在专注页临时调整本次选择。当前会话保持原设置，休息 0 分钟表示不休息。'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,18,0,20" />
                                     <views:PomodoroSettingsView x:Name="PomodoroPreferences" Visibility="{Binding DefaultPomodoro, Converter={StaticResource BoolVisibility}}" MaxWidth="540" HorizontalAlignment="Left" Width="540" Margin="0,0,0,20" />
-                                    <Button x:Name="SaveTimerPreferencesButton" Content="保存偏好" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" />
+                                    <Button x:Name="SaveTimerPreferencesButton" Content="{present:Translate '保存偏好'}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Border></Expander>
-                            <Expander x:Name="BackupSettingsSection" Header="数据备份与恢复" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><views:BackupSettingsView x:Name="BackupSettings" /></Border></Expander>
-                            <Expander x:Name="RestrictionSettingsSection" Header="严格模式规则" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                            <Expander x:Name="BackupSettingsSection" Header="{present:Translate '数据备份与恢复'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0"><views:BackupSettingsView x:Name="BackupSettings" /></Border></Expander>
+                            <Expander x:Name="RestrictionSettingsSection" Header="{present:Translate '严格模式规则'}" Style="{StaticResource SettingsSection}"><Border Style="{StaticResource Card}" Margin="0,8,0,0">
                                 <StackPanel>
 
-                                    <TextBlock Text="外部浏览器由独立扩展控制，请在扩展中设置网站规则并开始专注。" Foreground="{DynamicResource AccentTextBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
-                                    <TextBlock Text="应用和网站分别选择黑名单或白名单，各自列表独立保存。本次专注采用开始时的规则，暂停保持限制，休息和结束解除限制。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,20" />
-                                    <TextBlock x:Name="RestrictionEditHint" Text="请先结束专注，再修改应用和网站规则。" FontSize="12" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,16" TextWrapping="Wrap">
+                                    <TextBlock Text="{present:Translate '外部浏览器由独立扩展控制，请在扩展中设置网站规则并开始专注。'}" Foreground="{DynamicResource AccentTextBrush}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="{present:Translate '应用和网站分别选择黑名单或白名单，各自列表独立保存。本次专注采用开始时的规则，暂停保持限制，休息和结束解除限制。'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,12,0,20" />
+                                    <TextBlock x:Name="RestrictionEditHint" Text="{present:Translate '请先结束专注，再修改应用和网站规则。'}" FontSize="12" Foreground="{DynamicResource AccentTextBrush}" Margin="0,0,0,16" TextWrapping="Wrap">
                                         <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanEditWhitelist}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                     </TextBlock>
                                     <StackPanel IsEnabled="{Binding CanEditWhitelist}">
-                                        <TextBlock Text="应用限制方式" Style="{StaticResource Caption}" />
-                                        <ComboBox x:Name="ApplicationAccessModeSelector" ItemsSource="{Binding Whitelist.ListModes}" SelectedItem="{Binding Whitelist.ApplicationMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
+                                        <TextBlock Text="{present:Translate '应用限制方式'}" Style="{StaticResource Caption}" />
+                                        <ComboBox x:Name="ApplicationAccessModeSelector" ItemsSource="{Binding Whitelist.ListModes}" SelectedItem="{Binding Whitelist.ApplicationMode}" ItemTemplate="{StaticResource UiNameItem}" Margin="0,0,0,16" />
                                         <TextBlock Text="{Binding Whitelist.ApplicationListTitle}" Style="{StaticResource Caption}" />
-                                        <TextBlock Text="商店应用更新后自动沿用原规则，无需重复添加。其他程序按安装路径识别。" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                                        <TextBlock Text="{present:Translate '商店应用更新后自动沿用原规则，无需重复添加。其他程序按安装路径识别。'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
                                         <ListBox x:Name="RestrictionApplicationList" ItemsSource="{Binding Whitelist.Applications}" SelectedItem="{Binding Whitelist.SelectedApplication}" MaxHeight="180" ItemContainerStyle="{StaticResource FolderItem}">
                                             <ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Name}" /><TextBlock Text="{Binding ExecutablePath}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,5,0,0" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
                                         </ListBox>
                                         <WrapPanel Margin="0,10,0,12">
-                                            <Button Content="选择运行中的应用" Click="SelectRunningApplication_Click" Margin="0,0,12,8" />
-                                            <Button Content="选择程序文件" Click="SelectApplicationFile_Click" Margin="0,0,12,8" />
-                                            <Button Content="移除应用" Click="RemoveApplication_Click" Margin="0,0,0,8" />
+                                            <Button Content="{present:Translate '选择运行中的应用'}" Click="SelectRunningApplication_Click" Margin="0,0,12,8" />
+                                            <Button Content="{present:Translate '选择程序文件'}" Click="SelectApplicationFile_Click" Margin="0,0,12,8" />
+                                            <Button Content="{present:Translate '移除应用'}" Click="RemoveApplication_Click" Margin="0,0,0,8" />
                                         </WrapPanel>
-                                        <TextBlock Text="软件自身、必要系统界面、任务管理器、Windows 截图工具和照片查看器自动放行。白名单只允许列表内应用；黑名单只限制列表内应用。浏览器应用可操作后，启用并连接扩展才能执行网站规则。" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,22" />
-                                        <TextBlock Text="网站限制方式" Style="{StaticResource Caption}" />
-                                        <ComboBox x:Name="WebsiteAccessModeSelector" ItemsSource="{Binding Whitelist.ListModes}" SelectedItem="{Binding Whitelist.WebsiteMode}" DisplayMemberPath="Name" Margin="0,0,0,16" />
+                                        <TextBlock Text="{present:Translate '软件自身、必要系统界面、任务管理器、Windows 截图工具和照片查看器自动放行。白名单只允许列表内应用；黑名单只限制列表内应用。浏览器应用可操作后，启用并连接扩展才能执行网站规则。'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,22" />
+                                        <TextBlock Text="{present:Translate '网站限制方式'}" Style="{StaticResource Caption}" />
+                                        <ComboBox x:Name="WebsiteAccessModeSelector" ItemsSource="{Binding Whitelist.ListModes}" SelectedItem="{Binding Whitelist.WebsiteMode}" ItemTemplate="{StaticResource UiNameItem}" Margin="0,0,0,16" />
                                         <TextBlock Text="{Binding Whitelist.WebsiteListTitle}" Style="{StaticResource Caption}" />
                                         <ListBox x:Name="RestrictionWebsiteList" ItemsSource="{Binding Whitelist.Websites}" SelectedItem="{Binding Whitelist.SelectedWebsite}" DisplayMemberPath="Description" MaxHeight="180" ItemContainerStyle="{StaticResource FolderItem}" />
-                                        <TextBox Text="{Binding Whitelist.Domain, UpdateSourceTrigger=PropertyChanged}" ToolTip="域名或网址，例如 example.edu" Margin="0,12,0,12" />
-                                        <CheckBox Content="规则包含子域名" IsChecked="{Binding Whitelist.IncludeSubdomains}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,14" />
+                                        <TextBox Text="{Binding Whitelist.Domain, UpdateSourceTrigger=PropertyChanged}" ToolTip="{present:Translate '域名或网址，例如 example.edu'}" Margin="0,12,0,12" />
+                                        <CheckBox Content="{present:Translate '规则包含子域名'}" IsChecked="{Binding Whitelist.IncludeSubdomains}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,14" />
                                         <WrapPanel>
-                                            <Button Content="保存网站" Command="{Binding Whitelist.SaveWebsiteCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,12,8" />
-                                            <Button Content="新建网站" Command="{Binding Whitelist.NewWebsiteCommand}" Margin="0,0,12,8" />
-                                            <Button Content="删除网站" Click="RemoveWebsite_Click" Margin="0,0,0,8" />
+                                            <Button Content="{present:Translate '保存网站'}" Command="{Binding Whitelist.SaveWebsiteCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,12,8" />
+                                            <Button Content="{present:Translate '新建网站'}" Command="{Binding Whitelist.NewWebsiteCommand}" Margin="0,0,12,8" />
+                                            <Button Content="{present:Translate '删除网站'}" Click="RemoveWebsite_Click" Margin="0,0,0,8" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </StackPanel>
                             </Border></Expander>
-                            <Border Style="{StaticResource Card}">
-                                <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="退出一刻专注" Click="Exit_Click" VerticalAlignment="Center" Margin="22,0,0,0" />
-                                    <StackPanel><TextBlock Text="后台与退出" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="关闭窗口进入托盘，计时继续。明确退出时结束专注并保存记录。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,12,0,0" /></StackPanel>
-                                </DockPanel>
-                            </Border>
+                            <Expander x:Name="ExitSettingsSection" Header="{present:Translate '后台与退出'}" Style="{StaticResource SettingsSection}">
+                                <Border Style="{StaticResource Card}" Margin="0,8,0,0"><DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="{present:Translate '退出一刻专注'}" Click="Exit_Click" VerticalAlignment="Center" Margin="22,0,0,0" />
+                                    <TextBlock Text="{present:Translate '关闭窗口进入托盘，计时继续。退出时结束专注并保存记录。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" VerticalAlignment="Center" />
+                                </DockPanel></Border>
+                            </Expander>
+                            <Expander x:Name="AboutSettingsSection" Header="{present:Translate '关于'}" Style="{StaticResource SettingsSection}">
+                                <Border Style="{StaticResource Card}" Margin="0,8,0,0"><StackPanel>
+                                    <TextBlock Text="{present:Translate '一刻专注是一款 Windows 专注与学习管理软件，把项目、待办、计时和复盘放在一起。'}" />
+                                    <TextBlock x:Name="AboutEditionText" Text="{present:Translate '离线版无需注册，任务和记录保存在本机，可在设置中备份与恢复。'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,10,0,0" />
+                                    <TextBlock FontSize="12" Margin="0,10,0,0"><Run Text="{present:Translate '软件图标由 '}" /><Hyperlink NavigateUri="https://xhslink.cn/o/6cydnJJz1q1" RequestNavigate="AboutLink_RequestNavigate" Foreground="{DynamicResource AccentTextBrush}" ToolTip="{present:Translate '打开小红书'}"><Run Text="@芋鱼_yu" /></Hyperlink><Run Text="{present:Translate ' 绘制，在此表示衷心感谢。'}" /></TextBlock>
+                                    <TextBlock FontSize="12" Margin="0,10,0,0"><Hyperlink NavigateUri="https://github.com/Amy22707/FocusBloom" RequestNavigate="AboutLink_RequestNavigate" Foreground="{DynamicResource AccentTextBrush}"><Run Text="{present:Translate 'GitHub 项目仓库'}" /></Hyperlink></TextBlock>
+                                </StackPanel></Border>
+                            </Expander>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="GoalsTab" ToolTip="目标与习惯">
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE734;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="目标与习惯" /></StackPanel></TabItem.Header>
+            <TabItem x:Name="GoalsTab" ToolTip="{present:Translate '目标与习惯'}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE734;" Style="{StaticResource NavigationIcon}" /><TextBlock Style="{StaticResource NavigationLabel}" Text="{present:Translate '目标与习惯'}" /></StackPanel></TabItem.Header>
                 <views:GoalsView x:Name="GoalsPage" DataContext="{Binding Goals}" />
             </TabItem>
             <TabItem x:Name="BrowserTab">
                 <TabItem.Style><Style TargetType="TabItem"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border Visibility="Collapsed" /></ControlTemplate></Setter.Value></Setter></Style></TabItem.Style>
             </TabItem>
             <TabItem x:Name="ReflectionTab"><views:ReflectionView x:Name="ReflectionPage" DataContext="{Binding Reflection}" /></TabItem>
+            <TabItem x:Name="PlannerTab" ToolTip="{present:Translate '计划本'}" />
         </TabControl>
-        <TextBlock x:Name="StatusDisplay" Grid.Row="2" Text="{Binding StatusMessage}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="210,0,28,0" VerticalAlignment="Center" />
+        <TextBlock x:Name="StatusDisplay" Grid.Row="3" Text="{Binding StatusMessage, Converter={StaticResource UiTextConverter}}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="210,0,28,0" VerticalAlignment="Center" />
     </Grid>
-    <views:FullscreenFocusView x:Name="FullscreenView" Visibility="Collapsed" ReturnToWindowRequested="ReturnToWindowRequested" OpenBrowserRequested="FullscreenOpenBrowserRequested" />
+    <views:FullscreenFocusView x:Name="FullscreenView" Visibility="Collapsed" ReturnToWindowRequested="ReturnToWindowRequested" OpenBrowserRequested="FullscreenOpenBrowserRequested" ScreenshotRequested="FullscreenScreenshotRequested" />
     <Border x:Name="BrowserFullscreenView" Background="{DynamicResource BackgroundBrush}" Padding="28" Visibility="Collapsed">
         <ContentControl x:Name="BrowserFullscreenHost" />
     </Border>
-    <Button x:Name="ExitContentFullscreenButton" Content="返回窗口 · Esc" Click="ToggleFullscreen_Click" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,18,0" Padding="12,7" FontSize="11" Visibility="{Binding ContentFullscreen, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
+    <Button x:Name="ExitContentFullscreenButton" Content="{present:Translate '返回窗口 · Esc'}" Click="ToggleFullscreen_Click" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,18,0" Padding="12,7" FontSize="11" Visibility="{Binding ContentFullscreen, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
+    <Border x:Name="ScreenshotToast" Visibility="Collapsed" Panel.ZIndex="20" IsHitTestVisible="False"
+            HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20,16" MaxWidth="600" Padding="14,9"
+            Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="12">
+        <TextBlock x:Name="ScreenshotToastText" Foreground="{DynamicResource TextBrush}" FontSize="12"
+                   TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+    </Border>
     </Grid>
 </Window>

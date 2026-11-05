@@ -6,6 +6,8 @@ using System.Windows.Controls.Primitives;
 using FocusBloom.Core.Goals;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class HabitHistoryWindow : CalendarFormWindow
@@ -16,7 +18,7 @@ public sealed class HabitHistoryWindow : CalendarFormWindow
     private readonly TextBlock _summary = new() { Margin = new Thickness(0, 10, 0, 12), TextWrapping = TextWrapping.Wrap };
     public HabitHistoryWindow(MainViewModel main, Habit habit, DateOnly? selectedDate = null) : base(main, habit.Name + " · 打卡日历")
     {
-        _habit = habit; SaveButton.Content = "关闭"; _date = DateInput("MonthInput", "选择月份", selectedDate ?? main.Goals.Today);
+        _habit = habit; SaveButton.Content = UiText.Get("关闭"); _date = DateInput("MonthInput", "选择月份", selectedDate ?? main.Goals.Today);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
         foreach (var (text, offset) in new[] { ("‹ 上月", -1), ("本月", 0), ("下月 ›", 1) }) { var button = new Button { Content = text, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 0, 8, 0) }; button.Click += (_, _) => _date.SelectedDate = offset == 0 ? main.Goals.Today.ToDateTime(TimeOnly.MinValue) : (_date.SelectedDate ?? DateTime.Today).AddMonths(offset); buttons.Children.Add(button); }
         Fields.Children.Add(buttons); Fields.Children.Add(_summary); Fields.Children.Add(_calendar); RegisterName("HistoryCalendar", _calendar);

@@ -38,18 +38,19 @@ public sealed class ReflectionEditorWindow : CalendarFormWindow
         Caption("这一刻的心情"); var choices = new UniformGrid { Columns = 3 }; RegisterName("MoodChoices", choices);
         foreach (var choice in ReflectionRules.Moods.OrderByDescending(choice => choice.Level).ThenBy(choice => choice.Value))
         {
-            var content = new StackPanel(); content.Children.Add(new MoodIcon { Value = choice.Value, Width = 42, Height = 42, HorizontalAlignment = HorizontalAlignment.Center }); content.Children.Add(new TextBlock { Text = choice.Name, FontSize = 11, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 5, 0, 0) });
-            var button = new Button { Content = content, Padding = new Thickness(4, 7, 4, 7), Margin = new Thickness(0, 0, 6, 6), Height = 82, BorderThickness = new Thickness(1), ToolTip = choice.Name }; RegisterName("MoodChoice" + choice.Value, button); _choices.Add(choice.Value, button);
+            var moodName = UiText.Get(choice.Name);
+            var content = new StackPanel(); content.Children.Add(new MoodIcon { Value = choice.Value, Width = 42, Height = 42, HorizontalAlignment = HorizontalAlignment.Center }); content.Children.Add(new TextBlock { Text = moodName, FontSize = 11, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 5, 0, 0) });
+            var button = new Button { Content = content, Padding = new Thickness(4, 7, 4, 7), Margin = new Thickness(0, 0, 6, 6), Height = 82, BorderThickness = new Thickness(1), ToolTip = moodName }; RegisterName("MoodChoice" + choice.Value, button); _choices.Add(choice.Value, button);
             button.Click += (_, _) => { _mood = choice.Value; RefreshChoices(); }; choices.Children.Add(button);
         }
-        Fields.Children.Add(choices); var clear = new Button { Content = "不选择心情，只写复盘", FontSize = 11, Padding = new Thickness(8, 4, 8, 4), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) }; clear.Click += (_, _) => { _mood = null; RefreshChoices(); }; Fields.Children.Add(clear); RefreshChoices();
+        Fields.Children.Add(choices); var clear = new Button { Content = UiText.Get("不选择心情，只写复盘"), FontSize = 11, Padding = new Thickness(8, 4, 8, 4), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) }; clear.Click += (_, _) => { _mood = null; RefreshChoices(); }; Fields.Children.Add(clear); RefreshChoices();
         _tags = AddTextInput("TagsInput", "标签（用逗号分开，例如：学习，运动）", entry is null ? "" : string.Join("，", entry.Tags));
         _feeling = AddTextInput("FeelingInput", "今天的感受 · 可留空", entry?.Feeling ?? "", true);
         Caption("图片 · 自动保存到本地"); var imageActions = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
-        var upload = new Button { Content = "添加图片", FontSize = 12, Padding = new Thickness(10, 5, 10, 5) }; RegisterName("AddPhotosButton", upload);
+        var upload = new Button { Content = UiText.Get("添加图片"), FontSize = 12, Padding = new Thickness(10, 5, 10, 5) }; RegisterName("AddPhotosButton", upload);
         upload.Click += (_, _) => { var dialog = new OpenFileDialog { Filter = "图片|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.tif;*.tiff;*.webp", Multiselect = true }; if (dialog.ShowDialog(this) == true) foreach (var path in dialog.FileNames) AddFile(path); }; imageActions.Children.Add(upload);
-        var paste = new Button { Content = "粘贴图片 · Ctrl+V", FontSize = 12, Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0) }; RegisterName("PastePhotosButton", paste); paste.Click += (_, _) => PasteClipboardImages(); imageActions.Children.Add(paste);
-        var folder = new Button { Content = "本地图片", FontSize = 12, Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0), ToolTip = _library.DirectoryPath }; folder.Click += (_, _) => { Directory.CreateDirectory(_library.DirectoryPath); Process.Start(new ProcessStartInfo(_library.DirectoryPath) { UseShellExecute = true }); }; imageActions.Children.Add(folder);
+        var paste = new Button { Content = UiText.Get("粘贴图片 · Ctrl+V"), FontSize = 12, Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0) }; RegisterName("PastePhotosButton", paste); paste.Click += (_, _) => PasteClipboardImages(); imageActions.Children.Add(paste);
+        var folder = new Button { Content = UiText.Get("本地图片"), FontSize = 12, Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0), ToolTip = _library.DirectoryPath }; folder.Click += (_, _) => { Directory.CreateDirectory(_library.DirectoryPath); Process.Start(new ProcessStartInfo(_library.DirectoryPath) { UseShellExecute = true }); }; imageActions.Children.Add(folder);
         Fields.Children.Add(imageActions); RegisterName("PhotoThumbnails", _photoPanel); Fields.Children.Add(_photoPanel); RenderPhotos();
         _highlights = AddTextInput("HighlightsInput", "完成了什么，或想记住什么 · 可留空", entry?.Highlights ?? "", true);
         _next = AddTextInput("NextStepInput", "明天的第一步 · 可留空", entry?.NextStep ?? "", true);
@@ -69,7 +70,7 @@ public sealed class ReflectionEditorWindow : CalendarFormWindow
             if (Clipboard.ContainsFileDropList()) { foreach (var path in Clipboard.GetFileDropList().Cast<string>()) AddFile(path); return true; }
             return false;
         }
-        catch (Exception error) when (error is ExternalException or IOException or UnauthorizedAccessException) { Message.Text = "图片粘贴失败：" + error.Message; return true; }
+        catch (Exception error) when (error is ExternalException or IOException or UnauthorizedAccessException) { Message.Text = UiText.Get("图片粘贴失败：") + error.Message; return true; }
     }
     private void RenderPhotos()
     {
@@ -78,9 +79,9 @@ public sealed class ReflectionEditorWindow : CalendarFormWindow
         {
             var body = new StackPanel { Width = 128, Margin = new Thickness(0, 0, 8, 10) };
             var brush = new ImageBrush { Stretch = Stretch.UniformToFill }; BindingOperations.SetBinding(brush, ImageBrush.ImageSourceProperty, new Binding(nameof(ReflectionPhoto.Thumbnail)) { Source = photo });
-            var preview = new Button { Content = new Border { Height = 90, CornerRadius = new CornerRadius(8), Background = brush }, Padding = new Thickness(0), ToolTip = "查看大图" }; preview.SetResourceReference(StyleProperty, "CompletionDateButton"); preview.Click += (_, _) => new PhotoViewerWindow(photo.Path) { Owner = this }.ShowDialog(); body.Children.Add(preview);
-            var footer = new DockPanel { Margin = new Thickness(0, 4, 0, 0) }; var remove = new Button { Content = "移除", FontSize = 11, Padding = new Thickness(4, 1, 4, 1), Tag = photo.Path }; DockPanel.SetDock(remove, Dock.Right); footer.Children.Add(remove);
-            remove.Click += (_, _) => { if (ConfirmDeletionWindow.Ask(this, "从这条记录中移除这张图片？")) { _photos.Remove(photo); RenderPhotos(); } }; footer.Children.Add(new TextBlock { Text = "图片 " + ++index, FontSize = 11, VerticalAlignment = VerticalAlignment.Center }); body.Children.Add(footer); _photoPanel.Children.Add(body);
+            var preview = new Button { Content = new Border { Height = 90, CornerRadius = new CornerRadius(8), Background = brush }, Padding = new Thickness(0), ToolTip = UiText.Get("查看大图") }; preview.SetResourceReference(StyleProperty, "CompletionDateButton"); preview.Click += (_, _) => new PhotoViewerWindow(photo.Path) { Owner = this }.ShowDialog(); body.Children.Add(preview);
+            var footer = new DockPanel { Margin = new Thickness(0, 4, 0, 0) }; var remove = new Button { Content = UiText.Get("移除"), FontSize = 11, Padding = new Thickness(4, 1, 4, 1), Tag = photo.Path }; DockPanel.SetDock(remove, Dock.Right); footer.Children.Add(remove);
+            remove.Click += (_, _) => { if (ConfirmDeletionWindow.Ask(this, "从这条记录中移除这张图片？")) { _photos.Remove(photo); RenderPhotos(); } }; footer.Children.Add(new TextBlock { Text = UiText.Get("图片 ") + ++index, FontSize = 11, VerticalAlignment = VerticalAlignment.Center }); body.Children.Add(footer); _photoPanel.Children.Add(body);
         }
     }
     private void RefreshChoices()

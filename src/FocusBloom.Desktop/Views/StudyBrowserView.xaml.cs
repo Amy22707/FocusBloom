@@ -53,10 +53,10 @@ public partial class StudyBrowserView : UserControl, IDisposable
         address = address.Trim();
         if (!address.Contains("://")) address = "https://" + address;
         if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http"))
-        { BrowserStatus.Text = "请输入 http 或 https 网址。"; return; }
+        { BrowserStatus.Text = UiText.Get("请输入 http 或 https 网址。"); return; }
         address = uri.AbsoluteUri;
         var tab = SelectedTab ?? await CreateTabAsync("about:blank");
-        if (tab.Browser.CoreWebView2 is null) { BrowserStatus.Text = "浏览器正在准备，请稍候。"; return; }
+        if (tab.Browser.CoreWebView2 is null) { BrowserStatus.Text = UiText.Get("浏览器正在准备，请稍候。"); return; }
         Navigate(tab, address);
     }
 
@@ -87,10 +87,10 @@ public partial class StudyBrowserView : UserControl, IDisposable
         blockedTitle.SetBinding(TextBlock.TextProperty, new Binding(nameof(MainViewModel.WebsiteBlockedMessage)));
         tab.BlockedPanel.Children.Add(blockedTitle);
         tab.BlockedPanel.Children.Add(tab.BlockedAddress);
-        var returnButton = new Button { Content = "返回专注", Margin = new Thickness(0, 22, 0, 12), HorizontalAlignment = HorizontalAlignment.Left };
+        var returnButton = new Button { Content = UiText.Get("返回专注"), Margin = new Thickness(0, 22, 0, 12), HorizontalAlignment = HorizontalAlignment.Left };
         returnButton.Click += (_, _) => ReturnToFocusRequested?.Invoke(this, EventArgs.Empty);
         tab.BlockedPanel.Children.Add(returnButton);
-        tab.BlockedPanel.Children.Add(new TextBlock { Text = "在设置中管理网站规则，新列表在下一次严格专注生效。", TextWrapping = TextWrapping.Wrap });
+        tab.BlockedPanel.Children.Add(new TextBlock { Text = UiText.Get("在设置中管理网站规则，新列表在下一次严格专注生效。"), TextWrapping = TextWrapping.Wrap });
         SelectTab();
         try
         {
@@ -193,11 +193,11 @@ public partial class StudyBrowserView : UserControl, IDisposable
         tab.Browser.CoreWebView2?.Stop();
         tab.BlockedUri = address;
         tab.Address = address;
-        tab.Title = "网站未放行";
+        tab.Title = UiText.Get("网站未放行");
         tab.BlockedAddress.Text = address;
         tab.Browser.Visibility = Visibility.Collapsed;
         tab.BlockedPanel.Visibility = Visibility.Visible;
-        if (tab == SelectedTab) { AddressBox.Text = address; BrowserStatus.Text = "网站未放行 · 可返回专注或选择允许网站"; }
+        if (tab == SelectedTab) { AddressBox.Text = address; BrowserStatus.Text = UiText.Get("网站未放行 · 可返回专注或选择允许网站"); }
     }
 
     private void RestrictionsChanged(object? sender, EventArgs e)
@@ -222,7 +222,7 @@ public partial class StudyBrowserView : UserControl, IDisposable
     private async void OpenAllowedWebsite_Click(object sender, RoutedEventArgs e)
     {
         if (AllowedWebsiteSelector.SelectedItem is WebsiteRule rule) await NavigateAsync("https://" + rule.Domain);
-        else BrowserStatus.Text = "请先在设置中添加允许网站。";
+        else BrowserStatus.Text = UiText.Get("请先在设置中添加允许网站。");
     }
     private void AllowedWebsiteSelector_TargetUpdated(object sender, DataTransferEventArgs e)
     {

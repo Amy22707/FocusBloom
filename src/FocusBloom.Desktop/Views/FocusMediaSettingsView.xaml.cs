@@ -29,12 +29,12 @@ public partial class FocusMediaSettingsView : UserControl
     }
     private void ImportImages_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "添加专注背景", Multiselect = true, Filter = "背景（图片、GIF、视频）|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff;*.mp4;*.wmv|图片与 GIF|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|视频（MP4、WMV）|*.mp4;*.wmv" };
+        var dialog = new OpenFileDialog { Title = UiText.Get("添加专注背景"), Multiselect = true, Filter = "背景（图片、GIF、视频）|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff;*.mp4;*.wmv|图片与 GIF|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|视频（MP4、WMV）|*.mp4;*.wmv" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Model.ImportImages(dialog.FileNames);
     }
     private void ImportFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "选择专注背景文件夹" };
+        var dialog = new OpenFolderDialog { Title = UiText.Get("选择专注背景文件夹") };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Model.ImportFolder(dialog.FolderName);
     }
     private void MediaOrder_Requested(object sender, RoutedEventArgs e)
@@ -113,12 +113,12 @@ public partial class FocusMediaSettingsView : UserControl
     private void RestoreSounds_Click(object sender, RoutedEventArgs e) => Model.RestoreSounds();
     private void ImportSound_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "添加本地音频", Filter = "音频|*.mp3;*.wav;*.m4a;*.aac;*.wma;*.flac;*.aif;*.aiff" };
+        var dialog = new OpenFileDialog { Title = UiText.Get("添加本地音频"), Filter = "音频|*.mp3;*.wav;*.m4a;*.aac;*.wma;*.flac;*.aif;*.aiff" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Model.ImportSound(dialog.FileName);
     }
     private void ImportQuotes_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "导入文字列表（每行一句）", Filter = "文字列表|*.txt" };
+        var dialog = new OpenFileDialog { Title = UiText.Get("导入文字列表（每行一句）"), Filter = "文字列表|*.txt" };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Model.ImportQuotes(dialog.FileName);
     }
 }

@@ -43,6 +43,7 @@ public sealed partial class MainViewModel : ObservableObject
     private ProjectFolder? _selectedFolder;
     private string _newFolderName = "";
     private ThemePalette _selectedPalette;
+    private ThemePalette? _customPalette;
     private AppearanceChoice _selectedAppearanceMode;
     private string _statusMessage = "";
     private string _newProjectName = "";
@@ -57,6 +58,7 @@ public sealed partial class MainViewModel : ObservableObject
     private bool _timerFloatUseBackground;
     private double _timerFloatTransparency;
     private bool _lastRestrictionsActive;
+    private bool _accountSwitching;
     private AllowedApplication[] _sessionApplications = [];
     private WebsiteRule[] _sessionWebsites = [];
 
@@ -66,6 +68,7 @@ public sealed partial class MainViewModel : ObservableObject
         _timer = timer ?? new FocusTimer();
         _pauseMinutes = store.GetSetting("pauseMinutes") ?? "5";
         _restMinutes = store.GetSetting("restMinutes") ?? "0";
+        _durationMinutes = store.GetSetting("timer.durationMinutes") ?? "25";
         _pomodoroFocusMinutes = store.GetSetting("pomodoro.focusMinutes") ?? "25";
         _pomodoroShortRestMinutes = store.GetSetting("pomodoro.shortRestMinutes") ?? "5";
         _pomodoroLongRestMinutes = store.GetSetting("pomodoro.longRestMinutes") ?? "15";
@@ -100,7 +103,8 @@ public sealed partial class MainViewModel : ObservableObject
             if (e.PropertyName is nameof(RestrictionSettingsViewModel.Websites) or nameof(RestrictionSettingsViewModel.WebsiteMode))
             { Notify(nameof(BrowserWebsites)); Notify(nameof(WebsiteBlockedMessage)); }
         };
-        _selectedPalette = Appearance.Palettes.FirstOrDefault(p => p.Id == store.GetSetting("appearance.palette")) ?? Appearance.Palettes[0];
+        _customPalette = Appearance.CustomPalette(store.GetSetting("appearance.customPalette"));
+        _selectedPalette = Palettes.FirstOrDefault(p => p.Id == store.GetSetting("appearance.palette")) ?? Appearance.Palettes[0];
         _selectedAppearanceMode = Appearance.Modes.FirstOrDefault(m => m.Mode.ToString() == store.GetSetting("appearance.mode")) ?? Appearance.Modes[0];
         Appearance.Apply(_selectedPalette, _selectedAppearanceMode.Mode);
         Typography = new FocusTypographyViewModel(store, message => StatusMessage = message);
@@ -226,8 +230,8 @@ public sealed partial class MainViewModel : ObservableObject
     public IEnumerable<WebsiteRule> BrowserWebsites => (RestrictionsActive ? SessionWebsiteMode : Whitelist.WebsiteMode.Mode) == AccessListMode.Blacklist
         ? Array.Empty<WebsiteRule>() : RestrictionsActive ? SessionWebsites : Whitelist.Websites;
     public string WebsiteBlockedMessage => SessionWebsiteMode == AccessListMode.Blacklist ? "此网站在本次黑名单中" : "此网站不在本次白名单中";
-    public string SessionModeText => CanConfigure
-        ? SelectedRestrictionMode.Name : _timer.IsStrictSession ? "严格模式" : "普通模式";
+    public string SessionModeText => UiText.Get(CanConfigure
+        ? SelectedRestrictionMode.Name : _timer.IsStrictSession ? "严格模式" : "普通模式");
     public string RestrictionStatus => RestrictionsActive ? "严格限制生效 · 暂停期间保持限制" : "应用与网站限制已解除";
     public bool CanNavigateWebsite(string address) => WebsiteAccess.IsAllowed(address, RestrictionsActive, SessionWebsites, SessionWebsiteMode);
     public event EventHandler? RestrictionsChanged;
@@ -236,7 +240,16 @@ public sealed partial class MainViewModel : ObservableObject
     public void RegisterInterception() => _timer.RegisterInterception();
     public ObservableCollection<ProjectFolder> Folders { get; } = [];
     public ObservableCollection<FocusProject> FolderProjects { get; } = [];
-    public IReadOnlyList<ThemePalette> Palettes => Appearance.Palettes;
+    public IReadOnlyList<ThemePalette> Palettes => _customPalette is { } custom ? [.. Appearance.Palettes, custom] : Appearance.Palettes;
+    public string? CustomPaletteColor => _customPalette?.Swatch;
+    public void SetCustomPalette(string color)
+    {
+        if (Appearance.CustomPalette(color) is not { } palette || palette == _selectedPalette) return;
+        _store.SaveSetting("appearance.customPalette", palette.Swatch);
+        _customPalette = palette;
+        Notify(nameof(Palettes));
+        SelectedPalette = palette;
+    }
     public IReadOnlyList<AppearanceChoice> AppearanceModes => Appearance.Modes;
     public ThemePalette SelectedPalette
     {
@@ -320,39 +333,40 @@ public sealed partial class MainViewModel : ObservableObject
     public bool SingleTimer => !Pomodoro;
     public string NewProjectName { get => _newProjectName; set { _newProjectName = value; Notify(); } }
     public string NewFolderName { get => _newFolderName; set { _newFolderName = value; Notify(); } }
-    public string FolderTitle => SelectedFolder?.Name ?? "项目库";
+    public string FolderTitle => SelectedFolder?.Name ?? UiText.Get("项目库");
     public string FolderSummary => $"{FolderProjects.Count} 个项目 · 选择后可在专注页开始计时";
     public bool IsFolderEmpty => FolderProjects.Count == 0;
     public string ProjectPath => SelectedProject is { } project ? $"{project.Category} / {project.Name}" : "请选择文件夹中的项目";
-    public string FocusHeading => _timer.State == FocusState.Ready ? SelectedProject?.Name ?? "选择一个项目" : ActiveProjectName;
+    public string FocusHeading => _timer.State == FocusState.Ready ? SelectedProject?.Name ?? UiText.Get("选择一个项目") : ActiveProjectName;
     public bool ShowStart => CanConfigure;
     public bool ShowPause => _timer.State == FocusState.Focusing;
     public bool ShowResume => _timer.State == FocusState.Paused;
     public bool ShowEnd => _timer.IsRunning;
     public bool ShowSkipRest => _timer.State == FocusState.Resting;
     public string StatusMessage { get => _statusMessage; private set { _statusMessage = value; Notify(); } }
-    public bool CanConfigure => !HasPendingRecovery && (_timer.State is FocusState.Ready or FocusState.Ended);
+    public bool CanConfigure => !_accountSwitching && !HasPendingRecovery && (_timer.State is FocusState.Ready or FocusState.Ended);
+    public void SetAccountSwitching(bool switching) { _accountSwitching = switching; Refresh(); }
     public bool HasUnsavedRecord => _timer.LastRecord is { } record && record.Id != _savedRecordId;
     public string TimerText => Format(_timer.DisplayTime);
-    public string StateText => _timer.State switch
+    public string StateText => UiText.Get(_timer.State switch
     {
         FocusState.Focusing => "专注中",
         FocusState.Paused => "已暂停",
         FocusState.Resting => _timer.IsPomodoro ? _timer.IsLongRest ? "长休息" : "短休息" : "休息中",
         FocusState.Ended => "本次已结束",
         _ => "准备开始"
-    };
+    });
     public FocusState State => _timer.State;
     public bool EndedAtDurationLimit => _timer.LastRecord?.EndReason == EndReason.DurationLimit;
-    public string RoundText => _timer.IsPomodoro && !CanConfigure ? $"第 {_timer.Round} / {_timer.TotalRounds} 轮 · " : "";
+    public string RoundText => _timer.IsPomodoro && !CanConfigure ? UiText.Format("第 {0} / {1} 轮 · ", _timer.Round, _timer.TotalRounds) : "";
     public string PhaseText => RoundText + (_timer.State switch
     {
-        FocusState.Paused => $"{Format(_timer.PhaseRemaining)} 后自动继续",
-        FocusState.Resting => $"休息剩余 {Format(_timer.PhaseRemaining)}",
-        _ => $"有效专注 {Format(_timer.Elapsed)}"
+        FocusState.Paused => UiText.Format("{0} 后自动继续", Format(_timer.PhaseRemaining)),
+        FocusState.Resting => UiText.Format("休息剩余 {0}", Format(_timer.PhaseRemaining)),
+        _ => UiText.Format("有效专注 {0}", Format(_timer.Elapsed))
     });
     public string ActiveProjectName { get; private set; } = "一刻专注";
-    public string RecordSummary => $"共 {Records.Count} 次专注 · 数据保存在本机";
+    public string RecordSummary => UiText.Format("共 {0} 次专注 · 数据保存在本机", Records.Count);
 
     public void Tick()
     {
@@ -372,7 +386,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _store.SaveSetting("appearance.palette", SelectedPalette.Id);
             _store.SaveSetting("appearance.mode", SelectedAppearanceMode.Mode.ToString());
-            StatusMessage = "外观已更新并保存。";
+            StatusMessage = UiText.Get("外观已更新并保存。");
         }
         catch (Exception ex) { StatusMessage = $"外观保存失败：{ex.Message}"; }
     }
@@ -386,26 +400,28 @@ public sealed partial class MainViewModel : ObservableObject
         return saved;
     }
 
-    private void Start()
+    private void Start() => StartSession();
+
+    private void StartSession(string? plannerTitle = null, Guid? plannerItemId = null)
     {
         if (!CanConfigure || HasUnsavedRecord) return;
-        if (SelectedProject is null) { StatusMessage = "请选择专注项目。"; return; }
+        if (SelectedProject is null) { StatusMessage = UiText.Get("请选择专注项目。"); return; }
         if (Countdown && !ValidateFocusDuration(DurationMinutes)) return;
         if (!TryMinutes(PauseMinutes, false, out var pause) || !TryMinutes(RestMinutes, true, out var rest)
             || (Countdown && !TryMinutes(DurationMinutes, false, out _)))
         {
-            StatusMessage = "请输入有效分钟数：倒计时与暂停大于0，休息可为0；各项最多1440分钟（24小时）。";
+            StatusMessage = UiText.Get("请输入有效分钟数：倒计时与暂停大于0，休息可为0；各项最多1440分钟（24小时）。");
             return;
         }
         PomodoroOptions? cycle = null;
         var duration = Countdown ? TimeSpan.FromMinutes(double.Parse(DurationMinutes, CultureInfo.CurrentCulture)) : TimeSpan.Zero;
         if (Pomodoro && !TryPomodoro(out duration, out rest, out cycle)) return;
         _timer.Start(new FocusOptions(SelectedProject.Id, SelectedTimerMode.Mode,
-            duration, pause, rest, SelectedRestrictionMode.Strict, cycle, SelectedFocusTodo.Id));
+            duration, pause, rest, SelectedRestrictionMode.Strict, cycle, SelectedFocusTodo.Id, plannerTitle, plannerItemId));
         ActiveProjectName = SelectedProject.Name;
         _activeProjectId = SelectedProject.Id;
         _activeTodoId = SelectedFocusTodo.Id;
-        _activeTodoTitle = Todos.Items.FirstOrDefault(item => item.Id == _activeTodoId)?.Title ?? "";
+        _activeTodoTitle = plannerTitle ?? Todos.Items.FirstOrDefault(item => item.Id == _activeTodoId)?.Title ?? "";
         var todoStateSaved = true;
         if (_activeTodoId is { } activeId && Todos.Items.FirstOrDefault(item => item.Id == activeId) is { } active)
         {
@@ -426,23 +442,26 @@ public sealed partial class MainViewModel : ObservableObject
         if (CreateProject(NewProjectName, SelectedFolder)) NewProjectName = "";
     }
 
-    public bool CreateProject(string name, ProjectFolder? folder)
+    public bool CreateProject(string name, ProjectFolder? folder, ProjectPlan? plan = null, ProjectPreset? preset = null)
     {
         name = name.Trim();
-        if (name.Length == 0) { StatusMessage = "请填写项目名称。"; return false; }
-        if (folder is null) { StatusMessage = "请先选择或新建一个文件夹。"; return false; }
+        if (name.Length == 0) { StatusMessage = UiText.Get("请填写项目名称。"); return false; }
+        if (folder is null) { StatusMessage = UiText.Get("请先选择或新建一个文件夹。"); return false; }
         if (folder.Projects.Any(project => string.Equals(project.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
-        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return false; }
-        var project = new FocusProject(Guid.NewGuid(), name, folder.Name, "#9683BE");
+        { StatusMessage = UiText.Get("这个文件夹中已有同名项目，请使用其他名称。"); return false; }
+        var project = new FocusProject(Guid.NewGuid(), name, folder.Name, "#9683BE", plan);
         try
         {
-            _store.SaveProject(project);
+            if (preset is { Tasks.Count: > 0 }) _store.CreateProjectFromPreset(project, preset);
+            else _store.SaveProject(project);
             Projects.Add(project);
             folder.Add(project);
             if (SelectedFolder == folder) FolderProjects.Add(project);
             SaveProjectOrder();
             if (CanConfigure) { SelectedFolder = folder; SelectedProject = project; }
-            StatusMessage = "项目已保存。";
+            if (preset is { Tasks.Count: > 0 }) Todos.Reload();
+            else ReloadCalendarData();
+            StatusMessage = UiText.Get("项目已保存。");
             Notify(nameof(FolderSummary));
             Notify(nameof(IsFolderEmpty));
             RefreshProjectLibrary();
@@ -459,11 +478,11 @@ public sealed partial class MainViewModel : ObservableObject
     public bool CreateFolder(string name)
     {
         name = name.Trim();
-        if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return false; }
+        if (name.Length == 0) { StatusMessage = UiText.Get("请填写文件夹名称。"); return false; }
         var existing = Folders.FirstOrDefault(f => string.Equals(f.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
         {
-            StatusMessage = "已有同名文件夹，请使用其他名称。";
+            StatusMessage = UiText.Get("已有同名文件夹，请使用其他名称。");
             return false;
         }
         try
@@ -473,7 +492,7 @@ public sealed partial class MainViewModel : ObservableObject
             Folders.Add(folder);
             SaveProjectOrder();
             SelectedFolder = folder;
-            StatusMessage = "文件夹已创建，可以添加项目。";
+            StatusMessage = UiText.Get("文件夹已创建，可以添加项目。");
             return true;
         }
         catch (Exception ex) { StatusMessage = $"文件夹保存失败：{ex.Message}"; return false; }
@@ -482,41 +501,42 @@ public sealed partial class MainViewModel : ObservableObject
     public bool RenameFolder(ProjectFolder folder, string name)
     {
         name = name.Trim();
-        if (name.Length == 0) { StatusMessage = "请填写文件夹名称。"; return false; }
+        if (name.Length == 0) { StatusMessage = UiText.Get("请填写文件夹名称。"); return false; }
         if (name == folder.Name) return true;
-        if (Folders.Any(item => item != folder && string.Equals(item.Name.Trim(), name, StringComparison.OrdinalIgnoreCase))) { StatusMessage = "已有同名文件夹，请使用其他名称。"; return false; }
+        if (Folders.Any(item => item != folder && string.Equals(item.Name.Trim(), name, StringComparison.OrdinalIgnoreCase))) { StatusMessage = UiText.Get("已有同名文件夹，请使用其他名称。"); return false; }
         try
         {
             var selectedId = SelectedProject?.Id;
             _store.RenameFolder(folder.Name, name);
             _projectOrder = _projectOrder with { Folders = Folders.Select(item => item == folder ? name : item.Name).ToList() };
             ReloadProjects(name, selectedId);
-            StatusMessage = "文件夹名称已保存。";
+            StatusMessage = UiText.Get("文件夹名称已保存。");
             return true;
         }
         catch (Exception ex) { StatusMessage = $"文件夹修改失败：{ex.Message}"; return false; }
     }
 
-    public bool UpdateProject(FocusProject project, string name, ProjectFolder? folder)
+    public bool UpdateProject(FocusProject project, string name, ProjectFolder? folder, ProjectPlan? plan = null)
     {
         name = name.Trim();
-        if (name.Length == 0) { StatusMessage = "请填写项目名称。"; return false; }
-        if (folder is null) { StatusMessage = "请选择文件夹。"; return false; }
+        if (name.Length == 0) { StatusMessage = UiText.Get("请填写项目名称。"); return false; }
+        if (folder is null) { StatusMessage = UiText.Get("请选择文件夹。"); return false; }
         if (folder.Projects.Any(item => item.Id != project.Id && string.Equals(item.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
-        { StatusMessage = "这个文件夹中已有同名项目，请使用其他名称。"; return false; }
+        { StatusMessage = UiText.Get("这个文件夹中已有同名项目，请使用其他名称。"); return false; }
         try
         {
             if (project.Category != folder.Name) _store.SaveFolder(project.Category);
-            _store.SaveProject(project with { Name = name, Category = folder.Name });
+            _store.SaveProject(project with { Name = name, Category = folder.Name, Plan = plan ?? project.Plan });
             if (project.Category != folder.Name)
                 _projectOrder = _projectOrder with { Projects = Projects.Where(item => item.Id != project.Id).Select(item => item.Id).Append(project.Id).ToList() };
             ReloadProjects(folder.Name, project.Id);
+            ReloadCalendarData();
             if (_activeProjectId == project.Id)
             {
                 ActiveProjectName = name;
                 Notify(nameof(ActiveProjectName)); Notify(nameof(FocusHeading));
             }
-            StatusMessage = "项目已修改并保存。";
+            StatusMessage = UiText.Get("项目已修改并保存。");
             return true;
         }
         catch (Exception ex) { StatusMessage = $"项目修改失败：{ex.Message}"; return false; }
@@ -529,12 +549,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool DeleteProject(FocusProject project)
     {
-        if (!CanDeleteProject(project)) { StatusMessage = "请先结束该项目的专注并保存记录，再删除。"; return false; }
+        if (!CanDeleteProject(project)) { StatusMessage = UiText.Get("请先结束该项目的专注并保存记录，再删除。"); return false; }
         try
         {
             _store.DeleteProject(project.Id);
             ReloadProjects(SelectedFolder?.Name, SelectedProject?.Id);
-            StatusMessage = "项目已删除，历史专注记录保留。";
+            ReloadCalendarData();
+            StatusMessage = UiText.Get("项目已删除，历史专注记录保留。");
             return true;
         }
         catch (Exception ex) { StatusMessage = $"项目删除失败：{ex.Message}"; return false; }
@@ -547,6 +568,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _store.DeleteFolder(folder.Name);
             ReloadProjects(SelectedFolder?.Name, SelectedProject?.Id);
+            ReloadCalendarData();
             StatusMessage = "文件夹及其中的项目已删除，历史专注记录保留。";
             return true;
         }
@@ -601,6 +623,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void SaveSettings()
     {
+        if (!ValidateFocusDuration(DurationMinutes)) return;
+        if (!TryMinutes(DurationMinutes, false, out _)) { StatusMessage = "倒计时时长须为10秒至1440分钟。"; return; }
         if (!TryMinutes(PauseMinutes, false, out _) || !TryMinutes(RestMinutes, true, out _))
         {
             StatusMessage = "暂停分钟数须大于 0，休息分钟数可为 0。";
@@ -611,6 +635,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _store.SaveSetting("pauseMinutes", PauseMinutes);
             _store.SaveSetting("restMinutes", RestMinutes);
+            _store.SaveSetting("timer.durationMinutes", DurationMinutes);
             _store.SaveSetting("timer.mode", DefaultTimerMode.Mode.ToString());
             _store.SaveSetting("timer.strict", DefaultRestrictionMode.Strict.ToString());
             _store.SaveSetting("pomodoro.focusMinutes", PomodoroFocusMinutes);
@@ -630,6 +655,19 @@ public sealed partial class MainViewModel : ObservableObject
     {
         SelectedTimerMode = _savedTimerMode;
         SelectedRestrictionMode = _savedRestrictionMode;
+    }
+    public void ReloadSyncedData()
+    {
+        Todos.Reload();
+        ReloadCalendarData();
+        ReloadProjects(SelectedFolder?.Name, SelectedProject?.Id);
+        Whitelist.ReloadWebsites();
+        _pauseMinutes = _store.GetSetting("pauseMinutes") ?? "5"; _restMinutes = _store.GetSetting("restMinutes") ?? "0";
+        _durationMinutes = _store.GetSetting("timer.durationMinutes") ?? "25";
+        _savedTimerMode = TimerModes.FirstOrDefault(choice => choice.Mode.ToString() == _store.GetSetting("timer.mode")) ?? TimerModes[0];
+        _defaultTimerMode = _savedTimerMode;
+        if (CanConfigure) ApplyDefaultModes();
+        Notify(nameof(PauseMinutes)); Notify(nameof(RestMinutes)); Notify(nameof(DurationMinutes)); Notify(nameof(DefaultTimerMode));
     }
 
     private bool PersistRecord()

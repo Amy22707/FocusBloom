@@ -52,9 +52,24 @@
     <Color x:Key="HeroMiddleColor">#EEF1F3</Color>
     <Color x:Key="HeroEndColor">#F7F9FA</Color>
     <BooleanToVisibilityConverter x:Key="BoolVisibility" />
+    <present:UiTextConverter x:Key="UiTextConverter" />
+    <DataTemplate x:Key="UiStringItem"><TextBlock Text="{Binding Converter={StaticResource UiTextConverter}}" /></DataTemplate>
+    <DataTemplate x:Key="UiNameItem"><TextBlock Text="{Binding Name, Converter={StaticResource UiTextConverter}}" /></DataTemplate>
+    <FontFamily x:Key="InterfaceFont">Microsoft YaHei UI</FontFamily>
     <FontFamily x:Key="FocusTextFont">Segoe UI, Microsoft YaHei UI</FontFamily>
     <FontFamily x:Key="FocusQuoteFont">Segoe UI, Microsoft YaHei</FontFamily>
     <FontFamily x:Key="FocusTimerFont">Segoe UI</FontFamily>
+    <sys:Double x:Key="InterfaceTextSize">14</sys:Double>
+    <sys:Double x:Key="InterfaceCaptionSize">12</sys:Double>
+    <sys:Double x:Key="InterfaceNavigationSize">13</sys:Double>
+    <GridLength x:Key="NavigationColumnWidth">160</GridLength>
+    <sys:Double x:Key="InterfaceTitleSize">22</sys:Double>
+    <sys:Double x:Key="InterfaceSectionSize">15</sys:Double>
+    <sys:Double x:Key="FocusTimerSize">72</sys:Double>
+    <sys:Double x:Key="FullscreenTimerSize">138</sys:Double>
+    <sys:Double x:Key="FocusHeadingSize">21</sys:Double>
+    <sys:Double x:Key="FocusQuoteSize">18</sys:Double>
+    <sys:Double x:Key="FullscreenFocusTextSize">26</sys:Double>
     <Style x:Key="SceneText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource FocusTextFont}" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -67,8 +82,9 @@
 
     <BitmapImage x:Key="BrandLogo" UriSource="/FocusBloom;component/Resources/Branding/FocusBloom.png" DecodePixelWidth="320" CacheOption="OnLoad" />
     <Style TargetType="Window">
-        <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Language" Value="{DynamicResource InterfaceLanguage}" />
+        <Setter Property="FontFamily" Value="{DynamicResource InterfaceFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource InterfaceTextSize}" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="Background" Value="{DynamicResource BackgroundBrush}" />
     </Style>
@@ -96,7 +112,7 @@
     </Style>
     <Style x:Key="Caption" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{DynamicResource InterfaceCaptionSize}" />
         <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
     <Style x:Key="Card" TargetType="Border">
@@ -106,8 +122,8 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style x:Key="PageTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="22" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
-    <Style x:Key="PageSubtitle" TargetType="TextBlock"><Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="Margin" Value="0,6,0,0" /></Style>
+    <Style x:Key="PageTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="{DynamicResource InterfaceTitleSize}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+    <Style x:Key="SectionTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="{DynamicResource InterfaceSectionSize}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
     <Style TargetType="Button">
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
@@ -134,6 +150,27 @@
         </Setter>
     </Style>
     <Style x:Key="QuietTool" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="8,5" /><Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></Style>
+    <Style x:Key="FolderMenuButton" TargetType="Button" BasedOn="{StaticResource QuietTool}">
+        <Setter Property="Width" Value="24" /><Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="0" /><Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Content" Value="…" />
+        <Setter Property="ContentTemplate"><Setter.Value><DataTemplate>
+            <Path Data="M 4,6 A 1,1 0 1 0 6,6 A 1,1 0 1 0 4,6 M 9,6 A 1,1 0 1 0 11,6 A 1,1 0 1 0 9,6 M 14,6 A 1,1 0 1 0 16,6 A 1,1 0 1 0 14,6"
+                  Width="14" Height="3" Stretch="Fill" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        </DataTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="{x:Type present:SidebarSplitter}">
+        <Setter Property="ToolTip" Value="{present:Translate '拖动调整分栏宽度'}" />
+        <Setter Property="AutomationProperties.Name" Value="{present:Translate '调整分栏宽度'}" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type present:SidebarSplitter}">
+            <Border Background="Transparent"><Border x:Name="Grip" Width="2" CornerRadius="1" Margin="0,20" Background="Transparent" /></Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Background" Value="{DynamicResource BorderBrush}" /></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}" /></Trigger>
+                <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}" /></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="ShellToggle" TargetType="CheckBox"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="FontFamily" Value="Segoe MDL2 Assets" /><Setter Property="FontSize" Value="16" /><Setter Property="Width" Value="34" /><Setter Property="Height" Value="32" /><Setter Property="Cursor" Value="Hand" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><Border x:Name="Surface" Background="Transparent" CornerRadius="8"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" /></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="CompletionDateButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -154,26 +191,63 @@
         <Setter Property="Content" Value="&#xE700;" /><Setter Property="FontFamily" Value="Segoe MDL2 Assets" /><Setter Property="FontSize" Value="16" /><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border x:Name="SidebarSurface" Background="Transparent" CornerRadius="8"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SidebarSurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger><Trigger Property="IsChecked" Value="True"><Setter TargetName="SidebarSurface" Property="Background" Value="{DynamicResource SelectedBrush}" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SidebarSurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
+    <Style x:Key="ThemedCalendar" TargetType="Calendar">
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="CalendarDayButtonStyle"><Setter.Value><Style TargetType="primitives:CalendarDayButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="primitives:CalendarDayButton">
+                <Border x:Name="DaySurface" Background="{TemplateBinding Background}" CornerRadius="4" Padding="4" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="DaySurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                    <Trigger Property="IsToday" Value="True"><Setter TargetName="DaySurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                    <Trigger Property="IsInactive" Value="True"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="DaySurface" Property="Background" Value="{DynamicResource AccentBrush}" /><Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" /></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style></Setter.Value></Setter>
+        <Setter Property="CalendarButtonStyle"><Setter.Value><Style TargetType="primitives:CalendarButton" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="6,4" /><Setter Property="Background" Value="Transparent" /></Style></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="PlannerCalendar" TargetType="Calendar" BasedOn="{StaticResource ThemedCalendar}">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Calendar">
+            <Grid x:Name="PART_Root">
+                <primitives:CalendarItem x:Name="PART_CalendarItem" Background="{TemplateBinding Background}"
+                    Foreground="{TemplateBinding Foreground}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" Style="{TemplateBinding CalendarItemStyle}" />
+            </Grid>
+        </ControlTemplate></Setter.Value></Setter>
+        <Setter Property="CalendarItemStyle"><Setter.Value><Style TargetType="primitives:CalendarItem">
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="primitives:CalendarItem">
+                <ControlTemplate.Resources>
+                    <DataTemplate x:Key="{x:Static primitives:CalendarItem.DayTitleTemplateResourceKey}">
+                        <TextBlock Text="{Binding}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="3" />
+                    </DataTemplate>
+                </ControlTemplate.Resources>
+                <Border x:Name="PART_Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Button x:Name="PART_PreviousButton" Content="‹" Style="{StaticResource QuietTool}" />
+                        <Button x:Name="PART_HeaderButton" Grid.Column="1" Style="{StaticResource QuietTool}" FontWeight="SemiBold" />
+                        <Button x:Name="PART_NextButton" Grid.Column="2" Content="›" Style="{StaticResource QuietTool}" />
+                        <Grid x:Name="PART_MonthView" Grid.Row="1" Grid.ColumnSpan="3" Margin="5">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        </Grid>
+                        <Grid x:Name="PART_YearView" Grid.Row="1" Grid.ColumnSpan="3" Margin="5" Visibility="Hidden">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        </Grid>
+                        <Border x:Name="PART_DisabledVisual" Grid.RowSpan="2" Grid.ColumnSpan="3" IsHitTestVisible="False" Visibility="Collapsed" />
+                    </Grid>
+                </Border>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style></Setter.Value></Setter>
+    </Style>
     <Style TargetType="DatePicker">
         <Setter Property="present:DatePickerNavigation.Enable" Value="True" />
         <Setter Property="Background" Value="{DynamicResource FieldBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-        <Setter Property="CalendarStyle"><Setter.Value><Style TargetType="Calendar">
-            <Setter Property="Background" Value="{DynamicResource CardBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="CalendarDayButtonStyle"><Setter.Value><Style TargetType="primitives:CalendarDayButton">
-                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Background" Value="Transparent" />
-                <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="primitives:CalendarDayButton">
-                    <Border x:Name="DaySurface" Background="{TemplateBinding Background}" CornerRadius="4" Padding="4" BorderThickness="1" BorderBrush="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="DaySurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
-                        <Trigger Property="IsToday" Value="True"><Setter TargetName="DaySurface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
-                        <Trigger Property="IsInactive" Value="True"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="DaySurface" Property="Background" Value="{DynamicResource AccentBrush}" /><Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" /></Trigger>
-                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate></Setter.Value></Setter>
-            </Style></Setter.Value></Setter>
-            <Setter Property="CalendarButtonStyle"><Setter.Value><Style TargetType="primitives:CalendarButton" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="6,4" /><Setter Property="Background" Value="Transparent" /></Style></Setter.Value></Setter>
-        </Style></Setter.Value></Setter>
+        <Setter Property="CalendarStyle" Value="{StaticResource ThemedCalendar}" />
     </Style>
     <Style x:Key="SelectableText" TargetType="TextBox">
         <Setter Property="IsReadOnly" Value="True" /><Setter Property="IsReadOnlyCaretVisible" Value="False" />
@@ -183,6 +257,10 @@
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" /><Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
         <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="SelectionOpacity" Value="0.3" />
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border Background="{TemplateBinding Background}"><ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" /></Border></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="PasswordBox">
+        <Setter Property="Padding" Value="10,8" /><Setter Property="Background" Value="{DynamicResource FieldBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="PasswordBox"><Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" /></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="TextBox">
         <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
@@ -266,16 +344,20 @@
             <Setter.Value>
                 <ControlTemplate TargetType="TabControl">
                     <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition x:Name="NavigationColumn" Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition x:Name="NavigationColumn" Width="{Binding NavigationWidth}" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0" />
                         <DockPanel x:Name="NavigationPanel" Margin="8,10,8,16">
-                            <ToggleButton x:Name="NavigationCollapseToggle" DockPanel.Dock="Top" Style="{StaticResource SidebarToggle}" IsChecked="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" ToolTip="展开或收起导航" HorizontalAlignment="Left" Margin="4,0,0,8" />
-                            <StackPanel x:Name="NavigationFooter" DockPanel.Dock="Bottom" Margin="12,16,0,0">
-                                <TextBlock Text="本机保存 · 离线可用" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
-                            </StackPanel>
+                            <ToggleButton x:Name="NavigationCollapseToggle" DockPanel.Dock="Top" Style="{StaticResource SidebarToggle}" IsChecked="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" ToolTip="{present:Translate '展开或收起导航'}" HorizontalAlignment="Left" Margin="4,0,0,8" />
+                            <Button x:Name="NavigationFooter" DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="6,10" DataContext="{Binding Accounts, RelativeSource={RelativeSource AncestorType=Window}}" Command="{Binding OpenAccountCommand}" ToolTip="{Binding AccountText}" HorizontalContentAlignment="Left">
+                                <Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Style.Triggers><DataTrigger Binding="{Binding Accounts, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <Grid Width="32" Height="32"><Ellipse Fill="{DynamicResource SelectedBrush}" /><TextBlock Text="{Binding AvatarInitial}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><Image Source="{Binding Avatar}" Stretch="UniformToFill"><Image.Clip><EllipseGeometry Center="16,16" RadiusX="16" RadiusY="16" /></Image.Clip></Image></Grid>
+                                    <StackPanel Margin="9,0,0,0" VerticalAlignment="Center"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" MaxWidth="80" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding AccountSubtitle}" FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" /></StackPanel>
+                                </StackPanel>
+                            </Button>
                             <ScrollViewer x:Name="NavigationViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
                                 <ItemsControl x:Name="NavigationItems" ItemsSource="{Binding Navigation.VisibleItems}"><ItemsControl.ItemTemplate><DataTemplate>
-                                    <Button Command="{Binding OpenCommand}" ToolTip="{Binding Name}" Margin="0,0,0,4" FontSize="13">
+                                    <Button Command="{Binding OpenCommand}" ToolTip="{Binding Name}" Margin="0,0,0,4" FontSize="{DynamicResource InterfaceNavigationSize}">
                                         <Button.Style><Style TargetType="Button"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12,11" /><Setter Property="HorizontalContentAlignment" Value="Left" />
                                             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="NavigationSurface" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="NavigationSurface" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
                                             <Style.Triggers><DataTrigger Binding="{Binding Active}" Value="True"><Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" /><Setter Property="Background" Value="{DynamicResource SelectedBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></DataTrigger><DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Padding" Value="0,11" /><Setter Property="HorizontalContentAlignment" Value="Center" /></DataTrigger></Style.Triggers>
@@ -285,14 +367,15 @@
                                 </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                             </ScrollViewer>
                         </DockPanel>
+                        <present:SidebarSplitter x:Name="NavigationSplitter" HorizontalAlignment="Right" Width="6" PaneWidth="{Binding NavigationWidth, Mode=TwoWay}" />
                         <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Column="1" Margin="20,18,22,12" ContentSource="SelectedContent" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <DataTrigger Binding="{Binding NavigationCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                            <Setter TargetName="NavigationColumn" Property="Width" Value="64" /><Setter TargetName="NavigationPanel" Property="Margin" Value="5,10,5,16" /><Setter TargetName="NavigationFooter" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="NavigationSplitter" Property="Visibility" Value="Collapsed" /><Setter TargetName="NavigationColumn" Property="Width" Value="64" /><Setter TargetName="NavigationPanel" Property="Margin" Value="5,10,5,16" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding ContentFullscreen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                            <Setter TargetName="NavigationColumn" Property="Width" Value="0" /><Setter TargetName="NavigationPanel" Property="Visibility" Value="Collapsed" /><Setter TargetName="PART_SelectedContentHost" Property="Margin" Value="24,48,24,18" />
+                            <Setter TargetName="NavigationSplitter" Property="Visibility" Value="Collapsed" /><Setter TargetName="NavigationColumn" Property="Width" Value="0" /><Setter TargetName="NavigationPanel" Property="Visibility" Value="Collapsed" /><Setter TargetName="PART_SelectedContentHost" Property="Margin" Value="24,48,24,18" />
                         </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

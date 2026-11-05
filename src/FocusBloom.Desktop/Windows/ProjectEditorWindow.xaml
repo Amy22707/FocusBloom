@@ -1,24 +1,48 @@
 <Window x:Class="FocusBloom.Desktop.Windows.ProjectEditorWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:loc="clr-namespace:FocusBloom.Desktop.Presentation" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="修改项目" Icon="{StaticResource BrandLogo}" Style="{StaticResource {x:Type Window}}"
+        Title="{loc:Translate '修改项目'}" Icon="{StaticResource BrandLogo}" Style="{StaticResource {x:Type Window}}"
         Width="460" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <StackPanel Margin="28">
-        <TextBlock x:Name="EditorHeading" Text="修改项目" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20" />
-        <TextBlock x:Name="NameCaption" Text="名称" Style="{StaticResource Caption}" />
+    <Grid Margin="28">
+        <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="540"><StackPanel>
+        <TextBlock x:Name="EditorHeading" Text="{loc:Translate '修改项目'}" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,20" />
+        <TextBlock x:Name="NameCaption" Text="{loc:Translate '名称'}" Style="{StaticResource Caption}" />
         <TextBox x:Name="NameInput" />
         <StackPanel x:Name="FolderField" Margin="0,16,0,0">
-            <TextBlock Text="所在文件夹" Style="{StaticResource Caption}" />
+            <TextBlock Text="{loc:Translate '所在文件夹'}" Style="{StaticResource Caption}" />
             <ComboBox x:Name="FolderSelector" DisplayMemberPath="Name" />
         </StackPanel>
-        <TextBlock x:Name="DeleteHint" Text="删除后保留历史专注记录。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,18,0,0" />
+        <StackPanel x:Name="PresetField" Visibility="Collapsed" Margin="0,16,0,0">
+            <TextBlock Text="{loc:Translate '从预设开始（可选）'}" Style="{StaticResource Caption}" />
+            <ComboBox x:Name="PresetSelector" DisplayMemberPath="Name" SelectionChanged="Preset_Changed" />
+            <TextBlock x:Name="PresetPreview" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" />
+        </StackPanel>
+        <StackPanel x:Name="ProjectProgressPanel" Visibility="Collapsed" Margin="0,16,0,0">
+            <TextBlock Text="{loc:Translate '项目进度'}" Style="{StaticResource Caption}" />
+            <TextBlock x:Name="ProgressSummary" TextWrapping="Wrap" />
+            <TextBlock x:Name="UnscheduledSummary" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" />
+        </StackPanel>
+        <StackPanel x:Name="PlanFields" Margin="0,16,0,0">
+            <TextBlock Text="{loc:Translate '项目目标'}" Style="{StaticResource Caption}" />
+            <TextBox x:Name="GoalInput" TextWrapping="Wrap" />
+            <TextBlock Text="{loc:Translate '项目截止日期'}" Style="{StaticResource Caption}" Margin="0,10,0,6" />
+            <DatePicker x:Name="DeadlineInput" />
+            <DockPanel Margin="0,10,0,6">
+                <Button DockPanel.Dock="Right" Content="{loc:Translate '添加里程碑'}" Click="AddMilestone_Click" Padding="8,4" />
+                <TextBlock Text="{loc:Translate '里程碑'}" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+            </DockPanel>
+            <StackPanel x:Name="MilestoneRows" />
+        </StackPanel>
+        <TextBlock x:Name="DeleteHint" Text="{loc:Translate '删除后保留历史专注记录。'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,18,0,0" />
         <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource AccentTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" />
-        <DockPanel Margin="0,18,0,0">
-            <Button x:Name="DeleteButton" Content="删除" Click="Delete_Click" DockPanel.Dock="Left" Padding="14,8" />
+        </StackPanel></ScrollViewer>
+        <DockPanel Grid.Row="1" Margin="0,18,0,0">
+            <Button x:Name="DeleteButton" Content="{loc:Translate '删除'}" Click="Delete_Click" DockPanel.Dock="Left" Padding="14,8" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="取消" IsCancel="True" Padding="14,8" Margin="8,0,8,0" />
-                <Button x:Name="SaveButton" Content="保存" Click="Save_Click" IsDefault="True" Style="{StaticResource PrimaryButton}" Padding="16,8" />
+                <Button Content="{loc:Translate '取消'}" IsCancel="True" Padding="14,8" Margin="8,0,8,0" />
+                <Button x:Name="SaveButton" Content="{loc:Translate '保存'}" Click="Save_Click" IsDefault="True" Style="{StaticResource PrimaryButton}" Padding="16,8" />
             </StackPanel>
         </DockPanel>
-    </StackPanel>
+    </Grid>
 </Window>

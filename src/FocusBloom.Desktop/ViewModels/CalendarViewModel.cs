@@ -24,7 +24,7 @@ public sealed class CalendarViewModel(IFocusStore store, bool focusOnly = false,
     public string Title => focusOnly ? "专注记录" : "日历与课表";
     public event EventHandler? Changed;
     public IReadOnlyList<string> Modes { get; } = focusOnly ? new[] { "时间轴", "日", "周", "月", "年" } : new[] { "日", "周", "月", "年", "课程表" };
-    public IReadOnlyList<string> Filters { get; } = focusOnly ? new[] { "全部", "专注", "安排" } : new[] { "全部", "待办", "日期事项" };
+    public IReadOnlyList<string> Filters { get; } = focusOnly ? new[] { "全部", "专注", "安排" } : new[] { "全部", "待办", "日期事项", "项目截止" };
     public IReadOnlyList<int> Years { get; } = Enumerable.Range(DateTime.Today.Year - 100, 201).ToArray();
     public IReadOnlyList<int> Months { get; } = Enumerable.Range(1, 12).ToArray();
     public int SelectedYear { get => Date.Year; set { if (value > 0 && value != Date.Year) Date = new(value, Date.Month, Math.Min(Date.Day, DateTime.DaysInMonth(value, Date.Month))); } }
@@ -34,25 +34,34 @@ public sealed class CalendarViewModel(IFocusStore store, bool focusOnly = false,
     public string Filter { get => _filter; set { _filter = value; Notify(); Changed?.Invoke(this, EventArgs.Empty); } }
     public string Heading => Mode switch
     {
-        "日" or "时间轴" => $"{Date:yyyy年M月d日}", "月" => $"{Date:yyyy年M月}", "年" => $"{Date.Year}年",
-        _ => $"{CalendarRules.Monday(Date):M月d日} — {CalendarRules.Monday(Date).AddDays(6):M月d日}" + (Mode == "课程表" ? TeachingWeekLabel() : "")
+        "日" or "时间轴" => Date.ToString(UiText.IsEnglish ? "MMM d, yyyy" : "yyyy年M月d日", UiText.DateCulture),
+        "月" => Date.ToString(UiText.IsEnglish ? "MMMM yyyy" : "yyyy年M月", UiText.DateCulture),
+        "年" => UiText.IsEnglish ? Date.Year.ToString() : $"{Date.Year}年",
+        _ => $"{ShortDate(CalendarRules.Monday(Date))} — {ShortDate(CalendarRules.Monday(Date).AddDays(6))}" + (Mode == "课程表" ? TeachingWeekLabel() : "")
     };
+    private static string ShortDate(DateOnly date) => date.ToString(UiText.IsEnglish ? "MMM d" : "M月d日", UiText.DateCulture);
     private string TeachingWeekLabel()
-    { var term = store.GetSchoolTerm(); var week = CalendarRules.TeachingWeek(term, Date); return week >= 1 && week <= term.Weeks ? $" · 第{week}教学周" : " · 非教学周"; }
+    { var term = store.GetSchoolTerm(); var week = CalendarRules.TeachingWeek(term, Date); return week >= 1 && week <= term.Weeks ? UiText.Format(" · 第{0}教学周", week) : UiText.Get(" · 非教学周"); }
     public void Move(int direction) => Date = Mode switch { "日" or "时间轴" => Date.AddDays(direction), "月" => Date.AddMonths(direction), "年" => Date.AddYears(direction), _ => Date.AddDays(direction * 7) };
     public void Reload() { Notify(nameof(Heading)); Changed?.Invoke(this, EventArgs.Empty); }
     public IReadOnlyList<CalendarEntry> Entries(DateOnly from, DateOnly to)
     {
         var result = new List<CalendarEntry>(); var todos = store.GetTodos(true).ToDictionary(item => item.Id);
+        var projects = store.GetProjects(true).ToDictionary(item => item.Id);
+        if (!focusOnly && Mode != "课程表")
+            foreach (var project in store.GetProjects().Where(item => item.Plan?.Deadline is { } due && due >= from && due <= to))
+                result.Add(new("项目截止", project.Id, project.Name, project.Plan!.Deadline!.Value, Detail: project.Plan.Goal, Color: project.Color, ProjectId: project.Id));
         foreach (var item in store.GetTodos().Where(item => !focusOnly && item.DueDate >= from && item.DueDate <= to))
             result.Add(new("待办", item.Id, item.Title, item.DueDate!.Value, item.DueTime, Detail: "截止" + (item.Status == FocusBloom.Core.Todos.TodoStatus.Completed ? " · 已完成" : ""), TodoId: item.Id, Completed: item.Status == FocusBloom.Core.Todos.TodoStatus.Completed));
         foreach (var item in store.GetCalendarPlans().Where(item => item.Date >= from && item.Date <= to && (focusOnly ? item.ProjectId is not null : item.ProjectId is null && item.TodoId is not null)))
         {
+            var end = item.Date.ToDateTime(item.Start).AddMinutes(item.Minutes);
             var late = item.TodoId is { } id && todos.TryGetValue(id, out var todo) && todo.DueDate is { } due
-                && item.Date.ToDateTime(item.Start).AddMinutes(item.Minutes) > due.ToDateTime(todo.DueTime ?? TimeOnly.MaxValue);
+                && end > due.ToDateTime(todo.DueTime ?? TimeOnly.MaxValue);
+            late |= item.ProjectId is { } projectId && projects.GetValueOrDefault(projectId)?.Plan?.Deadline is { } deadline
+                && DateOnly.FromDateTime(end) > deadline;
             result.Add(new("安排", item.Id, item.Title, item.Date, item.Start, item.Start.AddMinutes(item.Minutes), item.Notes + (late ? " · 超过截止时间" : ""), TodoId: item.TodoId, ProjectId: item.ProjectId, EndMinutes: item.Start.ToTimeSpan().TotalMinutes + item.Minutes));
         }
-        var projects = store.GetProjects(true).ToDictionary(item => item.Id);
         var outcomes = store.GetOutcomes().ToDictionary(item => item.SessionId);
         foreach (var record in focusOnly ? store.GetRecords() : Array.Empty<FocusRecord>())
         {

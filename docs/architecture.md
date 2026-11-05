@@ -107,7 +107,7 @@ SQLite 表为 `project_folders`、`projects`、`sessions`、`intervals`、`setti
 
 启动先显示加载窗口，在后台初始化 SQLite，再回到界面线程读取偏好、创建主窗口与托盘。主窗口显示后关闭加载窗口。PNG 与 ICO 编入应用资源，程序图标通过工程的 `ApplicationIcon` 设置嵌入可执行文件；界面共用按显示需要解码的 PNG。
 
-本阶段使用访客数据目录。不引入账号、云同步队列及管理模块的空表；对应功能落地时增加必要的数据结构。
+访客数据保存在`guest`目录，各邮箱账号由`AccountProfiles`选择独立数据库；账号凭证由Windows当前用户加密保留。`CloudBaseClient`通过HTTP API进行邮箱验证、注册登录、刷新和同步；`sync_documents`保存本地版本、待同步修改与冲突副本。记录及项目、通用设置使用同一协议与独立扩展交换，PostgreSQL同步RPC依据验证后的用户身份划分数据。详见[CloudBase配置与同步范围](cloudbase-setup.md)。
 
 ## 下一模块的接入位置
 
@@ -128,7 +128,7 @@ FocusTimer为每轮维护InterceptionCount，只有严格专注及暂停接受�
 | 模块 | 接入方式与顺序 |
 | --- | --- |
 | 统计与日期浮窗 | 复用独立窗口行为，绑定相应模块的数据与统计口径 |
-| 账号与基础同步 | Infrastructure 接入 CloudBase `ap-shanghai`，增加账号隔离、本地变更与同步状态；管理密钥保留服务端 |
+| 账号与基础同步 | 已接入CloudBase上海邮箱认证及基础同步客户端、PostgreSQL RPC与账号隔离；部署后完成真实账号及跨设备联调 |
 | 个人管理 | 按实际功能在 Core 增加数据与规则，Infrastructure 保存原始数据，Desktop 增加页面与共用数据浮窗 |
 | 小组 | 账号与基础同步完成后接入；个人结束入口始终有效，心情及复盘只属于个人 |
 

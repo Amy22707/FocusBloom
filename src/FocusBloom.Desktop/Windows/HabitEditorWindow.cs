@@ -6,6 +6,8 @@ using System.Windows.Controls;
 using FocusBloom.Core.Goals;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class HabitEditorWindow : CalendarFormWindow
@@ -22,7 +24,7 @@ public sealed class HabitEditorWindow : CalendarFormWindow
         _item = item; _name = AddTextInput("NameInput", "习惯名称", item?.Name ?? "");
         _frequency = Choice("FrequencySelector", "执行频率", new[] { "每天", "工作日", "指定星期" }); _frequency.SelectedIndex = item is null || item.Weekdays.Count == 7 ? 0 : item.Weekdays.SequenceEqual(new[] { 1, 2, 3, 4, 5 }) ? 1 : 2;
         var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-        _days = Enumerable.Range(1, 7).Select(day => new CheckBox { Content = "周" + "一二三四五六日"[day - 1], IsChecked = item?.Weekdays.Contains(day) ?? true, Margin = new Thickness(0, 0, 12, 8), Tag = day }).ToArray(); foreach (var day in _days) row.Children.Add(day); Fields.Children.Add(row); RegisterName("WeekdayOptions", row);
+        _days = Enumerable.Range(1, 7).Select(day => new CheckBox { Content = UiText.Get("周") + "一二三四五六日"[day - 1], IsChecked = item?.Weekdays.Contains(day) ?? true, Margin = new Thickness(0, 0, 12, 8), Tag = day }).ToArray(); foreach (var day in _days) row.Children.Add(day); Fields.Children.Add(row); RegisterName("WeekdayOptions", row);
         void FrequencyChanged() => row.Visibility = _frequency.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
         _frequency.SelectionChanged += (_, _) => FrequencyChanged(); FrequencyChanged();
         _start = DateInput("StartDateInput", "开始日期", item?.Start ?? main.Goals.Today);
@@ -37,9 +39,9 @@ public sealed class HabitEditorWindow : CalendarFormWindow
     protected override void Save()
     {
         var days = _frequency.SelectedIndex == 0 ? Enumerable.Range(1, 7).ToArray() : _frequency.SelectedIndex == 1 ? Enumerable.Range(1, 5).ToArray() : _days.Where(day => day.IsChecked == true).Select(day => (int)day.Tag).ToArray();
-        if (_name.Text.Trim().Length == 0 || days.Length == 0) { Message.Text = "请填写习惯名称并选择至少一个执行日。"; return; }
-        if (_start.SelectedDate is not { } start || _hasUntil.IsChecked == true && (_until.SelectedDate is null || _until.SelectedDate < start)) { Message.Text = "请填写有效的开始、结束日期。"; return; }
-        if (_reminder.IsChecked == true && !TimeOnly.TryParseExact(_time.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) { Message.Text = "提醒时间格式为HH:mm。"; return; }
+        if (_name.Text.Trim().Length == 0 || days.Length == 0) { Message.Text = UiText.Get("请填写习惯名称并选择至少一个执行日。"); return; }
+        if (_start.SelectedDate is not { } start || _hasUntil.IsChecked == true && (_until.SelectedDate is null || _until.SelectedDate < start)) { Message.Text = UiText.Get("请填写有效的开始、结束日期。"); return; }
+        if (_reminder.IsChecked == true && !TimeOnly.TryParseExact(_time.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) { Message.Text = UiText.Get("提醒时间格式为HH:mm。"); return; }
         var time = TimeOnly.TryParseExact(_time.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : new TimeOnly(20, 0);
         Commit(() => Main.Goals.SaveHabit(new(_item?.Id ?? Guid.NewGuid(), _name.Text.Trim(), days, DateOnly.FromDateTime(start), _hasUntil.IsChecked == true ? DateOnly.FromDateTime(_until.SelectedDate!.Value) : null, _reminder.IsChecked == true, time, ((Link)_project.SelectedItem).Id)));
     }

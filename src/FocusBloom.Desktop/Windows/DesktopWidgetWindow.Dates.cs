@@ -8,6 +8,8 @@ using System.Windows.Media;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public partial class DesktopWidgetWindow
@@ -54,7 +56,7 @@ public partial class DesktopWidgetWindow
         foreach (var name in groups)
         {
             var items = rows.Where(row => row.Item.Group == name).ToArray(); var column = new DockPanel();
-            var header = new DockPanel { Margin = new Thickness(2, 0, 2, 10) }; DockPanel.SetDock(header, Dock.Top); var add = new Button { Content = "＋", Padding = new Thickness(4, 0, 4, 0), ToolTip = "在此分组添加日期事项" }; add.SetResourceReference(StyleProperty, "WidgetTool"); add.Click += (_, _) => new DateEventEditorWindow(_main, initialGroup: name) { Owner = this }.ShowDialog(); DockPanel.SetDock(add, Dock.Right); header.Children.Add(add); var count = Text(items.Length + " 项", 10, true); count.VerticalAlignment = VerticalAlignment.Center; count.Margin = new Thickness(8, 0, 8, 0); DockPanel.SetDock(count, Dock.Right); header.Children.Add(count); var title = Text(name, 13); title.FontWeight = FontWeights.SemiBold; header.Children.Add(title); column.Children.Add(header);
+            var header = new DockPanel { Margin = new Thickness(2, 0, 2, 10) }; DockPanel.SetDock(header, Dock.Top); var add = new Button { Content = "＋", Padding = new Thickness(4, 0, 4, 0), ToolTip = UiText.Get("在此分组添加日期事项") }; add.SetResourceReference(StyleProperty, "WidgetTool"); add.Click += (_, _) => new DateEventEditorWindow(_main, initialGroup: name) { Owner = this }.ShowDialog(); DockPanel.SetDock(add, Dock.Right); header.Children.Add(add); var count = Text(items.Length + " 项", 10, true); count.VerticalAlignment = VerticalAlignment.Center; count.Margin = new Thickness(8, 0, 8, 0); DockPanel.SetDock(count, Dock.Right); header.Children.Add(count); var title = Text(name, 13); title.FontWeight = FontWeights.SemiBold; header.Children.Add(title); column.Children.Add(header);
             var list = new StackPanel(); foreach (var row in items) list.Children.Add(DateWidgetCard(row, true, false)); if (items.Length == 0) list.Children.Add(Text("这个组还没有日期事项", 11, true)); column.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
             var card = Card(column); card.Width = Math.Max(220, Math.Min(270, WidgetViewport.ActualWidth - 8)); card.Height = Math.Max(150, WidgetViewport.ActualHeight - 50); card.CornerRadius = new CornerRadius(22); card.Margin = new Thickness(0, 0, 10, 0); columns.Children.Add(card);
         }

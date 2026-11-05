@@ -8,6 +8,8 @@ using FocusBloom.Desktop.ViewModels;
 using FocusBloom.Desktop.Views;
 using Microsoft.Win32;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class DateEventEditorWindow : CalendarFormWindow
@@ -34,8 +36,8 @@ public sealed class DateEventEditorWindow : CalendarFormWindow
         _pinned = Check("PinnedInput", "置顶", item?.Pinned ?? false);
         _cover = AddTextInput("CoverInput", "封面图片（可选）", item?.CoverPath ?? ""); _cover.IsReadOnly = true;
         var images = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        var browse = new Button { Content = "选择图片", Padding = new Thickness(10, 5, 10, 5) }; browse.Click += (_, _) => { var dialog = new OpenFileDialog { Filter = "图片|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.gif" }; if (dialog.ShowDialog(this) == true) _cover.Text = dialog.FileName; }; images.Children.Add(browse);
-        var clear = new Button { Content = "清除封面", Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0) }; clear.Click += (_, _) => _cover.Text = ""; images.Children.Add(clear); Fields.Children.Add(images);
+        var browse = new Button { Content = UiText.Get("选择图片"), Padding = new Thickness(10, 5, 10, 5) }; browse.Click += (_, _) => { var dialog = new OpenFileDialog { Filter = "图片|*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.gif" }; if (dialog.ShowDialog(this) == true) _cover.Text = dialog.FileName; }; images.Children.Add(browse);
+        var clear = new Button { Content = UiText.Get("清除封面"), Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(8, 0, 0, 0) }; clear.Click += (_, _) => _cover.Text = ""; images.Children.Add(clear); Fields.Children.Add(images);
         var projects = new[] { new Link(null, "不关联项目") }.Concat(main.Projects.Select(project => new Link(project.Id, $"{project.Category} / {project.Name}"))).ToArray();
         _project = Choice("ProjectSelector", "关联计时项目（可选）", projects, projects.FirstOrDefault(link => link.Id == item?.ProjectId), "Name");
         var todos = new[] { new Link(null, "不关联待办") }.Concat(main.Todos.Items.Select(row => new Link(row.Id, row.Title))).ToArray();
@@ -45,8 +47,8 @@ public sealed class DateEventEditorWindow : CalendarFormWindow
         if (item is not null)
         {
             var links = FocusLinks(() => ((Link)_todo.SelectedItem).Id, () => ((Link)_project.SelectedItem).Id); _todo.SelectionChanged += (_, _) => links(); _project.SelectionChanged += (_, _) => links();
-            var export = new Button { Content = "导出已保存事项为ICS", Margin = new Thickness(0, 12, 0, 0) };
-            export.Click += (_, _) => { var dialog = new SaveFileDialog { Filter = "iCalendar|*.ics", FileName = $"FocusBloom-{item.Date:yyyyMMdd}.ics" }; if (dialog.ShowDialog(this) == true) { try { File.WriteAllText(dialog.FileName, IcsExporter.DateEvent(item), new System.Text.UTF8Encoding(false)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Message.Text = "导出失败：" + ex.Message; } } }; Fields.Children.Add(export);
+            var export = new Button { Content = UiText.Get("导出已保存事项为ICS"), Margin = new Thickness(0, 12, 0, 0) };
+            export.Click += (_, _) => { var dialog = new SaveFileDialog { Filter = "iCalendar|*.ics", FileName = $"FocusBloom-{item.Date:yyyyMMdd}.ics" }; if (dialog.ShowDialog(this) == true) { try { File.WriteAllText(dialog.FileName, IcsExporter.DateEvent(item), new System.Text.UTF8Encoding(false)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Message.Text = UiText.Get("导出失败：") + ex.Message; } } }; Fields.Children.Add(export);
         }
         Preview(); Finish();
     }
@@ -61,10 +63,10 @@ public sealed class DateEventEditorWindow : CalendarFormWindow
     }
     protected override void Save()
     {
-        if (_title.Text.Trim().Length == 0 || _date.SelectedDate is null || !ParseTime(_time.Text, out var time)) { Message.Text = "请填写名称、日期及有效的HH:mm时间。"; return; }
+        if (_title.Text.Trim().Length == 0 || _date.SelectedDate is null || !ParseTime(_time.Text, out var time)) { Message.Text = UiText.Get("请填写名称、日期及有效的HH:mm时间。"); return; }
         var date = DateOnly.FromDateTime(_date.SelectedDate.Value); var until = _repeat.SelectedIndex == 0 ? null : _until.SelectedDate is { } end ? (DateOnly?)DateOnly.FromDateTime(end) : null;
-        if (until < date) { Message.Text = "重复结束日期不能早于起始日期。"; return; }
-        if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = "请填写有效的提醒设置。"; return; }
+        if (until < date) { Message.Text = UiText.Get("重复结束日期不能早于起始日期。"); return; }
+        if (!_reminder.TryGetOptions(out var reminder)) { Message.Text = UiText.Get("请填写有效的提醒设置。"); return; }
         var item = new DateEvent(_item?.Id ?? Guid.NewGuid(), _title.Text.Trim(), date, time, (DateCountMode)_mode.SelectedIndex,
             (DateRepeat)_repeat.SelectedIndex, until, _notes.Text.Trim(), string.IsNullOrWhiteSpace(_cover.Text) ? null : _cover.Text,
             _pinned.IsChecked == true, ((Link)_project.SelectedItem).Id, ((Link)_todo.SelectedItem).Id, reminder, (string)_group.SelectedItem);

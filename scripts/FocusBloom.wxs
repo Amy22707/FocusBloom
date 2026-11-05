@@ -1,0 +1,26 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="FocusBloom" Manufacturer="FocusBloom" Version="$(Version)" UpgradeCode="8A29B808-97E8-4F7E-9B62-34299DF7F180" Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of FocusBloom is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserPrograms" Name="Programs">
+        <Directory Id="InstallFolder" Name="FocusBloom" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="FocusBloomShortcut" Guid="619E7615-901A-4421-85E0-CB66C83E787B">
+        <Shortcut Id="FocusBloomStartMenu" Name="FocusBloom" Target="[InstallFolder]FocusBloom.exe" WorkingDirectory="InstallFolder" />
+        <RegistryValue Root="HKCU" Key="Software\FocusBloom" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="Application" Title="FocusBloom">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentRef Id="FocusBloomShortcut" />
+    </Feature>
+  </Package>
+  <Fragment>
+    <ComponentGroup Id="ApplicationFiles" Directory="InstallFolder">
+      <Files Include="$(Payload)\**" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>

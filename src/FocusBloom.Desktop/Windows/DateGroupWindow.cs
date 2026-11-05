@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using FocusBloom.Desktop.ViewModels;
 
+using FocusBloom.Desktop.Presentation;
+
 namespace FocusBloom.Desktop.Windows;
 
 public sealed class DateGroupWindow : Window
@@ -17,11 +19,11 @@ public sealed class DateGroupWindow : Window
         var actions = new DockPanel { Margin = new Thickness(0, 18, 0, 0) }; body.Children.Add(actions);
         if (name is not null && name != "未分组")
         {
-            var delete = new Button { Content = "删除分组" }; RegisterName("DeleteButton", delete); DockPanel.SetDock(delete, Dock.Left); actions.Children.Add(delete);
+            var delete = new Button { Content = UiText.Get("删除分组") }; RegisterName("DeleteButton", delete); DockPanel.SetDock(delete, Dock.Left); actions.Children.Add(delete);
             delete.Click += (_, _) => { var count = main.DateEvents.Items.Count(row => row.Item.Group == name); if (!ConfirmDeletionWindow.Ask(this, $"删除分组‘{name}’？组内 {count} 个事项将移至‘未分组’。")) return; var error = main.DateEvents.DeleteGroup(name); if (error is null) DialogResult = true; else message.Text = error; };
         }
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right }; actions.Children.Add(buttons); buttons.Children.Add(new Button { Content = "取消", IsCancel = true, Margin = new Thickness(0, 0, 10, 0) });
-        var save = new Button { Content = "保存", IsDefault = true }; save.SetResourceReference(StyleProperty, "PrimaryButton"); RegisterName("SaveButton", save); buttons.Children.Add(save);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right }; actions.Children.Add(buttons); buttons.Children.Add(new Button { Content = UiText.Get("取消"), IsCancel = true, Margin = new Thickness(0, 0, 10, 0) });
+        var save = new Button { Content = UiText.Get("保存"), IsDefault = true }; save.SetResourceReference(StyleProperty, "PrimaryButton"); RegisterName("SaveButton", save); buttons.Children.Add(save);
         save.Click += (_, _) => { var error = main.DateEvents.SaveGroup(name, input.Text); if (error is null) DialogResult = true; else message.Text = error; };
     }
 }

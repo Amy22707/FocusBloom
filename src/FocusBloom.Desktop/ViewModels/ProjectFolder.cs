@@ -8,7 +8,7 @@ public sealed class ProjectFolder(string name) : ObservableObject
 {
     public string Name { get; } = name;
     public ObservableCollection<FocusProject> Projects { get; } = [];
-    public string CountText => $"{Projects.Count} 个项目";
+    public string CountText => UiText.Format("{0} 个项目", Projects.Count);
     public void Add(FocusProject project)
     {
         Projects.Add(project);
