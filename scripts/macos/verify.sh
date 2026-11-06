@@ -18,15 +18,21 @@ import sys
 from pathlib import Path
 
 binary, profile, app = sys.argv[1:]
+process = subprocess.Popen([binary, '--data-dir', profile, '--smoke-test'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 try:
-    result = subprocess.run([binary, '--data-dir', profile, '--smoke-test'], capture_output=True, text=True, timeout=100)
-except subprocess.TimeoutExpired as error:
-    print(error.stdout.decode() if isinstance(error.stdout, bytes) else error.stdout, flush=True)
-    print(error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr, file=sys.stderr, flush=True)
-    raise
-print(result.stdout)
-print(result.stderr, file=sys.stderr)
-if result.returncode != 0 or 'FOCUSBLOOM_SMOKE_OK' not in result.stdout:
+    output, errors = process.communicate(timeout=90)
+except subprocess.TimeoutExpired:
+    sample = subprocess.run(['/usr/bin/sample', str(process.pid), '2'], capture_output=True, text=True, timeout=15)
+    print(sample.stdout, flush=True)
+    print(sample.stderr, file=sys.stderr, flush=True)
+    process.kill()
+    output, errors = process.communicate()
+    print(output, flush=True)
+    print(errors, file=sys.stderr, flush=True)
+    raise SystemExit('Packaged application did not finish its startup checks')
+print(output)
+print(errors, file=sys.stderr)
+if process.returncode != 0 or 'FOCUSBLOOM_SMOKE_OK' not in output:
     raise SystemExit('Packaged application failed to open or complete its smoke checks')
 
 finder_profile = profile + ' Finder Launch'
