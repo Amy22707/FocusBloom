@@ -18,7 +18,7 @@
 
 全部 JavaScript 随包分发。只有 `blocked.html` 可从受限网站跳转。商店版无账号、分析或远程数据传输，Firefox 清单声明 `none`。商店隐私链接使用公开的中英文说明，并按各平台的口径申报本机网址处理。[FocusBloom 扩展隐私说明](https://github.com/Amy22707/FocusBloom/blob/main/docs/extension-privacy.md)
 
-0.3.7 已在独立配置中实测 Chrome 156、Edge 155 和 Firefox 159，覆盖加载、语言和外观切换、开始和结束计时、拦截本地测试网页以及解除后恢复网页。三家商店分别审核。
+0.3.8 已在独立配置中实测 Chrome 156、Edge 155 和 Firefox 159，覆盖加载、语言和外观切换、开始和结束计时、拦截本地测试网页以及解除后恢复网页。三家商店分别审核。
 
 Chrome 和 Edge 使用各自的开发者后台提交 ZIP，填写用途、权限说明、数据声明和宣传截图。Firefox 提交独立 ZIP 供 AMO 验证、签名和审核。图标署名为 @芋鱼_yu，提交前确认商店分发授权。
 

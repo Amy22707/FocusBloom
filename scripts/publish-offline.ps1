@@ -1,4 +1,4 @@
-param([string]$Version = '1.0.0', [switch]$Installer)
+﻿param([string]$Version = '1.0.1', [switch]$Installer)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $dotnet = Join-Path $repo '.tools/dotnet/dotnet.exe'
@@ -20,17 +20,17 @@ $index = @('# 随包依赖与许可', '')
 foreach ($dependency in $deps.libraries.Keys | Sort-Object) {
     if ($deps.libraries[$dependency].type -eq 'project') { continue }
     $key = $dependency -replace '^runtimepack\.', ''
-    $name, $version = $key.Split('/', 2)
-    $package = Join-Path (Join-Path $env:NUGET_PACKAGES $name.ToLowerInvariant()) $version
+    $packageName, $packageVersion = $key.Split('/', 2)
+    $package = Join-Path (Join-Path $env:NUGET_PACKAGES $packageName.ToLowerInvariant()) $packageVersion
     $spec = Get-ChildItem -LiteralPath $package -Filter '*.nuspec' -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $spec) { continue } # Individual WebView2 assemblies use the SDK package notice.
     [xml]$xml = Get-Content -LiteralPath $spec.FullName -Raw
     $metadata = $xml.package.metadata
     $terms = if ($metadata.license) { [string]$metadata.license.InnerText } else { [string]$metadata.licenseUrl }
-    $index += "- $name $version — $terms"
+    $index += "- $packageName $packageVersion — $terms"
     $notices = Get-ChildItem -LiteralPath $package -File | Where-Object Name -Match '^(license|notice|third-party-notices)(\.|$)'
     if ($notices) {
-        $target = Join-Path $licenses $name
+        $target = Join-Path $licenses $packageName
         New-Item -ItemType Directory -Path $target -Force | Out-Null
         foreach ($notice in $notices) { Copy-Item -LiteralPath $notice.FullName -Destination $target }
     }
@@ -45,7 +45,7 @@ if ($Installer) {
     $wix = Join-Path $repo '.tools/wix/wix.exe'
     if (!(Test-Path -LiteralPath $wix)) { throw '请先将 WiX 工具安装到 .tools/wix。' }
     $msi = Join-Path $stage 'FocusBloom-Windows-x64.msi'
-    & $wix build (Join-Path $PSScriptRoot 'FocusBloom.wxs') -arch x64 -d "Version=$Version" -d "Payload=$app" -o $msi
+    & $wix build (Join-Path $PSScriptRoot 'FocusBloom.wxs') -ext WixToolset.UI.wixext -culture zh-CN -arch x64 -d "Version=$Version" -d "Payload=$app" -o $msi
     if ($LASTEXITCODE -ne 0) { throw 'MSI 打包失败。' }
     Write-Output "OfflineInstaller=$msi"
 }

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
@@ -8,6 +9,7 @@ using FocusBloom.Core.Focus;
 using FocusBloom.Core.Goals;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Todos;
+using FocusBloom.Core.Restrictions;
 using FocusBloom.Desktop;
 using FocusBloom.Desktop.Presentation;
 using FocusBloom.Desktop.ViewModels;
@@ -114,6 +116,9 @@ public sealed class OfflineShowcaseTests
                 Assert.Equal(TodoStatus.InProgress, store.GetTodos().Single(item => item.Id == todo.Id).Status);
                 details.Close();
 
+                Open("planner");
+                Shot(window, "29-planner");
+
                 Open("calendar"); main.Calendar.Mode = "周"; Shot(window, "08-calendar");
                 main.Calendar.Mode = "课程表"; Shot(window, "09-timetable");
                 var semesters = new SchoolSemestersWindow(main) { Owner = window, Height = 710 };
@@ -185,6 +190,15 @@ public sealed class OfflineShowcaseTests
     private static (FocusProject Project, TodoFolder Folder, TodoItem Todo) Seed(SqliteFocusStore store, string art)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
+        store.SaveSetting("restrictions.applications", JsonSerializer.Serialize(new[]
+        {
+            new AllowedApplication("Microsoft Edge", @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
+            new AllowedApplication("计算器", @"C:\Windows\System32\calc.exe")
+        }));
+        store.SaveSetting("restrictions.websites", JsonSerializer.Serialize(new[]
+        {
+            new WebsiteRule("docs.python.org", true), new WebsiteRule("wikipedia.org", true)
+        }));
         var monday = CalendarRules.Monday(today);
         var project = new FocusProject(Guid.NewGuid(), "高等数学", "学习", "#789989",
             new("完成本周作业并复习积分", today.AddDays(13), [new("复习课堂例题", true), new("完成课后习题"), new("整理错题")]));
@@ -208,6 +222,14 @@ public sealed class OfflineShowcaseTests
             store.SaveCalendarPlan(new(Guid.NewGuid(), title, monday.AddDays(day), new(hour, 0), minutes, TodoId: task.Id));
         }
         store.SaveTodo(new(Guid.NewGuid(), folder.Id, "提交英语作业", TodoStatus.Completed, DueDate: monday));
+        new PeriodicChecklist(store).Save(ChecklistScope.For(ChecklistPeriod.Day, today),
+        [
+            new(Guid.NewGuid(), "完成高数第三章作业", true),
+            new(Guid.NewGuid(), "做两道 Python 习题", false),
+            new(Guid.NewGuid(), "和导师讨论论文选题", false),
+            new(Guid.NewGuid(), "准备政治课展示提纲", false),
+            new(Guid.NewGuid(), "睡前阅读二十分钟", false)
+        ]);
         store.SaveDateEvent(new(Guid.NewGuid(), "小组报告截止", today.AddDays(13), Group: "课程", CoverPath: art));
         store.SaveDateEvent(new(Guid.NewGuid(), "英语口语考试", today.AddDays(8), Group: "课程"));
         store.SaveDateEvent(new(Guid.NewGuid(), "开学", today.AddDays(-32), Mode: DateCountMode.CountUp, Group: "生活"));

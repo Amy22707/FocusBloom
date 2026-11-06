@@ -18,10 +18,7 @@ let preferenceSelection = '';
 let paneName='focus';
 let historyPageIndex=0;
 let historyVersion='';
-let conflictSelection='';
 let projectSelection='';
-let resendUntil=0;
-let expiredSelection=false;
 
 function showPane(name) {
   paneName=name;
@@ -43,8 +40,8 @@ async function loadHistory() {
     const row=document.createElement('section');row.className='historyCard';
     const title=document.createElement('h3');title.textContent=record.project;
     const duration=document.createElement('strong');duration.textContent=formatTime(record.focusMs);
-    const timing=document.createElement('p');timing.className='muted hint';timing.textContent=new Date(record.startedAt).toLocaleString()+' — '+new Date(record.endedAt).toLocaleTimeString();
-    const mode=document.createElement('p');mode.className='muted hint';mode.textContent=({CountUp:'正计时',Countdown:'倒计时',Pomodoro:'番茄循环'}[record.mode]||'专注')+' · '+({Manual:'手动结束',CountdownElapsed:'到点结束',DurationLimit:'24小时上限',ApplicationExit:'退出软件',Interrupted:'中断后保存'}[record.endReason]||'已完成');
+    const timing=document.createElement('p');timing.className='muted hint';timing.textContent=new Date(record.startedAt).toLocaleString(language)+' — '+new Date(record.endedAt).toLocaleTimeString(language);
+    const mode=document.createElement('p');mode.className='muted hint';mode.textContent=t(({CountUp:'正计时',Countdown:'倒计时',Pomodoro:'番茄循环'}[record.mode]||'专注'))+' · '+t(({Manual:'手动结束',CountdownElapsed:'到点结束',DurationLimit:'24小时上限',ApplicationExit:'退出软件',Interrupted:'中断后保存'}[record.endReason]||'已完成'));
     row.append(duration,title,timing,mode);return row;
   }));
 }
@@ -52,7 +49,7 @@ async function loadHistory() {
 function updateSetup() {
   const countdown = byId('timerMode').value === 'Countdown';
   byId('durationLabel').hidden = !countdown;
-  byId('quickSetup').textContent = countdown ? t('倒计时 · {0} 分钟 · 调整', byId('durationMinutes').value) : '正计时 · 调整';
+  byId('quickSetup').textContent = countdown ? t('倒计时 · {0} 分钟 · 调整', byId('durationMinutes').value) : t('正计时 · 调整');
   if (latest?.state.canConfigure) byId('project').textContent = byId('projectName').value.trim() || latest.state.project;
 }
 
@@ -71,7 +68,7 @@ function updateLanguage(next) {
     option.textContent = t(palette.name);
     return option;
   }));
-  websiteSelection = historyVersion = conflictSelection = projectSelection = '';
+  websiteSelection = historyVersion = projectSelection = '';
 }
 
 async function message(payload) {
@@ -110,43 +107,16 @@ function render(view) {
     }
     return;
   }
-  const account=view.account||{};
-  byId('loginExpiredBanner').hidden=!account.needsLogin;
-  if(account.needsLogin&&!expiredSelection) {byId('accountLogin').open=true;byId('accountEmailInput').value=account.email;byId('mergeGuest').checked=false;}
-  expiredSelection=Boolean(account.needsLogin);byId('mergeGuest').closest('label').hidden=expiredSelection;
-  const displayName=account.signedIn?(account.name||account.email.split('@')[0]):'未登录';
-  byId('accountName').textContent=displayName;byId('avatarInitial').textContent=displayName.slice(0,1).toUpperCase();
-  const avatar=byId('accountAvatar');if(account.picture) {if(avatar.getAttribute('src')!==account.picture) avatar.src=account.picture;} else avatar.removeAttribute('src');avatar.hidden=!account.picture;
-  byId('accountEmail').textContent=account.signedIn?account.email:account.needsLogin?t('登录已失效'):t('访客 · 本机使用');
-  byId('syncStatus').textContent=account.configured?t(account.status):t('账号服务尚未配置，本机功能可正常使用。');
-  byId('syncPending').textContent=account.signedIn?t('待同步 {0} 项', account.pending || 0):'';
-  byId('syncLast').textContent=account.lastSync?t('上次同步：{0}', new Date(account.lastSync).toLocaleString(language)):'';
-  byId('syncNow').disabled=!account.signedIn||account.busy;byId('signOut').disabled=account.busy;byId('accountLogout').hidden=!account.signedIn;byId('accountLogin').hidden=Boolean(account.signedIn);
-  byId('sendCode').disabled=account.busy||!account.configured||Date.now()<resendUntil;
-  byId('accountForm').querySelector('button[type=submit]').disabled=account.busy||!account.configured;
-  byId('sendCode').textContent=Date.now()<resendUntil?`${Math.ceil((resendUntil-Date.now())/1000)}秒后重发`:t('获取验证码');
-  const visibleConflicts=account.signedIn?(account.conflicts||[]):[];const conflicts=JSON.stringify(visibleConflicts);
-  if(conflicts!==conflictSelection) {
-    conflictSelection=conflicts;
-    function describe(value) {return typeof value==='string'?value:value.name+' · '+(value.deleted?t('已删除'):value.category);}
-    byId('syncConflicts').replaceChildren(...visibleConflicts.map(conflict=>{
-      const row=document.createElement('div');row.className='conflictCard';const title=document.createElement('h3');title.textContent=conflict.kind==='project'?'项目修改冲突':'通用设置修改冲突';
-      const local=document.createElement('p');local.textContent='本机：'+describe(conflict.local);const remote=document.createElement('p');remote.textContent='云端：'+describe(conflict.remote);
-      const actions=document.createElement('div');actions.className='actions';
-      for(const [label,keepLocal] of [[t('保留本机'),true],[t('采用云端'),false]]) {const button=document.createElement('button');button.textContent=t(label);button.disabled=account.busy;button.onclick=()=>message({type:'resolveSyncConflict',fields:{key:conflict.key,keepLocal}});actions.append(button);}
-      row.append(title,local,remote,actions);return row;
-    }));
-  }
-  const recordsVersion=JSON.stringify([state.state,account.lastSync,account.email]);
+  const recordsVersion=view.historyVersion;
   if(paneName==='history'&&historyVersion!==recordsVersion) {historyVersion=recordsVersion;loadHistory();}
   byId('enabled').checked = view.enabled;
   byId('control').textContent = !view.enabled ? t('网站限制已关闭') : view.effective
-    ? t('网站限制生效 · {0}', t(state.websiteMode === 'Blacklist' ? '黑名单' : '白名单')) : '当前不限网站';
+    ? t('网站限制生效 · {0}', t(state.websiteMode === 'Blacklist' ? '黑名单' : '白名单')) : t('当前不限网站');
   for (const [id, visible] of [['start', state.canConfigure], ['pause', state.state === 'Focusing'], ['resume', state.state === 'Paused'], ['skipRest', state.state === 'Resting']]) byId(id).hidden = !visible;
   for (const control of byId('timerForm').elements) control.disabled = !state.canConfigure;
   byId('backToFocus').disabled = false;
   byId('quickSetup').hidden = !state.canConfigure;
-  byId('preferenceNotice').textContent = state.canConfigure ? '' : '当前计时安排保持固定，结束后可调整。';
+  byId('preferenceNotice').textContent = state.canConfigure ? '' : t('当前计时安排保持固定，结束后可调整。');
   const timerKeys = ['timerMode', 'durationMinutes', 'pauseMinutes', 'restMinutes', 'project', 'projectId'];
   const preferences = JSON.stringify(timerKeys.map(key => view.preferences[key]));
   byId('palette').value = view.preferences.palette;
@@ -157,7 +127,7 @@ function render(view) {
   const projectOptions=JSON.stringify(view.projects||[]);
   if(projectOptions!==projectSelection) {
     projectSelection=projectOptions;
-    const empty=document.createElement('option');empty.value='';empty.textContent='新建或输入专注名称';
+    const empty=document.createElement('option');empty.value='';empty.textContent=t('新建或输入专注名称');
     byId('focusProject').replaceChildren(empty,...(view.projects||[]).map(project=>{const option=document.createElement('option');option.value=project.id;option.textContent=project.category+' / '+project.name;return option;}));
     byId('focusProject').value=view.preferences.projectId||'';
   }
@@ -182,11 +152,11 @@ function render(view) {
       ? t('尚未添加网站。开启限制后，普通网站均不可访问。') : t('尚未添加网站，当前黑名单不会限制任何网站。');
     byId('websites').replaceChildren(...state.websites.map(rule => {
       const row = document.createElement('div'); row.className = 'website';
-      const title = document.createElement('span'); title.textContent = rule.domain + (rule.includeSubdomains ? ' · 含子域名' : '');
+      const title = document.createElement('span'); title.textContent = rule.domain + (rule.includeSubdomains ? t(' · 含子域名') : '');
       const actions = document.createElement('div'); actions.className = 'actions';
-      const edit = document.createElement('button'); edit.textContent = '编辑'; edit.className = 'quiet'; edit.disabled = !state.canEditRules;
+      const edit = document.createElement('button'); edit.textContent = t('编辑'); edit.className = 'quiet'; edit.disabled = !state.canEditRules;
       edit.onclick = () => { originalDomain = rule.domain; byId('domain').value = rule.domain; byId('subdomains').checked = rule.includeSubdomains; };
-      const remove = document.createElement('button'); remove.textContent = '删除'; remove.className = 'quiet'; remove.disabled = !state.canEditRules;
+      const remove = document.createElement('button'); remove.textContent = t('删除'); remove.className = 'quiet'; remove.disabled = !state.canEditRules;
       remove.onclick = () => { if (window.confirm(t('删除网站“{0}”？', rule.domain))) message({ type:'deleteWebsite', fields:{ domain:rule.domain } }); };
       actions.append(edit, remove); row.append(title, actions); return row;
     }));
@@ -201,24 +171,10 @@ byId('open').onclick = async () => {
 };
 byId('end').onclick = () => message({ type:'end' });
 if (!blocked) {
-  byId('relogin').onclick=()=>{showPane('preferences');byId('accountLogin').open=true;byId('accountEmailInput').focus();};
-  byId('loginMethod').onchange=()=>{const password=byId('loginMethod').value==='password';byId('verificationFields').hidden=password;byId('passwordFields').hidden=!password;byId('accountCode').required=!password;byId('accountPassword').required=password;};
   byId('historyDate').onchange=()=>{historyPageIndex=0;loadHistory();};
   byId('historyAll').onclick=()=>{byId('historyDate').value='';historyPageIndex=0;loadHistory();};
   byId('historyPrevious').onclick=()=>{historyPageIndex--;loadHistory();};
   byId('historyNext').onclick=()=>{historyPageIndex++;loadHistory();};
-  byId('sendCode').onclick=async()=>{
-    if(!byId('accountEmailInput').reportValidity())return;
-    byId('sendCode').disabled=true;
-    const result=await message({type:'sendCode',fields:{email:byId('accountEmailInput').value}});
-    if(!result.error)resendUntil=Date.now()+60000;
-  };
-  byId('accountForm').onsubmit=async event=>{
-    event.preventDefault();const password=byId('loginMethod').value==='password';const result=await message({type:password?'passwordSignIn':'signIn',fields:{email:byId('accountEmailInput').value,code:byId('accountCode').value,password:byId('accountPassword').value,mergeGuest:byId('mergeGuest').checked}});
-    if(!result.error) {byId('accountCode').value='';byId('accountPassword').value='';byId('accountLogin').open=false;preferenceSelection='';}
-  };
-  byId('signOut').onclick=()=>message({type:'signOut'});
-  byId('syncNow').onclick=()=>message({type:'syncNow'});
   for (const button of document.querySelectorAll('[data-pane]')) button.onclick = () => showPane(button.dataset.pane);
   byId('settings').onclick = byId('quickSetup').onclick = () => showPane('preferences');
   byId('backToFocus').onclick = () => showPane('focus');

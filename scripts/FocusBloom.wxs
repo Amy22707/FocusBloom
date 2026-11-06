@@ -1,6 +1,22 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="FocusBloom" Manufacturer="FocusBloom" Version="$(Version)" UpgradeCode="8A29B808-97E8-4F7E-9B62-34299DF7F180" Scope="perUser">
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of FocusBloom is already installed." />
+    <Upgrade Id="8A29B808-97E8-4F7E-9B62-34299DF7F180">
+      <UpgradeVersion Minimum="0.0.0" Maximum="$(Version)" IncludeMinimum="yes" IncludeMaximum="yes" Property="PREVIOUS_FOCUSBLOOM" />
+      <UpgradeVersion Minimum="2.3.2" Maximum="2.3.2" IncludeMinimum="yes" IncludeMaximum="yes" Property="LEGACY_FOCUSBLOOM" />
+      <UpgradeVersion Minimum="$(Version)" IncludeMinimum="no" Maximum="2.3.2" IncludeMaximum="no" OnlyDetect="yes" Property="NEWER_FOCUSBLOOM" />
+      <UpgradeVersion Minimum="2.3.2" IncludeMinimum="no" OnlyDetect="yes" Property="NEWER_FOCUSBLOOM_ABOVE_LEGACY" />
+    </Upgrade>
+    <Launch Condition="NOT NEWER_FOCUSBLOOM AND NOT NEWER_FOCUSBLOOM_ABOVE_LEGACY" Message="A newer version of FocusBloom is already installed." />
+    <InstallExecuteSequence><RemoveExistingProducts After="InstallInitialize" /></InstallExecuteSequence>
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="InstallFolder" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="启动 FocusBloom" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="LaunchApplication" Directory="InstallFolder" ExeCommand="&quot;[InstallFolder]FocusBloom.exe&quot;" Execute="immediate" Return="asyncNoWait" Impersonate="yes" />
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="1" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
     <MediaTemplate EmbedCab="yes" />
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">

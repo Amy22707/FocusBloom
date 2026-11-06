@@ -30,11 +30,6 @@ try {
         'publish' {
             & $dotnet publish src/FocusBloom.Desktop -c Release -r win-x64 --self-contained true -o artifacts/windows-x64
             if ($LASTEXITCODE -ne 0) { throw '桌面程序发布失败。' }
-            $extensionOutput = Join-Path $repoRoot 'artifacts/windows-x64/extension'
-            New-Item -ItemType Directory -Force $extensionOutput | Out-Null
-            Get-ChildItem -LiteralPath (Join-Path $repoRoot 'extensions/browser') | ForEach-Object {
-                Copy-Item -LiteralPath $_.FullName -Destination $extensionOutput -Recurse -Force
-            }
             & (Join-Path $PSScriptRoot 'publish-extension.ps1')
         }
     }

@@ -13,6 +13,9 @@ on:
         description: Installer attachment to validate
         required: false
         default: FocusBloom-Windows-x64.msi
+      expected_version:
+        description: Candidate version when different from the release tag
+        required: false
 permissions:
   contents: read
 jobs:
@@ -26,6 +29,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           PREVIOUS_TAG: ${{ inputs.from_tag }}
           INSTALLER_ASSET: ${{ inputs.installer_asset }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
         run: |
           $ErrorActionPreference = 'Stop'
           $profile = Join-Path $env:RUNNER_TEMP 'FocusBloom-qa'
@@ -63,7 +67,9 @@ jobs:
           }
           Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/$env:INSTALLER_ASSET" -OutFile app.msi
           Install-Package "$PWD\app.msi" "$PWD\install.log"
-          $expected = $env:RELEASE_TAG.TrimStart('v')
+          $expected = if ($env:EXPECTED_VERSION) { $env:EXPECTED_VERSION } else { $env:RELEASE_TAG.TrimStart('v') }
+          $installed = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -eq 'FocusBloom'
+          if (@($installed).Count -ne 1 -or $installed.DisplayVersion -ne $expected) { throw 'Unexpected installed MSI version or duplicate registration.' }
           $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path (Split-Path $app) 'FocusBloom.dll')).Version.ToString(3)
           if ($version -ne $expected) { throw "Expected version $expected, installed version $version" }
           if ($env:PREVIOUS_TAG -and ((Get-Content -LiteralPath "$profile\retained.txt" -Raw).Trim() -ne 'retained')) { throw 'Upgrade removed existing data.' }

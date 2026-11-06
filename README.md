@@ -9,7 +9,7 @@ Windows x64 · 离线版 · 无需注册
 ## 下载与运行
 
 1. 打开 [GitHub Releases](https://github.com/Amy22707/FocusBloom/releases)，在 **Assets（资源）** 中下载 `FocusBloom-Windows-x64.msi`。
-2. 双击 MSI 安装，然后从 Windows 开始菜单打开 FocusBloom。
+2. 双击 MSI，按向导完成安装。结束时可选择启动 FocusBloom，也可以稍后从开始菜单打开。
 3. 在「待办事项」创建一条任务，打开详情并选择「开始专注」。结束后，到「专注记录」查看投入、补记成果和下一步。
 
 安装包内含 .NET 桌面运行时。安装包尚未签名，Windows 可能显示发布者提示。
@@ -41,13 +41,22 @@ Windows x64 · 离线版 · 无需注册
 
 </details>
 
+## 浏览器扩展
+
+独立扩展支持 Chrome、Microsoft Edge 和 Firefox，提供正计时、倒计时和网站黑白名单。规则、记录和偏好都保存在当前浏览器，无需账号或桌面软件。
+
+- **Chrome / Edge**：从 [Releases](https://github.com/Amy22707/FocusBloom/releases/latest) 下载 `FocusBloom-chromium.zip` 并解压。打开 `chrome://extensions/` 或 `edge://extensions/`，开启开发者模式，再加载包含 `manifest.json` 的文件夹。
+- **Firefox 140+**：下载 `FocusBloom-firefox.zip`。打开 `about:debugging#/runtime/this-firefox`，选择「临时载入附加组件」，选中 ZIP。重启 Firefox 后需重新加载。
+
+升级 Chrome 或 Edge 扩展时，将新文件解压到原目录，再在扩展管理页点击「重新加载」，即可继续使用原有记录。[功能展示与安装指南](https://amy22707.github.io/amy-studio/focusbloom/#browser-extension)
+
 ## 数据、备份与更新
 
 任务、计时记录、习惯和复盘保存在当前 Windows 用户的本机资料目录。离线版的核心功能无需联网。
 
 - **备份与迁移** · 在「偏好设置 → 数据备份与恢复」导出 `.fbbak` 文件。换电脑时，在新电脑的同一页面恢复。
 - **退出** · 关闭窗口会将软件缩到系统托盘。要彻底退出，请右键托盘图标，选择「退出」。
-- **更新** · 先备份并从托盘退出旧版，再完整解压新版 ZIP 并启动。程序文件和本机资料分别存放，同一 Windows 用户下重新启动时会继续读取本机资料。
+- **更新** · 先备份并从托盘退出旧版，再运行新版 MSI，或完整解压新版便携 ZIP。程序文件和本机资料分别存放，同一 Windows 用户下重新启动时会继续读取本机资料。
 
 ## 反馈与致谢
 
