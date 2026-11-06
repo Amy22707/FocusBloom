@@ -20,12 +20,16 @@ internal sealed partial class MainWindow
         _page.Children.Add(AsyncButton(T("新建项目", "New project"), () => EditProject(null), true));
         foreach (var group in _store.GetProjects().GroupBy(item => item.Category))
         {
-            _page.Children.Add(Label(group.Key, 17, true));
+            _page.Children.Add(GroupHeader(group.Key, "Project", id =>
+            {
+                var item = _store.GetProjects().Single(project => project.Id == id);
+                _store.SaveProject(item with { Category = group.Key });
+            }));
             foreach (var project in group)
             {
                 var time = _store.GetRecords().Where(record => record.ProjectId == project.Id).Sum(record => record.FocusDuration.TotalMinutes);
                 var detail = project.Plan?.Deadline is { } deadline ? $"{deadline:yyyy-MM-dd} · " : "";
-                _page.Children.Add(Card(Label(project.Name, 17, true), Label(detail + T($"{time:0} 分钟", $"{time:0} min")),
+                _page.Children.Add(Card(Row(DragHandle("Project", project.Id), Label(project.Name, 17, true)), Label(detail + T($"{time:0} 分钟", $"{time:0} min")),
                     Row(AsyncButton(T("专注", "Focus"), () => StartFocus(project: project)), AsyncButton(T("编辑", "Edit"), () => EditProject(project)),
                         project.Id == SqliteFocusStore.DefaultProjectId ? new TextBlock() : AsyncButton(T("删除", "Delete"), () => Delete(project.Name, () => _store.DeleteProject(project.Id))))));
             }
@@ -59,10 +63,14 @@ internal sealed partial class MainWindow
             AsyncButton(T("新建文件夹", "New folder"), NewTaskFolder)));
         var tasks = _store.GetTodos().Where(todo => _taskFolder is null || todo.FolderId == _taskFolder).ToArray();
         if (tasks.Length == 0) Empty();
-        foreach (var group in tasks.GroupBy(todo => todo.FolderId))
+        foreach (var currentFolder in folders.Where(folder => _taskFolder is null || folder.Id == _taskFolder))
         {
-            _page.Children.Add(Label(folders.FirstOrDefault(f => f.Id == group.Key)?.Name ?? T("未分组", "Ungrouped"), 17, true));
-            foreach (var todo in group.OrderBy(todo => todo.Status == TodoStatus.Completed).ThenBy(todo => todo.DueDate ?? DateOnly.MaxValue))
+            _page.Children.Add(GroupHeader(currentFolder.Name, "Todo", id =>
+            {
+                var item = _store.GetTodos().Single(todo => todo.Id == id);
+                _store.SaveTodo(item with { FolderId = currentFolder.Id });
+            }));
+            foreach (var todo in tasks.Where(todo => todo.FolderId == currentFolder.Id).OrderBy(todo => todo.Status == TodoStatus.Completed).ThenBy(todo => todo.DueDate ?? DateOnly.MaxValue))
             {
                 var done = todo.Status == TodoStatus.Completed;
                 var check = new CheckBox { IsChecked = done, Content = new TextBlock { Text = todo.Title, TextDecorations = done ? TextDecorations.Strikethrough : null } };
@@ -71,7 +79,7 @@ internal sealed partial class MainWindow
                     _store.SaveTodo(todo with { Status = check.IsChecked == true ? TodoStatus.Completed : TodoStatus.Pending,
                         CompletedAt = check.IsChecked == true ? DateTimeOffset.Now : null }); Refresh();
                 };
-                _page.Children.Add(Card(check, Label(string.Join(" · ", new[] { todo.DueDate?.ToString("yyyy-MM-dd"), todo.Notes }.Where(t => !string.IsNullOrWhiteSpace(t)))),
+                _page.Children.Add(Card(Row(DragHandle("Todo", todo.Id), check), Label(string.Join(" · ", new[] { todo.DueDate?.ToString("yyyy-MM-dd"), todo.Notes }.Where(t => !string.IsNullOrWhiteSpace(t)))),
                     Row(AsyncButton(T("专注", "Focus"), () => StartFocus(todo: todo)), AsyncButton(T("编辑", "Edit"), () => EditTask(todo)),
                         AsyncButton(T("删除", "Delete"), () => Delete(todo.Title, () => _store.DeleteTodo(todo.Id))))));
             }

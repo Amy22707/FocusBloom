@@ -31,10 +31,19 @@ cat > "$contents/Info.plist" <<EOF
   <key>CFBundleIconFile</key><string>FocusBloom.icns</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>
 EOF
 curl --fail --location "https://github.com/Amy22707/FocusBloom/releases/download/v$version/FocusBloom-chromium.zip" -o "$output/browser-assets.zip"
-unzip -p "$output/browser-assets.zip" icons/128.png > "$output/FocusBloom.png"
+python3 - "$output/browser-assets.zip" "$output/FocusBloom.png" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    names = {name.replace('\\', '/'): name for name in archive.namelist()}
+    Path(sys.argv[2]).write_bytes(archive.read(names['icons/128.png']))
+PY
 cp "$output/FocusBloom.png" "$contents/Resources/FocusBloom.png"
 swift "$repo/scripts/macos/icon.swift" "$output/FocusBloom.png" "$output/FocusBloom.iconset"
 iconutil -c icns "$output/FocusBloom.iconset" -o "$contents/Resources/FocusBloom.icns"

@@ -99,15 +99,19 @@ internal sealed partial class MainWindow
         _page.Children.Add(filter);
         var items = _store.GetDateEvents().Where(item => _dateGroup is null || item.Group == _dateGroup).ToArray();
         if (items.Length == 0) Empty();
-        foreach (var group in items.GroupBy(item => item.Group))
+        foreach (var group in _store.GetDateGroups().Concat(items.Select(item => item.Group)).Distinct().Where(group => _dateGroup is null || group == _dateGroup))
         {
-            _page.Children.Add(Label(group.Key, 17, true));
-            foreach (var item in group.OrderBy(item => CalendarRules.NextDate(item, Today)))
+            _page.Children.Add(GroupHeader(group, "Date", id =>
+            {
+                var item = _store.GetDateEvents().Single(date => date.Id == id);
+                _store.SaveDateEvent(item with { Group = group });
+            }));
+            foreach (var item in items.Where(item => item.Group == group).OrderBy(item => CalendarRules.NextDate(item, Today)))
             {
                 var date = CalendarRules.NextDate(item, Today) ?? item.Date;
                 var difference = date.DayNumber - Today.DayNumber;
                 var count = difference == 0 ? T("今天", "Today") : difference > 0 ? T($"还有 {difference} 天", $"{difference} days left") : T($"已过去 {-difference} 天", $"{-difference} days ago");
-                _page.Children.Add(Card(Label(item.Title, 17, true), Label($"{date:yyyy-MM-dd} · {count}"), Label(item.Notes),
+                _page.Children.Add(Card(Row(DragHandle("Date", item.Id), Label(item.Title, 17, true)), Label($"{date:yyyy-MM-dd} · {count}"), Label(item.Notes),
                     Row(AsyncButton(T("编辑", "Edit"), () => EditDate(item)), AsyncButton(T("删除", "Delete"), () => Delete(item.Title, () => _store.DeleteDateEvent(item.Id))))));
             }
         }
@@ -117,16 +121,24 @@ internal sealed partial class MainWindow
     {
         var title = Input(existing?.Title ?? ""); var date = DateInput(existing?.Date ?? _day);
         var notes = Input(existing?.Notes ?? "", true); var group = Input(existing?.Group ?? _dateGroup ?? T("未分组", "Ungrouped"));
+        var cover = existing?.CoverPath;
+        var pickCover = AsyncButton(T("选择封面", "Choose cover"), async () =>
+        {
+            if (await OpenFile(T("选择图片", "Choose image"), ImagePatterns) is { } path) cover = CopyMedia(path, "date-covers");
+        });
+        var reminder = new CheckBox { Content = T("事项提醒", "Event reminder"), IsChecked = existing?.Reminder?.Enabled ?? false };
         var mode = Choice([T("倒数日", "Countdown"), T("正数日", "Count up")], (int)(existing?.Mode ?? DateCountMode.Countdown));
         var repeat = Choice([T("不重复", "Never"), T("每天", "Daily"), T("每月", "Monthly"), T("每年", "Yearly")], (int)(existing?.Repeat ?? DateRepeat.None));
         if (await Form(T("日期事项", "Date event"), [Field(T("名称", "Name"), title), Field(T("日期", "Date"), date), Field(T("分组", "Group"), group),
-            Row(Field(T("计数方式", "Counter"), mode), Field(T("重复", "Repeat"), repeat)), Field(T("备注", "Notes"), notes)], () =>
+            Row(Field(T("计数方式", "Counter"), mode), Field(T("重复", "Repeat"), repeat)), Field(T("备注", "Notes"), notes), pickCover, reminder], () =>
         {
             var day = DateValue(date) ?? throw new FormatException(T("请选择日期。", "Select a date."));
             var name = Required(title); var category = Required(group);
             _store.SaveDateGroup(category);
             _store.SaveDateEvent((existing ?? new DateEvent(Guid.NewGuid(), name, day)) with
-            { Title = name, Date = day, Group = category, Notes = Text(notes), Mode = (DateCountMode)mode.SelectedIndex, Repeat = (DateRepeat)repeat.SelectedIndex });
+            { Title = name, Date = day, Group = category, Notes = Text(notes), CoverPath = cover,
+                Mode = (DateCountMode)mode.SelectedIndex, Repeat = (DateRepeat)repeat.SelectedIndex,
+                Reminder = (existing?.Reminder ?? new ReminderOptions()) with { Enabled = reminder.IsChecked == true } });
         })) Refresh();
     }
 
@@ -270,15 +282,20 @@ internal sealed partial class MainWindow
     private async Task EditHabit(Habit? existing)
     {
         var name = Input(existing?.Name ?? ""); var start = DateInput(existing?.Start ?? _day); var until = DateInput(existing?.Until);
+        var reminder = new CheckBox { Content = T("每日提醒", "Daily reminder"), IsChecked = existing?.Reminder ?? false };
+        var reminderTime = Input(existing?.ReminderTime?.ToString("HH:mm") ?? "08:00");
         var days = Enumerable.Range(1, 7).Select(day => new CheckBox { Content = _english ? new DateTime(2024, 1, day).ToString("ddd", System.Globalization.CultureInfo.InvariantCulture) : $"周{("一二三四五六日"[day - 1])}", IsChecked = existing?.Weekdays.Contains(day) ?? true }).ToArray();
         if (await Form(T("习惯", "Habit"), [Field(T("名称", "Name"), name), Field(T("重复日期", "Repeat on"), Row(days)),
-            Field(T("开始日期", "Start date"), start), Field(T("结束日期", "End date"), until)], () =>
+            Field(T("开始日期", "Start date"), start), Field(T("结束日期", "End date"), until), reminder,
+            Field(T("提醒时间", "Reminder time"), reminderTime)], () =>
         {
             var weekdays = Enumerable.Range(1, 7).Where(day => days[day - 1].IsChecked == true).ToArray();
             if (weekdays.Length == 0) throw new FormatException(T("至少选择一天。", "Select at least one day."));
             var title = Required(name); var from = DateValue(start) ?? _day; var to = DateValue(until);
             if (to < from) throw new FormatException(T("结束日期早于开始日期。", "The end date is before the start date."));
-            _store.SaveHabit((existing ?? new Habit(Guid.NewGuid(), title, weekdays, from)) with { Name = title, Weekdays = weekdays, Start = from, Until = to });
+            if (!TimeOnly.TryParse(Text(reminderTime), out var when)) throw new FormatException(T("请输入有效的提醒时间。", "Enter a valid reminder time."));
+            _store.SaveHabit((existing ?? new Habit(Guid.NewGuid(), title, weekdays, from)) with
+                { Name = title, Weekdays = weekdays, Start = from, Until = to, Reminder = reminder.IsChecked == true, ReminderTime = when });
         })) Refresh();
     }
 

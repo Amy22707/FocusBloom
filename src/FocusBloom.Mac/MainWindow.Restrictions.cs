@@ -22,7 +22,7 @@ internal sealed partial class MainWindow
     private static readonly HashSet<string> EssentialMacApplications = new(StringComparer.Ordinal)
     {
         "io.github.amy22707.focusbloom", "com.apple.finder", "com.apple.systempreferences", "com.apple.SystemSettings",
-        "com.apple.loginwindow", "com.apple.SecurityAgent", "com.apple.controlcenter", "com.apple.notificationcenterui"
+        "com.apple.loginwindow", "com.apple.SecurityAgent", "com.apple.controlcenter", "com.apple.notificationcenterui", "com.apple.dock"
     };
     private T[] ReadRules<T>(string key) => _store.GetSetting(key) is { } text ? JsonSerializer.Deserialize<T[]>(text, Json) ?? [] : [];
     private void CaptureRules()
@@ -110,7 +110,7 @@ internal sealed partial class MainWindow
         });
         var addApp = AsyncButton(T("添加应用", "Add application"), async () =>
         {
-            var folder = await ChooseFolder(T("选择 .app 应用", "Choose an .app application"));
+            var folder = await OpenFile(T("选择 .app 应用", "Choose an .app application"), "*.app");
             if (folder is null) return;
             var metadata = Path.Combine(folder, "Contents", "Info.plist");
             if (!Directory.Exists(folder) || !File.Exists(metadata)) throw new FormatException(T("请选择应用程序的 .app 文件夹。", "Choose an application's .app bundle."));

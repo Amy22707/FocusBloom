@@ -54,6 +54,8 @@ internal sealed partial class MainWindow
         await Task.Delay(300);
         if (!_browser.Address.StartsWith($"http://127.0.0.1:{port}/", StringComparison.Ordinal))
             throw new InvalidOperationException("WebKit did not load the permitted page.");
-        Console.WriteLine("MAC_FEATURES_OK: AppKit, WebKit navigation, restriction snapshots and seven desktop widgets");
+        var notification = await MacNotifications.Send(false, "FocusBloom", "Notification integration check");
+        if (notification is not (0 or 2)) throw new InvalidOperationException("The macOS notification service failed.");
+        Console.WriteLine("MAC_FEATURES_OK: AppKit, WebKit navigation, restriction snapshots, notifications and seven desktop widgets");
     }
 }
