@@ -1152,5 +1152,6 @@
   "数量成果 · {0}": "Measured outcomes · {0}",
   "含本次尚未保存的计时 · ": "Includes the current unsaved session · ",
   "{0} 次已保存专注": "{0} saved sessions",
-  "编辑计划事项": "Edit plan item"
+  "编辑计划事项": "Edit plan item",
+  "删除计划事项「{0}」？": "Delete the plan item “{0}”?"
 }

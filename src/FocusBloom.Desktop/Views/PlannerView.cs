@@ -179,7 +179,11 @@ public sealed class PlannerView : UserControl
             var row = new DockPanel { Margin = new Thickness(0, 0, 8, 12) };
             var remove = new Button { Content = "×", ToolTip = UiText.Get("删除"), Padding = new Thickness(8, 3, 8, 3) };
             DockPanel.SetDock(remove, Dock.Right);
-            remove.Click += (_, _) => Save(_entries.Where(entry => entry.Id != item.Id).ToArray());
+            remove.Click += (_, _) =>
+            {
+                if (ConfirmDeletionWindow.Ask(Window.GetWindow(this), UiText.Format("删除计划事项「{0}」？", item.Text)))
+                    Save(_entries.Where(entry => entry.Id != item.Id).ToArray());
+            };
             row.Children.Add(remove);
             var history = new Button { Content = "◷", ToolTip = UiText.Get("专注记录"), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 6, 0) };
             history.Click += (_, _) => _showHistory(item);

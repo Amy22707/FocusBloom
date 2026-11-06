@@ -165,6 +165,25 @@ public sealed class NavigationSettingsTests
                 Assert.Equal(edited.Id, Assert.Single(store.GetRecords()).PlannerItemId);
                 model.Statistics.Anchor = clock.GetLocalNow().DateTime.Date;
                 Assert.Contains("\"阅读\"", model.Statistics.Export(csv: true));
+
+                var remove = Descendants<Button>(content).Single(button => Equals(button.ToolTip, "Delete"));
+                void RespondToDeletion(bool confirm)
+                {
+                    window.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    {
+                        var dialog = window.OwnedWindows.OfType<FocusBloom.Desktop.Windows.ConfirmDeletionWindow>().Single();
+                        if (confirm)
+                            ((Button)dialog.FindName("ConfirmDeletionButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        else
+                            dialog.Close();
+                    }));
+                    remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush();
+                }
+                RespondToDeletion(false);
+                Assert.Equal(edited, Assert.Single(model.Todos.Checklist.Read(scope)));
+                RespondToDeletion(true);
+                Assert.Empty(model.Todos.Checklist.Read(scope));
+                Assert.Equal(edited.Id, Assert.Single(store.GetRecords()).PlannerItemId);
             }
             finally
             {
