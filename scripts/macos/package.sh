@@ -13,7 +13,7 @@ app="$staging/FocusBloom.app"
 contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 
-dotnet publish "$repo/Directory.Build.props" -c Release -r "osx-$arch" \
+dotnet publish "$repo/src/FocusBloom.Mac/FocusBloom.Mac.csproj" -c Release -r "osx-$arch" \
   --self-contained true -o "$contents/MacOS"
 mv "$contents/MacOS/FocusBloom.Mac" "$contents/MacOS/FocusBloom"
 cat > "$contents/Info.plist" <<EOF
