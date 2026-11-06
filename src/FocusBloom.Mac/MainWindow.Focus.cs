@@ -163,7 +163,7 @@ internal sealed partial class MainWindow
         {
             text.TextAlignment = TextAlignment.Center;
             if (text != _timeLabel)
-                text.FontFamily = _store.GetSetting("mac.focusFont") is { Length: > 0 } font ? new FontFamily(font) : _english ? FontFamily.Default : new FontFamily("Kaiti SC");
+                text.FontFamily = _store.GetSetting("mac.focusFont") is { Length: > 0 } font ? new FontFamily(font) : FontFamily.Default;
         }
         _focusScene = new Border { CornerRadius = new CornerRadius(22), MinHeight = _fullscreen ? 440 : 280, ClipToBounds = true };
         var backdrop = SelectedBackground();
