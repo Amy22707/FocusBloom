@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
+using FocusBloom.Core.Restrictions;
 using FocusBloom.Core.Todos;
 using FocusBloom.Infrastructure.Storage;
 
@@ -15,7 +16,8 @@ namespace FocusBloom.Mac;
 
 internal sealed partial class MainWindow
 {
-    private sealed record Recovery(FocusCheckpoint Timer);
+    private sealed record Recovery(FocusCheckpoint Timer, MacApplication[]? MacApplications = null, WebsiteRule[]? Websites = null,
+        AccessListMode ApplicationMode = AccessListMode.Blacklist, AccessListMode WebsiteMode = AccessListMode.Blacklist);
     private readonly FocusTimer _timer = new();
     private readonly DispatcherTimer _pulse = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private Recovery? _recovery;
@@ -32,11 +34,14 @@ internal sealed partial class MainWindow
     private void InitializeTimer()
     {
         LoadCheckpoint();
+        CaptureRules();
         _pulse.Tick += async (_, _) =>
         {
             try
             {
                 UpdateTimer();
+                EnforceRestrictions();
+                RefreshWidgets();
                 if (DateTimeOffset.Now - _lastBackupCheck >= TimeSpan.FromMinutes(1))
                 { _lastBackupCheck = DateTimeOffset.Now; await RunAutomaticBackup(); }
             }
@@ -45,6 +50,7 @@ internal sealed partial class MainWindow
         Opened += async (_, _) => { _pulse.Start(); await RunAutomaticBackup(); };
         Closing += (_, args) =>
         {
+            if (OperatingSystem.IsMacOS() && !_quitting) { args.Cancel = true; Hide(); return; }
             if (_backupBusy) { args.Cancel = true; Report(T("备份正在进行。", "A backup is in progress.")); return; }
             try
             {
@@ -53,7 +59,7 @@ internal sealed partial class MainWindow
             }
             catch (Exception error) { args.Cancel = true; Report(error.Message); }
         };
-        Closed += (_, _) => { _pulse.Stop(); UpdateSound(); foreach (var bitmap in _bitmaps) bitmap.Dispose(); };
+        Closed += (_, _) => { _pulse.Stop(); UpdateSound(); UpdateKeepAwake(); CloseWidgets(); foreach (var bitmap in _bitmaps) bitmap.Dispose(); };
     }
 
     private void LoadCheckpoint()
@@ -75,7 +81,7 @@ internal sealed partial class MainWindow
         var now = DateTimeOffset.UtcNow;
         if (!force && now - _lastCheckpoint < TimeSpan.FromSeconds(5)) return;
         var state = _timer.CaptureCheckpoint(_timer.LastRecord is { } record && record.Id != _savedRecord);
-        _store.SaveSetting("focus.checkpoint", state is null ? "" : JsonSerializer.Serialize(new Recovery(state)));
+        _store.SaveSetting("focus.checkpoint", state is null ? "" : JsonSerializer.Serialize(new Recovery(state, _sessionApps, _sessionSites, _applicationMode, _websiteMode)));
         _lastCheckpoint = now;
     }
 
@@ -85,9 +91,13 @@ internal sealed partial class MainWindow
         if (checkpoint.PendingRecord is { } pending) SaveRecord(pending);
         if (resume)
         {
+            _sessionApps = _recovery.MacApplications ?? [];
+            _sessionSites = _recovery.Websites ?? [];
+            _applicationMode = _recovery.ApplicationMode;
+            _websiteMode = _recovery.WebsiteMode;
             _focusTitle = checkpoint.Options.PlannerTitle ?? (checkpoint.Options.TodoId is { } id
                 ? _store.GetTodos(true).FirstOrDefault(todo => todo.Id == id)?.Title : null) ?? ProjectName(checkpoint.Options.ProjectId);
-            _timer.RestoreCheckpoint(checkpoint with { Options = checkpoint.Options with { Strict = false }, PendingRecord = null });
+            _timer.RestoreCheckpoint(checkpoint with { Options = checkpoint.Options with { Strict = checkpoint.Options.Strict && _recovery.MacApplications is not null }, PendingRecord = null });
         }
         else if (checkpoint.CurrentRecord is { } current) SaveRecord(current with { EndReason = EndReason.Interrupted });
         _recovery = null;
@@ -115,7 +125,7 @@ internal sealed partial class MainWindow
             SaveRecord(record);
             force = true;
         }
-        if (previous != _timer.State || force) UpdateSound();
+        if (previous != _timer.State || force) { UpdateSound(); UpdateKeepAwake(); }
         if (force || previous != _timer.State || _timer.IsActive || _timer.State == FocusState.Resting)
             Checkpoint(force || previous != _timer.State);
         if (_section != 0) return;
@@ -200,13 +210,14 @@ internal sealed partial class MainWindow
         var pause = Input(_store.GetSetting("pauseMinutes") ?? "5");
         var rest = Input(_store.GetSetting("restMinutes") ?? "0");
         var rounds = Input(_store.GetSetting("pomodoro.rounds") ?? "4");
+        var strict = new CheckBox { Content = T("严格模式", "Strict focus"), IsChecked = _store.GetSetting("timer.strict") == "True" };
         var durationField = Field(T("专注分钟数", "Focus minutes"), duration);
         var roundsField = Field(T("番茄轮数", "Pomodoro rounds"), rounds);
         void ShowMode() { durationField.IsVisible = mode.SelectedIndex != 0; roundsField.IsVisible = mode.SelectedIndex == 2; }
         mode.SelectionChanged += (_, _) => ShowMode(); ShowMode();
         var result = await Form(todo?.Title ?? plan?.Text ?? T("开始专注", "Start focus"),
             [Field(T("项目", "Project"), picker), Field(T("计时方式", "Timer mode"), mode), durationField,
-                Field(T("暂停分钟数", "Pause minutes"), pause), Field(T("休息分钟数", "Break minutes"), rest), roundsField], () =>
+                Field(T("暂停分钟数", "Pause minutes"), pause), Field(T("休息分钟数", "Break minutes"), rest), roundsField, strict], () =>
             {
                 var type = (TimerMode)mode.SelectedIndex;
                 var minutes = type == TimerMode.CountUp ? 0 : Minutes(duration, 1d / 6, 1440);
@@ -214,17 +225,19 @@ internal sealed partial class MainWindow
                 var restMinutes = Minutes(rest, 0, 1440);
                 var pomodoro = type == TimerMode.Pomodoro ? new PomodoroOptions(TimeSpan.FromMinutes(15), 4, Number(rounds, 1, 100)) : null;
                 var target = projects[picker.SelectedIndex];
+                CaptureRules();
                 _timer.Start(new(target.Id, type, TimeSpan.FromMinutes(minutes), TimeSpan.FromMinutes(pauseMinutes), TimeSpan.FromMinutes(restMinutes),
-                    Pomodoro: pomodoro, TodoId: todo?.Id, PlannerTitle: plan?.Text, PlannerItemId: plan?.Id));
+                    Strict: strict.IsChecked == true, Pomodoro: pomodoro, TodoId: todo?.Id, PlannerTitle: plan?.Text, PlannerItemId: plan?.Id));
                 _focusTitle = todo?.Title ?? plan?.Text ?? target.Name;
                 _store.SaveSetting("timer.mode", type.ToString());
+                _store.SaveSetting("timer.strict", (strict.IsChecked == true).ToString());
                 if (type != TimerMode.CountUp) _store.SaveSetting("timer.durationMinutes", minutes.ToString(CultureInfo.InvariantCulture));
                 _store.SaveSetting("pauseMinutes", pauseMinutes.ToString(CultureInfo.InvariantCulture));
                 _store.SaveSetting("restMinutes", restMinutes.ToString(CultureInfo.InvariantCulture));
                 if (pomodoro is not null) _store.SaveSetting("pomodoro.rounds", pomodoro.Rounds.ToString(CultureInfo.InvariantCulture));
                 Checkpoint(true);
             }, T("开始", "Start"));
-        if (result) { UpdateSound(); Navigate(0); }
+        if (result) { UpdateSound(); UpdateKeepAwake(); Navigate(0); }
     }
 
     private double Minutes(TextBox input, double min, double max)

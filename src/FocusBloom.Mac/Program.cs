@@ -34,15 +34,32 @@ internal sealed class App : Application
                 Directory.CreateDirectory(data);
                 var window = new MainWindow(data);
                 desktop.MainWindow = window;
+                if (OperatingSystem.IsMacOS() && !smoke)
+                {
+                    desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                    var menu = new NativeMenu();
+                    var open = new NativeMenuItem("打开 FocusBloom / Open FocusBloom");
+                    open.Click += (_, _) => { window.Show(); window.Activate(); };
+                    var quit = new NativeMenuItem("退出 / Quit");
+                    quit.Click += (_, _) => { if (window.PrepareToQuit()) desktop.Shutdown(); };
+                    menu.Items.Add(open); menu.Items.Add(quit);
+                    var icon = new TrayIcon { Menu = menu, ToolTipText = "FocusBloom" };
+                    var image = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "FocusBloom.png"));
+                    if (File.Exists(image)) icon.Icon = new WindowIcon(image);
+                    TrayIcon.SetIcons(this, new TrayIcons { icon });
+                    desktop.ShutdownRequested += (_, request) => { if (!window.PrepareToQuit()) request.Cancel = true; };
+                    desktop.Exit += (_, _) => icon.Dispose();
+                }
                 if (smoke) window.Opened += async (_, _) =>
                 {
                     try
                     {
                         await window.VerifyStartup();
                         File.WriteAllText(Path.Combine(data, "smoke-success.txt"), "FocusBloom 1.0.1");
+                        window.PrepareToQuit();
                         desktop.Shutdown();
                     }
-                    catch (Exception error) { Console.Error.WriteLine(error); desktop.Shutdown(1); }
+                    catch (Exception error) { Console.Error.WriteLine(error); window.PrepareToQuit(); desktop.Shutdown(1); }
                 };
             }
             catch (Exception error) when (!smoke)

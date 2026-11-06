@@ -50,6 +50,20 @@ internal sealed partial class MainWindow : Window
         Navigate(0);
     }
 
+    private bool _quitting;
+    internal bool PrepareToQuit()
+    {
+        if (_backupBusy) { Show(); Report(T("请等待备份完成。", "Wait for the backup to finish.")); return false; }
+        try
+        {
+            if (_timer.IsActive) { _timer.End(FocusBloom.Core.Focus.EndReason.ApplicationExit, false); UpdateTimer(true); }
+            else Checkpoint(true);
+            _quitting = true;
+            return true;
+        }
+        catch (Exception error) { Show(); Report(error.Message); return false; }
+    }
+
     private void Navigate(int page)
     {
         _section = page;
@@ -62,7 +76,7 @@ internal sealed partial class MainWindow : Window
     {
         string[] titles = [T("专注计时", "Focus Timer"), T("项目库", "Projects"), T("待办事项", "Tasks"), T("计划本", "Planner"),
             T("日历与课表", "Calendar & Classes"), T("目标与习惯", "Goals & Habits"), T("心情与复盘", "Mood & Reflection"),
-            T("专注记录", "Focus History"), T("偏好设置", "Settings")];
+            T("专注记录", "Focus History"), T("偏好设置", "Settings"), T("学习浏览器", "Study Browser")];
         _nav.Children.Clear();
         for (var i = 0; i < titles.Length; i++)
         {
@@ -86,6 +100,7 @@ internal sealed partial class MainWindow : Window
             case 6: ReflectionPage(); break;
             case 7: HistoryPage(); break;
             case 8: SettingsPage(); break;
+            case 9: BrowserPage(); break;
         }
     }
 

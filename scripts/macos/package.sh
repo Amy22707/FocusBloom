@@ -34,6 +34,7 @@ cat > "$contents/Info.plist" <<EOF
 EOF
 curl --fail --location "https://github.com/Amy22707/FocusBloom/releases/download/v$version/FocusBloom-chromium.zip" -o "$output/browser-assets.zip"
 unzip -p "$output/browser-assets.zip" icons/128.png > "$output/FocusBloom.png"
+cp "$output/FocusBloom.png" "$contents/Resources/FocusBloom.png"
 swift "$repo/scripts/macos/icon.swift" "$output/FocusBloom.png" "$output/FocusBloom.iconset"
 iconutil -c icns "$output/FocusBloom.iconset" -o "$contents/Resources/FocusBloom.icns"
 plutil -lint "$contents/Info.plist"

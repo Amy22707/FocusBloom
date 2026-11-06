@@ -59,14 +59,14 @@ internal sealed partial class MainWindow
         var image = Assets(media, "customImages", BuiltInMedia.Value.Images).FirstOrDefault(asset => asset.Id == id);
         return image is null ? null : ReadBitmap(image.File);
     }
-    private Bitmap? ReadBitmap(string path)
+    private Bitmap? ReadBitmap(string path, bool remember = true)
     {
         try
         {
             if (!File.Exists(path)) return null;
             using var stream = File.OpenRead(path);
             var image = Bitmap.DecodeToWidth(stream, 1280);
-            _bitmaps.Add(image);
+            if (remember) _bitmaps.Add(image);
             return image;
         }
         catch (Exception error) when (error is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException) { return null; }
@@ -106,6 +106,8 @@ internal sealed partial class MainWindow
         colors.SelectionChanged += (_, _) => { _store.SaveSetting("mac.accent", _colors[colors.SelectedIndex]); ApplyAppearance(); };
         _page.Children.Add(Card(Label(T("外观", "Appearance"), 17, true), Row(Field("语言/Language", language), Field(T("明暗", "Theme"), theme), Field(T("配色", "Color"), colors))));
         _page.Children.Add(MediaSettings());
+        _page.Children.Add(RestrictionSettings());
+        _page.Children.Add(WidgetSettings());
         var prefs = BackupPreferences;
         var automatic = new CheckBox { Content = T("每天自动备份", "Back up every day"), IsChecked = prefs.Automatic };
         automatic.IsCheckedChanged += async (_, _) => { SaveBackupPreferences(BackupPreferences with { Automatic = automatic.IsChecked == true }); await RunAutomaticBackup(); };

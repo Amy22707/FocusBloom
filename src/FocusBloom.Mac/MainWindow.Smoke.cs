@@ -57,15 +57,16 @@ internal sealed partial class MainWindow
         foreach (var english in new[] { false, true })
         {
             _english = english;
-            for (var section = 0; section <= 8; section++) Navigate(section);
+            for (var section = 0; section <= 9; section++) Navigate(section);
         }
+        await VerifyMacFeatures();
         await VerifyWindowsBackup();
         Navigate(0);
         await Task.Delay(200);
         await CaptureFocus();
         if (!Directory.EnumerateFiles(Path.Combine(_data, "screenshots"), "*.png").Any())
             throw new InvalidOperationException("Focus screenshot was not saved.");
-        Console.WriteLine("FOCUSBLOOM_SMOKE_OK: window, nine pages, timer limits, planner identity, Windows backup restored, screenshot saved");
+        Console.WriteLine("FOCUSBLOOM_SMOKE_OK: window, ten pages, timer limits, planner identity, Windows backup restored, screenshot saved");
     }
 
     private async Task VerifyPlannerEditing(Guid id, ChecklistScope scope)
