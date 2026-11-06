@@ -32,11 +32,17 @@ public sealed class LocalBackupTests
             for (var index = 0; index < files.Length; index++) { Directory.CreateDirectory(Path.GetDirectoryName(files[index])!); await File.WriteAllTextAsync(files[index], "素材内容" + index); }
             var images = files.Take(3).Select(path => new FocusAsset("local:" + path, "自定义显示名 " + Path.GetFileName(path), path, Custom: true)).ToList(); var sound = new FocusAsset("local:" + files[3], "我的声音", files[3], Custom: true);
             var media = new MediaPreferences { CustomImages = images, CustomSounds = new() { sound }, CustomQuotes = new() { new("custom-quote", "保留我的句子。", "我", Custom: true) }, BackgroundId = images[0].Id, SoundId = sound.Id, FavoriteIds = new() { images[0].Id }, ExcludedIds = new() { images[1].Id }, ImageOrder = images.Select(item => item.Id).Reverse().ToList(), ImageFolders = new() { Path.GetDirectoryName(files[0])! } };
+            var newBackground = Path.Combine(media.ImageFolders[0], "刚放入文件夹.PNG");
+            var removedBackground = Path.Combine(media.ImageFolders[0], "已从背景库删除.png");
+            await File.WriteAllTextAsync(newBackground, "尚未刷新到背景库的图片");
+            await File.WriteAllTextAsync(removedBackground, "仍用作组件背景的图片");
+            media.RemovedImageIds.Add("local:" + removedBackground);
             source.SaveSetting("focus.media", JsonSerializer.Serialize(media, Json)); source.SaveSetting("widgets.Dates", JsonSerializer.Serialize(new DesktopWidgetPreferences(BackgroundMode: "图片", BackgroundImage: files[0]))); source.SaveSetting("widgets.calendar.view", "月");
+            source.SaveSetting("widgets.Habits", JsonSerializer.Serialize(new DesktopWidgetPreferences(BackgroundMode: "图片", BackgroundImage: removedBackground)));
             var dateEvent = new DateEvent(Guid.NewGuid(), "提交论文", day, CoverPath: files[1]); source.SaveDateEvent(dateEvent); var plan = new CalendarPlan(Guid.NewGuid(), "实验安排", day, new(14, 0), TodoId: todo.Id); source.SaveCalendarPlan(plan);
             var course = new SchoolCourse(Guid.NewGuid(), "系统课", 1, 1, 2); source.SaveCourse(course); var change = new CourseChange(Guid.NewGuid(), course.Id, day, true); source.SaveCourseChange(change);
             var habit = new Habit(Guid.NewGuid(), "阅读", new[] { 1, 2, 3, 4, 5, 6, 7 }, day.AddDays(-10)); source.SaveHabit(habit); source.SetHabitCheckIn(habit.Id, day, true); var goal = new FocusGoal(Guid.NewGuid(), "读十天", GoalMetric.CheckInDays, 10, GoalCycle.Total, day.AddDays(-10), HabitId: habit.Id); source.SaveGoal(goal); source.SaveDailyReflection(new(day, 4, new[] { "学习" }, "顺利", "做完实验", "继续")); source.SaveSetting("ui.navigation.collapsed", "True");
-            var backupFile = Path.Combine(root, "portable.fbbak"); var backup = await new LocalBackupService(source.DatabasePath).CreateAsync(backupFile); Assert.Empty(backup.Manifest.Missing); Assert.Equal(4, backup.Manifest.Assets.Count); Assert.Equal(1, backup.Manifest.Counts["专注记录"]); Assert.Equal(1, backup.Manifest.Counts["待办"]);
+            var backupFile = Path.Combine(root, "portable.fbbak"); var backup = await new LocalBackupService(source.DatabasePath).CreateAsync(backupFile); Assert.Empty(backup.Manifest.Missing); Assert.Equal(6, backup.Manifest.Assets.Count); Assert.Equal(1, backup.Manifest.Counts["专注记录"]); Assert.Equal(1, backup.Manifest.Counts["待办"]);
             Directory.Delete(Path.Combine(root, "original"), true); source.SaveProject(project with { Name = "备份之后的修改" });
             var target = new SqliteFocusStore(Path.Combine(root, "other-computer", "focusbloom.db")); var current = new FocusProject(Guid.NewGuid(), "当前内容", "本机", "#123456"); target.SaveProject(current); var options = new BackupOptions(true, Path.Combine(root, "my-backups"), 3); target.SaveSetting(LocalBackupService.OptionsKey, JsonSerializer.Serialize(options));
             var service = new LocalBackupService(target.DatabasePath); using var prepared = await service.PrepareRestoreAsync(backupFile); Assert.Contains(target.GetProjects(), item => item.Id == current.Id); service.ApplyRestore(prepared);
@@ -46,6 +52,12 @@ public sealed class LocalBackupTests
             for (var index = 0; index < 3; index++) { Assert.Equal("素材内容" + index, File.ReadAllText(restoredMedia.CustomImages[index].File)); Assert.StartsWith(Path.Combine(root, "other-computer", "restored-media"), restoredMedia.CustomImages[index].File); Assert.Equal("local:" + restoredMedia.CustomImages[index].File, restoredMedia.CustomImages[index].Id); Assert.Equal(images[index].Name, restoredMedia.CustomImages[index].Name); }
             Assert.Equal(restoredMedia.CustomImages[0].Id, restoredMedia.BackgroundId); Assert.Equal(restoredMedia.CustomImages[0].Id, Assert.Single(restoredMedia.FavoriteIds)); Assert.Equal(restoredMedia.CustomImages[1].Id, Assert.Single(restoredMedia.ExcludedIds)); Assert.Equal(restoredMedia.CustomImages.Select(item => item.Id).Reverse(), restoredMedia.ImageOrder); Assert.True(Directory.Exists(Assert.Single(restoredMedia.ImageFolders))); Assert.Equal("素材内容3", File.ReadAllText(Assert.Single(restoredMedia.CustomSounds).File));
             Assert.Equal(restoredMedia.CustomImages[1].File, Assert.Single(reopened.GetDateEvents()).CoverPath); var widget = JsonSerializer.Deserialize<DesktopWidgetPreferences>(reopened.GetSetting("widgets.Dates")!)!; Assert.Equal(restoredMedia.CustomImages[0].File, widget.BackgroundImage);
+            var restoredFolder = Assert.Single(restoredMedia.ImageFolders);
+            Assert.Equal("尚未刷新到背景库的图片", File.ReadAllText(Path.Combine(restoredFolder, Path.GetFileName(newBackground))));
+            var restoredRemovedBackground = Path.Combine(restoredFolder, Path.GetFileName(removedBackground));
+            Assert.Equal("local:" + restoredRemovedBackground, Assert.Single(restoredMedia.RemovedImageIds));
+            var habitsWidget = JsonSerializer.Deserialize<DesktopWidgetPreferences>(reopened.GetSetting("widgets.Habits")!)!;
+            Assert.Equal(restoredRemovedBackground, habitsWidget.BackgroundImage);
             Assert.DoesNotContain(Directory.GetDirectories(Path.Combine(service.ProfileDirectory, "backup-work")), path => path != prepared.Directory);
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (Directory.Exists(root)) Directory.Delete(root, true); }

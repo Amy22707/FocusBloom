@@ -46,7 +46,7 @@ public sealed partial class LocalBackupService
         var settings = Settings(connection);
         if (settings.TryGetValue("focus.media", out var mediaText) && JsonNode.Parse(mediaText) is JsonObject media)
         {
-            var ids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var ids = paths.ToDictionary(pair => "local:" + pair.Key, pair => "local:" + pair.Value, StringComparer.OrdinalIgnoreCase);
             foreach (var key in new[] { "customImages", "customSounds" })
             {
                 if (media[key] is not JsonArray assets) continue;

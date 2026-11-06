@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using FocusBloom.Core.Focus;
 using Microsoft.Data.Sqlite;
 
 namespace FocusBloom.Infrastructure.Backup;
@@ -46,22 +47,40 @@ public sealed partial class LocalBackupService
             using var database = Connect(snapshot, true); var settings = Settings(database); var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); var folders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string Folder(string path) { path = Path.GetFullPath(path); if (!folders.TryGetValue(path, out var entry)) folders.Add(path, entry = "assets/" + folders.Count.ToString("D4")); return entry; }
             void Add(string? path) { if (string.IsNullOrWhiteSpace(path)) return; path = Path.GetFullPath(path); files.TryAdd(path, Folder(Path.GetDirectoryName(path)!) + "/" + Path.GetFileName(path)); }
+            var missing = new List<string>();
             if (settings.TryGetValue("focus.media", out var mediaText) && JsonNode.Parse(mediaText) is JsonObject media)
             {
                 foreach (var key in new[] { "customImages", "customSounds" }) if (media[key] is JsonArray assets) foreach (var asset in assets) Add(asset?["file"]?.GetValue<string>());
-                if (media["imageFolders"] is JsonArray imageFolders) foreach (var folder in imageFolders) if (folder?.GetValue<string>() is { Length: > 0 } path) Folder(path);
+                var removed = (media["removedImageIds"] as JsonArray ?? []).Select(id => id?.GetValue<string>())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (media["imageFolders"] is JsonArray imageFolders)
+                {
+                    foreach (var folder in imageFolders)
+                    {
+                        if (folder?.GetValue<string>() is not { Length: > 0 } path) continue;
+                        path = Path.GetFullPath(path);
+                        Folder(path);
+                        try
+                        {
+                            foreach (var file in FocusBackgroundFiles.InFolder(path))
+                                if (!removed.Contains("local:" + file)) Add(file);
+                        }
+                        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { missing.Add(path); }
+                    }
+                }
             }
             foreach (var row in DatePayloads(database)) Add(row.Payload["coverPath"]?.GetValue<string>());
             foreach (var row in ReflectionPayloads(database)) if (row.Payload["photos"] is JsonArray photos) foreach (var photo in photos) Add(photo?.GetValue<string>());
             foreach (var pair in settings.Where(pair => pair.Key.StartsWith("widgets.", StringComparison.Ordinal) && pair.Value.TrimStart().StartsWith('{'))) if (JsonNode.Parse(pair.Value) is JsonObject widget) Add(widget["BackgroundImage"]?.GetValue<string>());
-            var copied = new List<BackupAsset>(); var missing = new List<string>();
+            var copied = new List<BackupAsset>();
+            var totalAssets = files.Count + missing.Count;
             BackupManifest manifest;
             using (var zip = ZipFile.Open(partial, ZipArchiveMode.Create))
             {
                 zip.CreateEntryFromFile(snapshot, "database.sqlite", CompressionLevel.Optimal);
                 foreach (var (path, entry) in files)
                 {
-                    token.ThrowIfCancellationRequested(); progress?.Report(new("正在打包素材：" + Path.GetFileName(path), copied.Count + missing.Count, files.Count));
+                    token.ThrowIfCancellationRequested(); progress?.Report(new("正在打包素材：" + Path.GetFileName(path), copied.Count + missing.Count, totalAssets));
                     FileStream input;
                     try { input = File.OpenRead(path); } catch (Exception error) when (error is IOException or UnauthorizedAccessException) { missing.Add(path); continue; }
                     using (input) using (var output = zip.CreateEntry(entry, CompressionLevel.Fastest).Open()) { input.CopyToAsync(output, token).GetAwaiter().GetResult(); copied.Add(new(path, entry, input.Length)); }

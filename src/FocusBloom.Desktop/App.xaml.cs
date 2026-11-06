@@ -35,8 +35,8 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        Appearance.Apply(Appearance.Palettes[0], AppearanceMode.System);
         LoadingWindow? loadingWindow = null;
+        string? dataDirectory = null;
         try
         {
             if (Array.IndexOf(e.Args, "--data-dir") is var index && index >= 0)
@@ -45,7 +45,10 @@ public partial class App : Application
                     throw new ArgumentException("--data-dir 需要指定独立资料目录。");
                 _alternateDataDirectory = Path.GetFullPath(e.Args[index + 1]);
             }
-            var profiles = new AccountProfiles(_alternateDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FocusBloom"));
+            dataDirectory = _alternateDataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FocusBloom");
+            WriteStartupStatus(dataDirectory, "Starting");
+            Appearance.Apply(Appearance.Palettes[0], AppearanceMode.System);
+            var profiles = new AccountProfiles(dataDirectory);
             profiles.Load();
             var store = await Task.Run(() => new SqliteFocusStore(profiles.CurrentDatabase));
             UiText.Configure(store.GetSetting(UiText.SettingKey));
@@ -67,11 +70,6 @@ public partial class App : Application
             _restrictions = new ApplicationRestrictionService(_viewModel, () => _window.ReturnToFocus());
             _keepAwake = new KeepAwakeService(_viewModel);
             _tray = new TrayIcon(_viewModel, ShowWindow, ExitApplication);
-            if (_alternateDataDirectory is null)
-            {
-                try { _reminders = new WindowsReminderService(store, _viewModel, entry => _window.OpenReminder(entry)); }
-                catch (Exception ex) { _viewModel.NotificationStatus = "系统提醒不可用：" + ex.Message; }
-            }
             _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _refresh.Tick += (_, _) =>
             {
@@ -83,6 +81,16 @@ public partial class App : Application
             _refresh.Start();
             _window.Show();
             loadingWindow.Close();
+            WriteStartupStatus(dataDirectory, "Main window opened");
+            if (_alternateDataDirectory is null)
+            {
+                _ = Dispatcher.InvokeAsync(() =>
+                {
+                    if (_exiting) return;
+                    try { _reminders = new WindowsReminderService(store, _viewModel, entry => _window.OpenReminder(entry)); }
+                    catch (Exception ex) { _viewModel.NotificationStatus = "系统提醒不可用：" + ex.Message; }
+                }, DispatcherPriority.ApplicationIdle);
+            }
             _window.ShowFocusRecovery();
             _window.ShowLimitNotice();
             _window.Backups?.StartAutomatic();
@@ -90,10 +98,21 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            if (dataDirectory is not null) WriteStartupStatus(dataDirectory, ex.ToString());
             loadingWindow?.Close();
             MessageBox.Show($"一刻专注无法启动：{ex.Message}", "启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static void WriteStartupStatus(string directory, string status)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "startup.log"), $"{DateTimeOffset.Now:O} PID {Environment.ProcessId} {status}{Environment.NewLine}");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     private void HideToTray(object? sender, CancelEventArgs e)

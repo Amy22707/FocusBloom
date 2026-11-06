@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using FocusBloom.Core.Focus;
 using FocusBloom.Core.Storage;
 using FocusBloom.Desktop.Presentation;
 
@@ -393,7 +394,7 @@ public sealed class FocusMediaViewModel : ObservableObject, IDisposable
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { LibraryChanged(); _report($"无法读取文件夹：{folder}"); }
     }
     private static IEnumerable<string> FolderImages(string folder) => Directory.Exists(folder)
-        ? Directory.EnumerateFiles(folder).Where(path => new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".mp4", ".wmv" }.Contains(Path.GetExtension(path).ToLowerInvariant())) : [];
+        ? FocusBackgroundFiles.InFolder(folder) : [];
     private void RefreshFolders()
     {
         foreach (var folder in _preferences.ImageFolders.ToArray())

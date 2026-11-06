@@ -8,35 +8,70 @@
     </Upgrade>
     <Launch Condition="NOT NEWER_FOCUSBLOOM AND NOT NEWER_FOCUSBLOOM_ABOVE_LEGACY" Message="A newer version of FocusBloom is already installed." />
     <InstallExecuteSequence><RemoveExistingProducts After="InstallInitialize" /></InstallExecuteSequence>
-    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="InstallFolder" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <Property Id="INSTALLFOLDER" Secure="yes" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="启动 FocusBloom" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-    <CustomAction Id="LaunchApplication" Directory="InstallFolder" ExeCommand="&quot;[InstallFolder]FocusBloom.exe&quot;" Execute="immediate" Return="asyncNoWait" Impersonate="yes" />
+    <Property Id="WixUnelevatedShellExecTarget" Value="[#FocusBloomExe]" />
+    <CustomAction Id="LaunchApplication" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixUnelevatedShellExec" Execute="immediate" Return="check" />
     <UI>
+      <Dialog Id="ShortcutOptionsDlg" Width="370" Height="270" Title="[ProductName] 安装程序">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="20" Text="{\WixUI_Font_Title}快捷方式" />
+        <Control Id="Description" Type="Text" X="20" Y="51" Width="330" Height="25" Text="请选择是否创建桌面快捷方式。" />
+        <Control Id="DesktopShortcut" Type="CheckBox" X="20" Y="86" Width="330" Height="18" Property="DESKTOP_SHORTCUT" CheckBoxValue="1" Text="创建桌面快捷方式" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="上一步(&amp;B)">
+          <Publish Event="NewDialog" Value="InstallDirDlg" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Text="下一步(&amp;N)" Default="yes">
+          <Publish Event="AddLocal" Value="DesktopShortcut" Condition="DESKTOP_SHORTCUT" />
+          <Publish Event="Remove" Value="DesktopShortcut" Condition="NOT DESKTOP_SHORTCUT" />
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Text="取消" Cancel="yes">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
       <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="1" />
-      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ShortcutOptionsDlg" Order="5" Condition="WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=&quot;1&quot;" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ShortcutOptionsDlg" Order="3" Condition="NOT Installed" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication" Order="1" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
     </UI>
     <MediaTemplate EmbedCab="yes" />
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">
-        <Directory Id="InstallFolder" Name="FocusBloom" />
+        <Directory Id="INSTALLFOLDER" Name="FocusBloom" />
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
       <Component Id="FocusBloomShortcut" Guid="619E7615-901A-4421-85E0-CB66C83E787B">
-        <Shortcut Id="FocusBloomStartMenu" Name="FocusBloom" Target="[InstallFolder]FocusBloom.exe" WorkingDirectory="InstallFolder" />
+        <Shortcut Id="FocusBloomStartMenu" Name="FocusBloom" Target="[#FocusBloomExe]" WorkingDirectory="INSTALLFOLDER" />
         <RegistryValue Root="HKCU" Key="Software\FocusBloom" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="FocusBloomDesktopShortcut" Guid="*">
+        <Shortcut Id="FocusBloomDesktop" Name="FocusBloom" Target="[#FocusBloomExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\FocusBloom" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
     <Feature Id="Application" Title="FocusBloom">
       <ComponentGroupRef Id="ApplicationFiles" />
       <ComponentRef Id="FocusBloomShortcut" />
     </Feature>
+    <Feature Id="DesktopShortcut" Title="桌面快捷方式" Level="2" Display="hidden">
+      <ComponentRef Id="FocusBloomDesktopShortcut" />
+    </Feature>
   </Package>
   <Fragment>
-    <ComponentGroup Id="ApplicationFiles" Directory="InstallFolder">
-      <Files Include="$(Payload)\**" />
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Component Id="FocusBloomExecutable" Guid="*">
+        <File Id="FocusBloomExe" Source="$(Payload)\FocusBloom.exe" KeyPath="yes" />
+      </Component>
+      <Files Include="$(Payload)\**">
+        <Exclude Files="$(Payload)\FocusBloom.exe" />
+      </Files>
     </ComponentGroup>
   </Fragment>
 </Wix>

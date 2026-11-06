@@ -164,7 +164,7 @@
   "登录": "Sign in",
   "保留本机": "Keep local",
   "采用云端": "Use cloud version",
-  "一个备份文件包含已保存的记录、待办、课表、习惯、心情、设置和自定义素材。可在这台电脑恢复，也可导入另一台电脑。": "A backup includes saved records, tasks, classes, habits, moods, settings, and custom media. Restore it on this device or another computer.",
+  "手动和自动备份均包含已保存的记录、计划、课表、习惯、复盘和设置，以及自定义背景、声音、句子和照片。可在这台电脑或另一台电脑恢复。": "Manual and automatic backups include saved records, plans, classes, habits, reflections, settings, and your own backgrounds, sounds, quotes, and photos. Restore a backup on this device or another computer.",
   "创建备份…": "Create backup…",
   "从备份恢复…": "Restore from backup…",
   "打开备份文件夹": "Open backup folder",

@@ -45,7 +45,7 @@ if ($Installer) {
     $wix = Join-Path $repo '.tools/wix/wix.exe'
     if (!(Test-Path -LiteralPath $wix)) { throw '请先将 WiX 工具安装到 .tools/wix。' }
     $msi = Join-Path $stage 'FocusBloom-Windows-x64.msi'
-    & $wix build (Join-Path $PSScriptRoot 'FocusBloom.wxs') -ext WixToolset.UI.wixext -culture zh-CN -arch x64 -d "Version=$Version" -d "Payload=$app" -o $msi
+    & $wix build (Join-Path $PSScriptRoot 'FocusBloom.wxs') -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -culture zh-CN -arch x64 -d "Version=$Version" -d "Payload=$app" -o $msi
     if ($LASTEXITCODE -ne 0) { throw 'MSI 打包失败。' }
     Write-Output "OfflineInstaller=$msi"
 }
