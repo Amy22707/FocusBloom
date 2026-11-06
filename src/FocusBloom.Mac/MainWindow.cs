@@ -30,6 +30,8 @@ internal sealed partial class MainWindow : Window
 
     public MainWindow(string data)
     {
+        var smoke = Environment.GetCommandLineArgs().Contains("--smoke-test");
+        if (smoke) Console.WriteLine("SMOKE: database");
         _data = data;
         _store = new SqliteFocusStore(Path.Combine(data, "focusbloom.db"));
         _english = _store.GetSetting("appearance.language") == "en";
@@ -54,9 +56,12 @@ internal sealed partial class MainWindow : Window
         divider.DragCompleted += (_, _) => _store.SaveSetting("mac.navigationWidth", shell.ColumnDefinitions[0].ActualWidth.ToString(CultureInfo.InvariantCulture));
         Grid.SetColumn(divider, 1); shell.Children.Add(divider);
         shell.Children.Add(side); Grid.SetColumn(main, 2); shell.Children.Add(main); Content = shell;
+        if (smoke) Console.WriteLine("SMOKE: appearance");
         ApplyAppearance();
         ApplyFont();
+        if (smoke) Console.WriteLine("SMOKE: initialize timer");
         InitializeTimer();
+        if (smoke) Console.WriteLine("SMOKE: focus page");
         Navigate(0);
     }
 
