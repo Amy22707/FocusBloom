@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using FocusBloom.Core.Focus;
 using FocusBloom.Infrastructure.Storage;
 
@@ -149,8 +150,9 @@ internal sealed partial class MainWindow : Window
             CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var body = new StackPanel { Spacing = 12, Margin = new Thickness(22) };
         foreach (var field in fields) body.Children.Add(field);
-        var submit = new Button { Content = confirm ?? T("保存", "Save"), Classes = { "accent" }, IsDefault = true };
-        var cancel = new Button { Content = T("取消", "Cancel"), IsCancel = true };
+        var deleting = confirm == T("删除", "Delete");
+        var submit = new Button { Content = confirm ?? T("保存", "Save"), Classes = { "accent" }, IsDefault = !deleting };
+        var cancel = new Button { Content = T("取消", "Cancel"), IsCancel = true, IsDefault = deleting };
         cancel.Click += (_, _) => window.Close(false);
         submit.Click += async (_, _) =>
         {
@@ -190,8 +192,16 @@ internal sealed partial class MainWindow : Window
             FileTypeChoices = [new FilePickerFileType(extension.ToUpperInvariant()) { Patterns = ["*." + extension] }] });
         return file?.TryGetLocalPath();
     }
-    private void ApplyAppearance() => Application.Current!.RequestedThemeVariant = _store.GetSetting("appearance.mode") switch
+    private void ApplyAppearance()
     {
-        "Light" => ThemeVariant.Light, "Dark" => ThemeVariant.Dark, _ => ThemeVariant.Default
-    };
+        var app = Application.Current!;
+        app.RequestedThemeVariant = _store.GetSetting("appearance.mode") switch
+        {
+            "Light" => ThemeVariant.Light, "Dark" => ThemeVariant.Dark, _ => ThemeVariant.Default
+        };
+        var color = Color.Parse(_store.GetSetting("mac.accent") ?? _colors[0]);
+        var theme = app.Styles.OfType<FluentTheme>().Single();
+        theme.Palettes[ThemeVariant.Light] = new ColorPaletteResources { Accent = color };
+        theme.Palettes[ThemeVariant.Dark] = new ColorPaletteResources { Accent = color };
+    }
 }

@@ -36,7 +36,12 @@ internal sealed class App : Application
                 desktop.MainWindow = window;
                 if (smoke) window.Opened += async (_, _) =>
                 {
-                    try { await window.VerifyStartup(); desktop.Shutdown(); }
+                    try
+                    {
+                        await window.VerifyStartup();
+                        File.WriteAllText(Path.Combine(data, "smoke-success.txt"), "FocusBloom 1.0.1");
+                        desktop.Shutdown();
+                    }
                     catch (Exception error) { Console.Error.WriteLine(error); desktop.Shutdown(1); }
                 };
             }

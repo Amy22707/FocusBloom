@@ -103,7 +103,7 @@ internal sealed partial class MainWindow
         var theme = Choice([T("跟随系统", "System"), T("浅色", "Light"), T("深色", "Dark")], Math.Max(0, Array.IndexOf(themes, _store.GetSetting("appearance.mode"))));
         theme.SelectionChanged += (_, _) => { _store.SaveSetting("appearance.mode", themes[theme.SelectedIndex]); ApplyAppearance(); };
         var colors = Choice([T("苔绿", "Moss"), T("水色", "Water"), T("淡紫", "Lavender"), T("陶土", "Clay"), T("麦芽", "Wheat")], Math.Max(0, Array.IndexOf(_colors, _store.GetSetting("mac.accent"))));
-        colors.SelectionChanged += (_, _) => _store.SaveSetting("mac.accent", _colors[colors.SelectedIndex]);
+        colors.SelectionChanged += (_, _) => { _store.SaveSetting("mac.accent", _colors[colors.SelectedIndex]); ApplyAppearance(); };
         _page.Children.Add(Card(Label(T("外观", "Appearance"), 17, true), Row(Field("语言/Language", language), Field(T("明暗", "Theme"), theme), Field(T("配色", "Color"), colors))));
         _page.Children.Add(MediaSettings());
         var prefs = BackupPreferences;

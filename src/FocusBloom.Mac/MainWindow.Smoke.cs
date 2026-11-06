@@ -1,6 +1,11 @@
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using FocusBloom.Core.Focus;
 using FocusBloom.Core.Projects;
 using FocusBloom.Core.Reflection;
@@ -37,6 +42,7 @@ internal sealed partial class MainWindow
         var scope = ChecklistScope.For(ChecklistPeriod.Day, Today);
         plan.Save(scope, [item]);
         plan.Save(scope, [item with { Text = "Read two chapters", Done = true }]);
+        await VerifyPlannerEditing(item.Id, scope);
         var options = new FocusOptions(project.Id, TimerMode.CountUp, TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.Zero,
             PlannerTitle: item.Text, PlannerItemId: item.Id);
         timer.Start(options); clock.Advance(TimeSpan.FromSeconds(9)); timer.End(); SaveRecord(timer.LastRecord!);
@@ -44,7 +50,7 @@ internal sealed partial class MainWindow
         timer.Start(options); clock.Advance(TimeSpan.FromHours(25)); timer.Update(); SaveRecord(timer.LastRecord!);
         var records = _store.GetRecords();
         if (records.Count != 2 || records.All(r => r.EndReason != EndReason.DurationLimit || r.FocusDuration != TimeSpan.FromHours(24)) ||
-            records.Any(r => r.PlannerItemId != item.Id) || plan.Read(scope).Single().Text != "Read two chapters")
+            records.Any(r => r.PlannerItemId != item.Id) || plan.Read(scope).Single().Text != "Read two chapters and take notes")
             throw new InvalidOperationException("Focus or planner data did not survive the expected transitions.");
         _store.SaveDailyReflection(new DailyReflection(Today, 5, [], "Good day"));
         _store.SaveHabit(new(Guid.NewGuid(), "Reading", [1, 2, 3, 4, 5, 6, 7], Today));
@@ -60,6 +66,36 @@ internal sealed partial class MainWindow
         if (!Directory.EnumerateFiles(Path.Combine(_data, "screenshots"), "*.png").Any())
             throw new InvalidOperationException("Focus screenshot was not saved.");
         Console.WriteLine("FOCUSBLOOM_SMOKE_OK: window, nine pages, timer limits, planner identity, Windows backup restored, screenshot saved");
+    }
+
+    private async Task VerifyPlannerEditing(Guid id, ChecklistScope scope)
+    {
+        _english = true;
+        _day = Today;
+        _period = ChecklistPeriod.Day;
+        Navigate(3);
+        await Task.Delay(100);
+        var edit = _page.GetVisualDescendants().OfType<Button>().First(button => button.Content as string == "Edit");
+        edit.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        await Task.Delay(150);
+        var desktop = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        var dialog = desktop.Windows.Single(window => window != this && window.Title == "Plan item");
+        dialog.GetVisualDescendants().OfType<TextBox>().Single().Text = "Read two chapters and take notes";
+        dialog.GetVisualDescendants().OfType<Button>().Single(button => button.Content as string == "Save")
+            .RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        await Task.Delay(100);
+        var entry = new PeriodicChecklist(_store).Read(scope).Single();
+        if (entry.Id != id || !entry.Done || entry.Text != "Read two chapters and take notes")
+            throw new InvalidOperationException("Editing a plan changed its identity or completion state.");
+        var deleted = false;
+        var cancel = Delete(entry.Text, () => deleted = true);
+        await Task.Delay(100);
+        var confirmation = desktop.Windows.Single(window => window != this && window.Title == "Confirm deletion");
+        var cancelButton = confirmation.GetVisualDescendants().OfType<Button>().Single(button => button.Content as string == "Cancel");
+        if (!cancelButton.IsDefault) throw new InvalidOperationException("Deletion should default to Cancel.");
+        cancelButton.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        await cancel;
+        if (deleted) throw new InvalidOperationException("Cancel deleted a plan.");
     }
 
     private async Task VerifyWindowsBackup()

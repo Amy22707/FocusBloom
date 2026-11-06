@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Input.Platform;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Core.Goals;
 using FocusBloom.Core.Reflection;
@@ -279,8 +280,19 @@ internal sealed partial class MainWindow
         {
             if (await OpenFile(T("选择图片", "Select image"), "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp") is { } path) { files.Add(path); RenderPhotos(); }
         });
+        var paste = AsyncButton(T("粘贴图片", "Paste image"), async () =>
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            using var bitmap = clipboard is not null ? await clipboard.TryGetBitmapAsync() : null;
+            if (bitmap is null) throw new InvalidOperationException(T("剪贴板里没有图片。", "There is no image on the clipboard."));
+            var directory = Path.Combine(_data, "reflection-images");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".png");
+            bitmap.Save(path, new PngBitmapEncoderOptions());
+            files.Add(path); RenderPhotos();
+        });
         if (await Form(T("每日复盘", "Daily reflection"), [Field(T("心情", "Mood"), mood), Field(T("感受", "How you felt"), feeling),
-            Field(T("值得记住的事", "Highlights"), highlights), Field(T("下一步", "Next step"), next), photos, add], () =>
+            Field(T("值得记住的事", "Highlights"), highlights), Field(T("下一步", "Next step"), next), photos, Row(add, paste)], () =>
         {
             var local = files.Select(path => (existing?.Photos ?? []).Contains(path) ? path : CopyMedia(path, "reflection-images")).ToArray();
             _store.SaveDailyReflection(ReflectionRules.Normalize(new(_day, mood.SelectedIndex == 0 ? null : mood.SelectedIndex,

@@ -12,14 +12,22 @@ app="$root/Test Applications/FocusBloom.app"
 ditto "$mount/FocusBloom.app" "$app"
 codesign --verify --deep --strict "$app"
 binary="$app/Contents/MacOS/FocusBloom"
-python3 - "$binary" "$root/Test Data" <<'PY'
+python3 - "$binary" "$root/Test Data" "$app" <<'PY'
 import subprocess
 import sys
+from pathlib import Path
 
-binary, profile = sys.argv[1:]
+binary, profile, app = sys.argv[1:]
 result = subprocess.run([binary, '--data-dir', profile, '--smoke-test'], capture_output=True, text=True, timeout=100)
 print(result.stdout)
 print(result.stderr, file=sys.stderr)
 if result.returncode != 0 or 'FOCUSBLOOM_SMOKE_OK' not in result.stdout:
     raise SystemExit('Packaged application failed to open or complete its smoke checks')
+
+finder_profile = profile + ' Finder Launch'
+subprocess.run(['/usr/bin/open', '-W', '-n', app, '--args', '--data-dir', finder_profile, '--smoke-test'],
+               check=True, timeout=100)
+if not Path(finder_profile, 'smoke-success.txt').is_file():
+    raise SystemExit('The copied application did not complete its Finder launch checks')
+print('Copied application launched through macOS Launch Services')
 PY
