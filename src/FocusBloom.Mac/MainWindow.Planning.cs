@@ -9,10 +9,11 @@ namespace FocusBloom.Mac;
 
 internal sealed partial class MainWindow
 {
-    private readonly string[] _colors = ["#427B72", "#527B9A", "#8B709B", "#AA735C", "#A17F48"];
+    private readonly string[] _colors = ["#487A8B", "#4C668D", "#718578", "#668B7E", "#467467", "#AD8566", "#896329", "#8C604E", "#AE748D", "#925A60", "#927DAF", "#775883"];
     private Guid? _taskFolder;
     private ChecklistPeriod _period;
     private bool _subdivide;
+    private Guid? _historyPlanner;
 
     private void ProjectsPage()
     {
@@ -35,11 +36,14 @@ internal sealed partial class MainWindow
     {
         var name = Input(existing?.Name ?? ""); var group = Input(existing?.Category ?? T("个人", "Personal"));
         var goal = Input(existing?.Plan?.Goal ?? "", true); var deadline = DateInput(existing?.Plan?.Deadline);
+        var milestones = Input(string.Join("\n", existing?.Plan?.Milestones.Select(m => (m.Completed ? "[x] " : "[ ] ") + m.Title) ?? []), true);
         if (await Form(T("项目", "Project"), [Field(T("名称", "Name"), name), Field(T("分组", "Group"), group),
-            Field(T("目标", "Goal"), goal), Field(T("截止日期", "Due date"), deadline)], () =>
+            Field(T("目标", "Goal"), goal), Field(T("截止日期", "Due date"), deadline), Field(T("里程碑（每行一项）", "Milestones, one per line"), milestones)], () =>
         {
             var title = Required(name); var category = Required(group);
-            var plan = new ProjectPlan(Text(goal), DateValue(deadline), existing?.Plan?.Milestones ?? []);
+            var items = Text(milestones).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => new ProjectMilestone(line.StartsWith("[x] ") || line.StartsWith("[ ] ") ? line[4..] : line, line.StartsWith("[x] "))).ToArray();
+            var plan = new ProjectPlan(Text(goal), DateValue(deadline), items);
             _store.SaveFolder(category);
             _store.SaveProject(new(existing?.Id ?? Guid.NewGuid(), title, category, existing?.Color ?? _colors[0], plan));
         })) Refresh();
@@ -91,15 +95,22 @@ internal sealed partial class MainWindow
         if (folders.Count == 0) return;
         var name = Input(existing?.Title ?? ""); var notes = Input(existing?.Notes ?? "", true); var date = DateInput(existing?.DueDate);
         var folder = Choice(folders.Select(f => f.Name), Math.Max(0, folders.ToList().FindIndex(f => f.Id == (existing?.FolderId ?? _taskFolder))));
+        var estimated = Input(existing?.EstimatedMinutes?.ToString() ?? "");
+        var steps = Input(string.Join("\n", existing?.Steps?.Select(step => (step.Completed ? "[x] " : "[ ] ") + step.Title) ?? []), true);
+        var resume = Input(existing?.ResumeNote ?? "", true);
         var important = new CheckBox { Content = T("重要", "Important"), IsChecked = existing?.Important ?? false };
         var urgent = new CheckBox { Content = T("紧急", "Urgent"), IsChecked = existing?.Urgent ?? false };
         if (await Form(T("待办事项", "Task"), [Field(T("名称", "Name"), name), Field(T("文件夹", "Folder"), folder),
-            Field(T("截止日期", "Due date"), date), Field(T("备注", "Notes"), notes), Row(important, urgent)], () =>
+            Field(T("截止日期", "Due date"), date), Field(T("备注", "Notes"), notes), Row(important, urgent), Field(T("预计分钟数", "Estimated minutes"), estimated),
+            Field(T("子任务（每行一项）", "Subtasks, one per line"), steps), Field(T("下次从哪里继续", "Where to resume"), resume)], () =>
         {
             var title = Required(name); var folderId = folders[folder.SelectedIndex].Id;
             var task = existing ?? new TodoItem(Guid.NewGuid(), folderId, title);
             _store.SaveTodo(task with { Title = title, FolderId = folderId, Notes = Text(notes), DueDate = DateValue(date),
-                Important = important.IsChecked == true, Urgent = urgent.IsChecked == true });
+                Important = important.IsChecked == true, Urgent = urgent.IsChecked == true, ResumeNote = Text(resume),
+                EstimatedMinutes = Text(estimated).Length == 0 ? null : Number(estimated, 1, 100000),
+                Steps = Text(steps).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(line => new TodoStep(line.StartsWith("[x] ") || line.StartsWith("[ ] ") ? line[4..] : line, line.StartsWith("[x] "))).ToArray() });
         })) Refresh();
     }
 
@@ -121,6 +132,7 @@ internal sealed partial class MainWindow
                 TextDecorations = entry.Done ? TextDecorations.Strikethrough : null, TextWrapping = TextWrapping.Wrap } };
             check.IsCheckedChanged += (_, _) => { store.Save(scope, store.Read(scope).Select(item => item.Id == entry.Id ? item with { Done = check.IsChecked == true } : item)); Refresh(); };
             var actions = Row(AsyncButton(T("专注", "Focus"), () => StartFocus(plan: entry)), AsyncButton(T("编辑", "Edit"), () => EditPlan(entry)),
+                Button(T("记录", "History"), () => { _historyPlanner = entry.Id; Navigate(7); }),
                 AsyncButton(T("删除", "Delete"), () => Delete(entry.Text, () => store.Save(scope, store.Read(scope).Where(item => item.Id != entry.Id)))));
             _page.Children.Add(Card(check, actions));
         }
@@ -144,7 +156,7 @@ internal sealed partial class MainWindow
         {
             summary.Children.Clear();
             var filter = new StatisticsFilter(DateValue(from) ?? Today.AddDays(-6), DateValue(until) ?? Today);
-            var snapshot = FocusStatistics.Build(_store.GetRecords(), filter);
+            var snapshot = FocusStatistics.Build(_store.GetRecords().Where(record => _historyPlanner is null || record.PlannerItemId == _historyPlanner), filter);
             summary.Children.Add(Card(Label(Clock(snapshot.Duration), 24, true), Label(T($"{snapshot.Count} 次专注 · {snapshot.ActiveDays} 天", $"{snapshot.Count} sessions · {snapshot.ActiveDays} active days"))));
             foreach (var item in snapshot.Projects)
                 summary.Children.Add(Card(Label(ProjectName(item.ProjectId), 15, true), Label(Clock(item.Duration))));
@@ -164,6 +176,28 @@ internal sealed partial class MainWindow
         }
         _page.Children.Add(Row(Field(T("从", "From"), from), Field(T("到", "To"), until)));
         from.SelectedDateChanged += (_, _) => Load(); until.SelectedDateChanged += (_, _) => Load();
+        _page.Children.Add(Row(Button(T("全部记录", "All records"), () => { _historyPlanner = null; Load(); }),
+            AsyncButton(T("导出 CSV", "Export CSV"), () => ExportHistory(from, until, false)),
+            AsyncButton(T("导出 Markdown", "Export Markdown"), () => ExportHistory(from, until, true))));
         _page.Children.Add(summary); Load();
     }
+    private async Task ExportHistory(DatePicker from, DatePicker to, bool markdown)
+    {
+        var filter = new StatisticsFilter(DateValue(from) ?? Today.AddDays(-6), DateValue(to) ?? Today);
+        var snapshot = FocusStatistics.Build(_store.GetRecords().Where(record => _historyPlanner is null || record.PlannerItemId == _historyPlanner), filter);
+        var extension = markdown ? "md" : "csv";
+        var path = await SaveFile(T("导出专注记录", "Export focus records"), "FocusBloom-records", extension);
+        if (path is null) return;
+        static string Csv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
+        var lines = markdown ? new List<string> { "# FocusBloom", $"{filter.From:yyyy-MM-dd} – {filter.To:yyyy-MM-dd}", "", Clock(snapshot.Duration), "" }
+            : new List<string> { "Project,Started,Ended,Minutes,Plan" };
+        foreach (var session in snapshot.Sessions)
+        {
+            var record = session.Record;
+            lines.Add(markdown ? $"- {record.StartedAt.LocalDateTime:yyyy-MM-dd HH:mm} · {record.PlannerTitle ?? ProjectName(record.ProjectId)} · {Clock(session.IncludedDuration)}"
+                : string.Join(',', new[] { ProjectName(record.ProjectId), record.StartedAt.ToString("O"), record.EndedAt.ToString("O"), session.IncludedDuration.TotalMinutes.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), record.PlannerTitle ?? "" }.Select(Csv)));
+        }
+        await File.WriteAllLinesAsync(path, lines); Report(path);
+    }
+
 }

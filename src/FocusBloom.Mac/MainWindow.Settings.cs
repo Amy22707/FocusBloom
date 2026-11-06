@@ -102,9 +102,15 @@ internal sealed partial class MainWindow
         string[] themes = ["System", "Light", "Dark"];
         var theme = Choice([T("跟随系统", "System"), T("浅色", "Light"), T("深色", "Dark")], Math.Max(0, Array.IndexOf(themes, _store.GetSetting("appearance.mode"))));
         theme.SelectionChanged += (_, _) => { _store.SaveSetting("appearance.mode", themes[theme.SelectedIndex]); ApplyAppearance(); };
-        var colors = Choice([T("苔绿", "Moss"), T("水色", "Water"), T("淡紫", "Lavender"), T("陶土", "Clay"), T("麦芽", "Wheat")], Math.Max(0, Array.IndexOf(_colors, _store.GetSetting("mac.accent"))));
+        var colors = Choice([T("水色", "Water"), T("墨蓝", "Ink Blue"), T("鼠尾草绿", "Sage"), T("薄荷绿", "Mint"), T("松针绿", "Pine"), T("奶油杏", "Cream"), T("琥珀金", "Amber"), T("茶棕", "Tea"), T("樱花粉", "Cherry Blossom"), T("玫瑰木", "Rosewood"), T("淡紫", "Lavender"), T("梅子紫", "Plum")], Math.Max(0, Array.IndexOf(_colors, _store.GetSetting("mac.accent"))));
         colors.SelectionChanged += (_, _) => { _store.SaveSetting("mac.accent", _colors[colors.SelectedIndex]); ApplyAppearance(); };
         _page.Children.Add(Card(Label(T("外观", "Appearance"), 17, true), Row(Field("语言/Language", language), Field(T("明暗", "Theme"), theme), Field(T("配色", "Color"), colors))));
+        var custom = Input(_store.GetSetting("mac.accent") ?? _colors[0]);
+        _page.Children.Add(Row(Field(T("自定义主题色", "Custom accent color"), custom), Button(T("应用配色", "Apply color"), () =>
+        {
+            if (!Avalonia.Media.Color.TryParse(Text(custom), out _)) throw new FormatException(T("请输入颜色，例如 #487A8B。", "Enter a color such as #487A8B."));
+            _store.SaveSetting("mac.accent", Text(custom)); ApplyAppearance();
+        })));
         _page.Children.Add(TypographySettings());
         _page.Children.Add(MediaSettings());
         _page.Children.Add(RestrictionSettings());

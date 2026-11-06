@@ -4,7 +4,7 @@ import UserNotifications
 public typealias Completion = @convention(c) (Int32, UnsafeMutableRawPointer?) -> Void
 
 @_cdecl("focusbloom_notify")
-public func notify(_ action: Int32, _ title: UnsafePointer<CChar>?, _ body: UnsafePointer<CChar>?, _ context: UnsafeMutableRawPointer?, _ callback: Completion) {
+public func notify(_ action: Int32, _ title: UnsafePointer<CChar>?, _ body: UnsafePointer<CChar>?, _ context: UnsafeMutableRawPointer?, _ callback: @escaping Completion) {
     let center = UNUserNotificationCenter.current()
     if action == 0 {
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in

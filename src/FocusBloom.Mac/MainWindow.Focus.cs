@@ -217,9 +217,11 @@ internal sealed partial class MainWindow
         var pause = Input(_store.GetSetting("pauseMinutes") ?? "5");
         var rest = Input(_store.GetSetting("restMinutes") ?? "0");
         var rounds = Input(_store.GetSetting("pomodoro.rounds") ?? "4");
+        var longRest = Input(_store.GetSetting("pomodoro.longRestMinutes") ?? "15");
+        var longEvery = Input(_store.GetSetting("pomodoro.longRestEvery") ?? "4");
         var strict = new CheckBox { Content = T("严格模式", "Strict focus"), IsChecked = _store.GetSetting("timer.strict") == "True" };
         var durationField = Field(T("专注分钟数", "Focus minutes"), duration);
-        var roundsField = Field(T("番茄轮数", "Pomodoro rounds"), rounds);
+        var roundsField = Field(T("番茄循环", "Pomodoro cycle"), Row(Field(T("轮数", "Rounds"), rounds), Field(T("长休息分钟", "Long break minutes"), longRest), Field(T("长休息间隔", "Long break interval"), longEvery)));
         void ShowMode() { durationField.IsVisible = mode.SelectedIndex != 0; roundsField.IsVisible = mode.SelectedIndex == 2; }
         mode.SelectionChanged += (_, _) => ShowMode(); ShowMode();
         var result = await Form(todo?.Title ?? plan?.Text ?? T("开始专注", "Start focus"),
@@ -230,7 +232,7 @@ internal sealed partial class MainWindow
                 var minutes = type == TimerMode.CountUp ? 0 : Minutes(duration, 1d / 6, 1440);
                 var pauseMinutes = Minutes(pause, 1d / 60, 1440);
                 var restMinutes = Minutes(rest, 0, 1440);
-                var pomodoro = type == TimerMode.Pomodoro ? new PomodoroOptions(TimeSpan.FromMinutes(15), 4, Number(rounds, 1, 100)) : null;
+                var pomodoro = type == TimerMode.Pomodoro ? new PomodoroOptions(TimeSpan.FromMinutes(Minutes(longRest, 0, 1440)), Number(longEvery, 1, 100), Number(rounds, 1, 100)) : null;
                 var target = projects[picker.SelectedIndex];
                 CaptureRules();
                 _timer.Start(new(target.Id, type, TimeSpan.FromMinutes(minutes), TimeSpan.FromMinutes(pauseMinutes), TimeSpan.FromMinutes(restMinutes),
@@ -241,7 +243,12 @@ internal sealed partial class MainWindow
                 if (type != TimerMode.CountUp) _store.SaveSetting("timer.durationMinutes", minutes.ToString(CultureInfo.InvariantCulture));
                 _store.SaveSetting("pauseMinutes", pauseMinutes.ToString(CultureInfo.InvariantCulture));
                 _store.SaveSetting("restMinutes", restMinutes.ToString(CultureInfo.InvariantCulture));
-                if (pomodoro is not null) _store.SaveSetting("pomodoro.rounds", pomodoro.Rounds.ToString(CultureInfo.InvariantCulture));
+                if (pomodoro is not null)
+                {
+                    _store.SaveSetting("pomodoro.rounds", pomodoro.Rounds.ToString(CultureInfo.InvariantCulture));
+                    _store.SaveSetting("pomodoro.longRestMinutes", pomodoro.LongRestDuration.TotalMinutes.ToString(CultureInfo.InvariantCulture));
+                    _store.SaveSetting("pomodoro.longRestEvery", pomodoro.LongRestEvery.ToString(CultureInfo.InvariantCulture));
+                }
                 Checkpoint(true);
             }, T("开始", "Start"));
         if (result) { UpdateSound(); UpdateKeepAwake(); Navigate(0); }

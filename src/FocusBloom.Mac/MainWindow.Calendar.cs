@@ -168,6 +168,7 @@ internal sealed partial class MainWindow
             using var reader = File.OpenText(path); var imported = CourseCsv.Read(reader, _store.GetSchoolTerm(), _store.GetCourses());
             _store.ImportCourses(imported); Refresh(); Report(T($"已导入 {imported.Count} 门课程。", $"Imported {imported.Count} classes."));
         })));
+        _page.Children.Add(Row(AsyncButton(T("新建课程", "New class"), () => EditCourse(null)), AsyncButton(T("学期设置", "Term settings"), EditTerm)));
         _page.Children.Add(DayNavigation());
         var monday = CalendarRules.Monday(_day);
         var entries = CalendarRules.CourseEntries(_store.GetSchoolTerm(), _store.GetCourses(), _store.GetCourseChanges(), monday, monday.AddDays(6));
@@ -175,8 +176,71 @@ internal sealed partial class MainWindow
         foreach (var group in entries.OrderBy(e => e.Date).ThenBy(e => e.Start).GroupBy(e => e.Date))
         {
             _page.Children.Add(Label(group.Key.ToString("yyyy-MM-dd"), 17, true));
-            foreach (var entry in group) _page.Children.Add(Card(Label(entry.Title, 16, true), Label($"{entry.Start:HH:mm}–{entry.End:HH:mm}")));
+            foreach (var entry in group)
+            {
+                var course = _store.GetCourses().Single(item => item.Id == entry.Id);
+                _page.Children.Add(Card(Label(entry.Title, 16, true), Label($"{entry.Start:HH:mm}–{entry.End:HH:mm}"), Label(entry.Detail),
+                    Row(AsyncButton(T("编辑课程", "Edit class"), () => EditCourse(course)),
+                        AsyncButton(T("调整本次课程", "Change this meeting"), () => ChangeCourse(course, entry)),
+                        AsyncButton(T("删除课程", "Delete class"), () => Delete(course.Name, () => _store.DeleteCourse(course.Id))))));
+            }
         }
+    }
+
+    private async Task EditTerm()
+    {
+        var term = _store.GetSchoolTerm();
+        var start = DateInput(term.Start); var weeks = Input(term.Weeks.ToString());
+        var periods = Input(string.Join("\n", term.Periods.Select(p => $"{p.Number},{p.Start:HH:mm},{p.End:HH:mm}")), true);
+        if (await Form(T("学期设置", "Term settings"), [Field(T("开学日期", "Start date"), start), Field(T("教学周数", "Weeks"), weeks),
+            Field(T("节次：序号,开始,结束", "Periods: number,start,end"), periods)], () =>
+        {
+            var times = Text(periods).Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line =>
+            {
+                var cells = line.Trim().Split(',');
+                if (cells.Length != 3 || !int.TryParse(cells[0], out var index) || index < 1 ||
+                    !TimeOnly.TryParse(cells[1], out var from) || !TimeOnly.TryParse(cells[2], out var to) || to <= from)
+                    throw new FormatException(T("节次格式应为 1,08:00,08:50。", "Use a period such as 1,08:00,08:50."));
+                return new ClassPeriod(index, from, to);
+            }).ToArray();
+            if (times.Length == 0 || times.DistinctBy(p => p.Number).Count() != times.Length) throw new FormatException(T("节次不能为空或重复。", "Periods must be unique and cannot be empty."));
+            _store.SaveSchoolTerm(new(DateValue(start) ?? term.Start, Number(weeks, 1, 60), times));
+        })) Refresh();
+    }
+
+    private async Task EditCourse(SchoolCourse? existing)
+    {
+        var title = Input(existing?.Name ?? ""); var room = Input(existing?.Room ?? ""); var teacher = Input(existing?.Teacher ?? "");
+        var weekday = Choice(_english ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] : ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], (existing?.Weekday ?? 1) - 1);
+        var periods = _store.GetSchoolTerm().Periods;
+        var from = Choice(periods.Select(p => $"{p.Number} · {p.Start:HH:mm}"), Math.Max(0, periods.ToList().FindIndex(p => p.Number == existing?.StartPeriod)));
+        var to = Choice(periods.Select(p => $"{p.Number} · {p.End:HH:mm}"), Math.Max(0, periods.ToList().FindIndex(p => p.Number == existing?.EndPeriod)));
+        var weeks = Input(existing?.Weeks is { Length: > 0 } specified ? specified : $"1-{_store.GetSchoolTerm().Weeks}");
+        if (await Form(T("课程", "Class"), [Field(T("课程名称", "Class name"), title), Field(T("星期", "Weekday"), weekday),
+            Row(Field(T("开始节次", "First period"), from), Field(T("结束节次", "Last period"), to)), Field(T("周次", "Teaching weeks"), weeks),
+            Field(T("教室", "Room"), room), Field(T("教师", "Teacher"), teacher)], () =>
+        {
+            var parsed = CalendarRules.ParseWeeks(Text(weeks));
+            if (parsed.Count == 0 || parsed[^1] > _store.GetSchoolTerm().Weeks || periods[to.SelectedIndex].Number < periods[from.SelectedIndex].Number)
+                throw new FormatException(T("请检查周次和节次。", "Check the teaching weeks and periods."));
+            var meeting = new CourseMeeting(existing?.Meetings?.FirstOrDefault()?.Id ?? Guid.NewGuid(), weekday.SelectedIndex + 1,
+                periods[from.SelectedIndex].Number, periods[to.SelectedIndex].Number, parsed[0], parsed[^1], Weeks: Text(weeks), Room: Text(room));
+            var more = existing?.Meetings?.Skip(1) ?? [];
+            var item = existing ?? new SchoolCourse(Guid.NewGuid(), Required(title), meeting.Weekday, meeting.StartPeriod, meeting.EndPeriod);
+            _store.SaveCourse(item with { Name = Required(title), Weekday = meeting.Weekday, StartPeriod = meeting.StartPeriod, EndPeriod = meeting.EndPeriod,
+                FirstWeek = meeting.FirstWeek, LastWeek = meeting.LastWeek, Weeks = meeting.Weeks, Room = meeting.Room, Teacher = Text(teacher), Meetings = new[] { meeting }.Concat(more).ToArray() });
+        })) Refresh();
+    }
+
+    private async Task ChangeCourse(SchoolCourse course, CalendarEntry entry)
+    {
+        var original = entry.OriginalDate ?? entry.Date;
+        var existing = _store.GetCourseChanges().FirstOrDefault(change => change.CourseId == course.Id && change.OriginalDate == original && change.MeetingId == entry.MeetingId);
+        var cancelled = new CheckBox { Content = T("本次停课", "Cancel this meeting"), IsChecked = existing?.Cancelled ?? false };
+        var date = DateInput(entry.Date); var room = Input(existing?.Room ?? entry.Detail);
+        if (await Form(T("临时调课", "Change one meeting"), [cancelled, Field(T("新日期", "New date"), date), Field(T("教室", "Room"), room)], () =>
+            _store.SaveCourseChange(new(existing?.Id ?? Guid.NewGuid(), course.Id, original, cancelled.IsChecked == true,
+                DateValue(date), Room: Text(room), MeetingId: entry.MeetingId)))) Refresh();
     }
 
     private void HabitsPage()
