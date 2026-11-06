@@ -68,8 +68,11 @@ jobs:
           Invoke-WebRequest "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/$env:INSTALLER_ASSET" -OutFile app.msi
           Install-Package "$PWD\app.msi" "$PWD\install.log"
           $expected = if ($env:EXPECTED_VERSION) { $env:EXPECTED_VERSION } else { $env:RELEASE_TAG.TrimStart('v') }
-          $installed = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -eq 'FocusBloom'
-          if (@($installed).Count -ne 1 -or $installed.DisplayVersion -ne $expected) { throw 'Unexpected installed MSI version or duplicate registration.' }
+          if (!(Select-String -LiteralPath "$PWD\install.log" -SimpleMatch "Property(S): ProductVersion = $expected" -Quiet)) { throw 'Unexpected MSI version.' }
+          if ($env:PREVIOUS_TAG) {
+            $legacy = Start-Process msiexec.exe -ArgumentList @('/x', "$PWD\previous.msi", '/qn', '/norestart', '/l*v', "$PWD\legacy-registration.log") -Wait -PassThru
+            if ($legacy.ExitCode -ne 1605) { throw "Previous MSI was still registered: $($legacy.ExitCode)" }
+          }
           $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path (Split-Path $app) 'FocusBloom.dll')).Version.ToString(3)
           if ($version -ne $expected) { throw "Expected version $expected, installed version $version" }
           if ($env:PREVIOUS_TAG -and ((Get-Content -LiteralPath "$profile\retained.txt" -Raw).Trim() -ne 'retained')) { throw 'Upgrade removed existing data.' }
