@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Avalonia.Controls;
 using FocusBloom.Core.Calendar;
 using FocusBloom.Core.Goals;
@@ -37,8 +38,16 @@ internal sealed partial class MainWindow
             catch (Exception error) { enabled.IsChecked = false; Report(error.Message); }
             finally { handling = false; }
         };
+        var reflection = _store.GetSetting("reflection.reminder") is { } saved ? JsonSerializer.Deserialize<ReflectionReminder>(saved) ?? new() : new ReflectionReminder();
+        var daily = new CheckBox { Content = T("每天提醒复盘", "Daily reflection reminder"), IsChecked = reflection.Enabled };
+        var dailyTime = Input(reflection.Time?.ToString("HH:mm") ?? "21:00");
         return Card(Label(T("日程与习惯提醒", "Calendar & habit reminders"), 17, true), enabled,
             Label(T("软件运行期间，会按事项和习惯的提醒设置发送通知。", "Notifications follow your event and habit reminder settings while FocusBloom is running.")),
+            Row(daily, dailyTime, Button(T("保存复盘提醒", "Save reflection reminder"), () =>
+            {
+                if (!TimeOnly.TryParse(Text(dailyTime), out var time)) throw new FormatException(T("请输入有效时间。", "Enter a valid time."));
+                _store.SaveSetting("reflection.reminder", JsonSerializer.Serialize(new ReflectionReminder(daily.IsChecked == true, time)));
+            })),
             AsyncButton(T("发送一条测试通知", "Send a test notification"), async () =>
             {
                 if (await Notify("send", "FocusBloom", T("提醒已准备好。", "Notifications are ready.")) != 0)
@@ -54,7 +63,8 @@ internal sealed partial class MainWindow
         {
             var reminders = ReminderRules.Build(_store.GetTodos(), _store.GetDateEvents(), _store.GetCalendarPlans(), _store.GetSchoolTerm(),
                     _store.GetCourses(), _store.GetCourseChanges(), _store.GetReminderOptions, Today, Today.AddDays(-1))
-                .Concat(HabitReminders.Build(_store.GetHabits(), _store.GetHabitCheckIns(), Today));
+                .Concat(HabitReminders.Build(_store.GetHabits(), _store.GetHabitCheckIns(), Today))
+                .Concat(ReflectionReminders.Build(_store.GetSetting("reflection.reminder") is { } value ? JsonSerializer.Deserialize<ReflectionReminder>(value) ?? new() : new(), _store.GetDailyReflections(), Today));
             foreach (var reminder in reminders.Where(r => r.At <= now && now - r.At <= TimeSpan.FromDays(1) && !_store.IsReminderHandled(r.Key)))
             {
                 if (await Notify("send", reminder.Title, reminder.Detail) != 0) break;

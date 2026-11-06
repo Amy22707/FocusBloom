@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>FocusBloom.Mac</AssemblyName>
   </PropertyGroup>
   <ItemGroup>

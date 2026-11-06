@@ -26,6 +26,7 @@ internal sealed partial class MainWindow
 
     internal async Task VerifyStartup()
     {
+        Console.WriteLine("SMOKE: window");
         await Task.Delay(300);
         if (!IsVisible || Bounds.Width <= 0) throw new InvalidOperationException("Application window did not open.");
         var clock = new TestClock();
@@ -42,6 +43,7 @@ internal sealed partial class MainWindow
         var scope = ChecklistScope.For(ChecklistPeriod.Day, Today);
         plan.Save(scope, [item]);
         plan.Save(scope, [item with { Text = "Read two chapters", Done = true }]);
+        Console.WriteLine("SMOKE: planner dialogs");
         await VerifyPlannerEditing(item.Id, scope);
         var options = new FocusOptions(project.Id, TimerMode.CountUp, TimeSpan.Zero, TimeSpan.FromMinutes(5), TimeSpan.Zero,
             PlannerTitle: item.Text, PlannerItemId: item.Id);
@@ -59,7 +61,9 @@ internal sealed partial class MainWindow
             _english = english;
             for (var section = 0; section <= 9; section++) Navigate(section);
         }
+        Console.WriteLine("SMOKE: native modules");
         await VerifyMacFeatures();
+        Console.WriteLine("SMOKE: Windows backup");
         await VerifyWindowsBackup();
         Navigate(0);
         await Task.Delay(200);

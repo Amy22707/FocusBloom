@@ -18,7 +18,7 @@ internal sealed partial class MainWindow
     private static readonly string ResourceFolder = Path.Combine(AppContext.BaseDirectory, "Resources", "Focus");
     private static readonly Lazy<Catalog> BuiltInMedia = new(() => JsonSerializer.Deserialize<Catalog>(File.ReadAllText(Path.Combine(ResourceFolder, "catalog.json")), Json)!);
     private static readonly Lazy<Quote[]> BuiltInQuotes = new(() => JsonSerializer.Deserialize<Quote[]>(File.ReadAllText(Path.Combine(ResourceFolder, "quotes.json")), Json)!);
-    private static readonly string[] ImagePatterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff"];
+    private static readonly string[] ImagePatterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.tiff", "*.mp4", "*.mov", "*.m4v"];
     private bool _backupBusy;
     private DateTimeOffset _lastBackupCheck;
     private Process? _sound;
@@ -52,6 +52,11 @@ internal sealed partial class MainWindow
         var media = Media();
         var quote = Quotes(media).FirstOrDefault(q => q.Id == Value(media, "quoteId"));
         return quote?.Text ?? T("执着于理想，纯粹于当下。", "Stay true to your ideals and present in the moment.");
+    }
+    private string? SelectedBackgroundPath()
+    {
+        var media = Media();
+        return Assets(media, "customImages", BuiltInMedia.Value.Images).FirstOrDefault(a => a.Id == (Value(media, "backgroundId") ?? "lake-blue-hour"))?.File;
     }
     private Bitmap? SelectedBackground()
     {
@@ -87,7 +92,10 @@ internal sealed partial class MainWindow
         if (!OperatingSystem.IsMacOS() || _timer.State != FocusBloom.Core.Focus.FocusState.Focusing) return;
         var media = Media(); var selected = Value(media, "soundId");
         if (Assets(media, "customSounds", BuiltInMedia.Value.Sounds).FirstOrDefault(item => item.Id == selected) is not { } sound || !File.Exists(sound.File)) return;
-        var info = new ProcessStartInfo("/usr/bin/afplay") { UseShellExecute = false }; info.ArgumentList.Add(sound.File);
+        if (media["muted"]?.GetValue<bool>() == true) return;
+        var volume = Math.Clamp(media["volume"]?.GetValue<double>() ?? 35, 0, 100) / 100;
+        var info = new ProcessStartInfo("/usr/bin/afplay") { UseShellExecute = false };
+        info.ArgumentList.Add("-v"); info.ArgumentList.Add(volume.ToString(System.Globalization.CultureInfo.InvariantCulture)); info.ArgumentList.Add(sound.File);
         _sound = Process.Start(info);
     }
     private LocalBackupService Backups => new(_store.DatabasePath);
@@ -156,6 +164,7 @@ internal sealed partial class MainWindow
         quote.SelectionChanged += (_, _) => { media["quoteId"] = quotes[quote.SelectedIndex].Id; SaveMedia(media); };
         return Card(Label(T("专注素材", "Focus media"), 17, true), Field(T("背景", "Background"), background), Field(T("声音", "Sound"), sound), Field(T("句子", "Quote"), quote),
             Row(AsyncButton(T("添加背景", "Add background"), () => AddMedia("customImages", "backgroundId", ImagePatterns)),
+                AsyncButton(T("管理背景", "Manage backgrounds"), () => ManageMedia(false)), AsyncButton(T("管理句子", "Manage quotes"), () => ManageMedia(true)),
                 AsyncButton(T("添加声音", "Add sound"), () => AddMedia("customSounds", "soundId", ["*.mp3", "*.wav", "*.m4a", "*.aiff"])),
                 AsyncButton(T("添加句子", "Add quote"), async () =>
                 {

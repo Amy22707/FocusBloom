@@ -18,7 +18,12 @@ import sys
 from pathlib import Path
 
 binary, profile, app = sys.argv[1:]
-result = subprocess.run([binary, '--data-dir', profile, '--smoke-test'], capture_output=True, text=True, timeout=100)
+try:
+    result = subprocess.run([binary, '--data-dir', profile, '--smoke-test'], capture_output=True, text=True, timeout=100)
+except subprocess.TimeoutExpired as error:
+    print(error.stdout.decode() if isinstance(error.stdout, bytes) else error.stdout, flush=True)
+    print(error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr, file=sys.stderr, flush=True)
+    raise
 print(result.stdout)
 print(result.stderr, file=sys.stderr)
 if result.returncode != 0 or 'FOCUSBLOOM_SMOKE_OK' not in result.stdout:

@@ -106,16 +106,20 @@ internal sealed partial class MainWindow
         var estimated = Input(existing?.EstimatedMinutes?.ToString() ?? "");
         var steps = Input(string.Join("\n", existing?.Steps?.Select(step => (step.Completed ? "[x] " : "[ ] ") + step.Title) ?? []), true);
         var resume = Input(existing?.ResumeNote ?? "", true);
+        var projects = _store.GetProjects();
+        var project = Choice(new[] { T("不关联项目", "No linked project") }.Concat(projects.Select(item => item.Name)),
+            Math.Max(0, projects.ToList().FindIndex(item => item.Id == existing?.PreferredProjectId) + 1));
         var important = new CheckBox { Content = T("重要", "Important"), IsChecked = existing?.Important ?? false };
         var urgent = new CheckBox { Content = T("紧急", "Urgent"), IsChecked = existing?.Urgent ?? false };
         if (await Form(T("待办事项", "Task"), [Field(T("名称", "Name"), name), Field(T("文件夹", "Folder"), folder),
             Field(T("截止日期", "Due date"), date), Field(T("备注", "Notes"), notes), Row(important, urgent), Field(T("预计分钟数", "Estimated minutes"), estimated),
-            Field(T("子任务（每行一项）", "Subtasks, one per line"), steps), Field(T("下次从哪里继续", "Where to resume"), resume)], () =>
+            Field(T("子任务（每行一项）", "Subtasks, one per line"), steps), Field(T("下次从哪里继续", "Where to resume"), resume), Field(T("关联项目", "Linked project"), project)], () =>
         {
             var title = Required(name); var folderId = folders[folder.SelectedIndex].Id;
             var task = existing ?? new TodoItem(Guid.NewGuid(), folderId, title);
             _store.SaveTodo(task with { Title = title, FolderId = folderId, Notes = Text(notes), DueDate = DateValue(date),
                 Important = important.IsChecked == true, Urgent = urgent.IsChecked == true, ResumeNote = Text(resume),
+                PreferredProjectId = project.SelectedIndex <= 0 ? null : projects[project.SelectedIndex - 1].Id,
                 EstimatedMinutes = Text(estimated).Length == 0 ? null : Number(estimated, 1, 100000),
                 Steps = Text(steps).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(line => new TodoStep(line.StartsWith("[x] ") || line.StartsWith("[ ] ") ? line[4..] : line, line.StartsWith("[x] "))).ToArray() });

@@ -20,12 +20,30 @@ internal sealed partial class MainWindow
 
     private void CalendarPage()
     {
-        var view = Choice([T("月历", "Month"), T("当天日程", "Day"), T("日期事项", "Date events"), T("课表", "Classes")], _calendarView);
+        var view = Choice([T("月历", "Month"), T("当天日程", "Day"), T("日期事项", "Date events"), T("课表", "Classes"), T("周历", "Week")], _calendarView);
         view.SelectionChanged += (_, _) => { _calendarView = view.SelectedIndex; Refresh(); };
         _page.Children.Add(Row(view, AsyncButton(T("新建日期事项", "New date event"), () => EditDate(null)),
             AsyncButton(T("安排时间", "Schedule time"), () => EditSchedule(null))));
         if (_calendarView == 2) { DateEventsPage(); return; }
         if (_calendarView == 3) { CoursesPage(); return; }
+        if (_calendarView == 4)
+        {
+            _page.Children.Add(DayNavigation());
+            var first = CalendarRules.Monday(_day);
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*,*,*,*,*"), ColumnSpacing = 5 };
+            var entries = Entries(first, first.AddDays(6)).ToLookup(item => item.Date);
+            for (var index = 0; index < 7; index++)
+            {
+                var day = first.AddDays(index);
+                var list = new StackPanel { Spacing = 8 };
+                list.Children.Add(Button(day.ToString("MM/dd"), () => { _day = day; _calendarView = 1; Refresh(); }));
+                foreach (var item in entries[day]) list.Children.Add(Card(Label(item.Title, 12, true), Label(item.Start?.ToString("HH:mm") ?? "", 11)));
+                var column = new ScrollViewer { Content = list, Height = Math.Max(360, ClientSize.Height - 200) };
+                Grid.SetColumn(column, index); grid.Children.Add(column);
+            }
+            _page.Children.Add(grid);
+            return;
+        }
         if (_calendarView == 0)
         {
             _page.Children.Add(MonthNavigation());

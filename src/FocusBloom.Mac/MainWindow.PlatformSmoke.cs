@@ -10,6 +10,7 @@ internal sealed partial class MainWindow
 {
     private async Task VerifyMacFeatures()
     {
+        Console.WriteLine("SMOKE: widgets");
         foreach (var kind in _widgetKeys) SaveWidget(kind, ReadWidget(kind) with { Enabled = true });
         RefreshWidgets(true);
         await Task.Delay(200);
@@ -21,6 +22,7 @@ internal sealed partial class MainWindow
             CloseWidget(kind);
         }
         if (!OperatingSystem.IsMacOS()) return;
+        Console.WriteLine("SMOKE: AppKit");
         var running = Cocoa.Applications();
         if (running.Count == 0 || Cocoa.FrontApplication().Length == 0)
             throw new InvalidOperationException("Could not read the front application through AppKit.");
@@ -38,6 +40,7 @@ internal sealed partial class MainWindow
         if (_browser.Allowed("https://example.com")) throw new InvalidOperationException("Pause released browser restrictions.");
         _timer.End(takeRest: false);
         if (!_browser.Allowed("https://example.com")) throw new InvalidOperationException("End did not release browser restrictions.");
+        Console.WriteLine("SMOKE: WebKit");
         Navigate(9);
         await Task.Delay(300);
         using var socket = new TcpListener(IPAddress.Loopback, 0);
@@ -54,6 +57,7 @@ internal sealed partial class MainWindow
         await Task.Delay(300);
         if (!_browser.Address.StartsWith($"http://127.0.0.1:{port}/", StringComparison.Ordinal))
             throw new InvalidOperationException("WebKit did not load the permitted page.");
+        Console.WriteLine("SMOKE: notifications");
         var notification = await MacNotifications.Send(false, "FocusBloom", "Notification integration check");
         if (notification is not (0 or 2)) throw new InvalidOperationException("The macOS notification service failed.");
         Console.WriteLine("MAC_FEATURES_OK: AppKit, WebKit navigation, restriction snapshots, notifications and seven desktop widgets");

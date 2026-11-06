@@ -40,6 +40,8 @@ internal sealed partial class MainWindow
             try
             {
                 UpdateTimer();
+                await UpdateAnimation();
+                if (_sound?.HasExited == true) UpdateSound();
                 EnforceRestrictions();
                 RefreshWidgets();
                 await CheckReminders();
@@ -165,9 +167,12 @@ internal sealed partial class MainWindow
         }
         _focusScene = new Border { CornerRadius = new CornerRadius(22), MinHeight = _fullscreen ? 440 : 280, ClipToBounds = true };
         var backdrop = SelectedBackground();
-        if (backdrop is not null)
+        var backgroundPath = SelectedBackgroundPath();
+        var animated = Path.GetExtension(backgroundPath)?.ToLowerInvariant() is ".gif" or ".mp4" or ".mov" or ".m4v";
+        if (backdrop is not null || animated)
         {
             var image = new Image { Source = backdrop, Stretch = Stretch.UniformToFill };
+            SetAnimation(image, backgroundPath);
             var overlay = new Border { Background = new SolidColorBrush(Color.FromArgb(104, 0, 0, 0)) };
             foreach (var text in content.Children.OfType<TextBlock>()) text.Foreground = Brushes.White;
             _focusScene.Child = new Grid { Children = { image, overlay, content } };

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -43,8 +44,16 @@ internal sealed partial class MainWindow : Window
         side.Children.Add(new ScrollViewer { Content = _nav });
         var main = new DockPanel();
         DockPanel.SetDock(_notice, Dock.Bottom); main.Children.Add(_notice); main.Children.Add(_scroll);
-        var shell = new Grid { ColumnDefinitions = new ColumnDefinitions("176,*") };
-        shell.Children.Add(side); Grid.SetColumn(main, 1); shell.Children.Add(main); Content = shell;
+        var width = double.TryParse(_store.GetSetting("mac.navigationWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out var savedWidth) ? Math.Clamp(savedWidth, 140, 360) : 176;
+        var shell = new Grid { ColumnDefinitions = new ColumnDefinitions("176,5,*") };
+        shell.ColumnDefinitions[0].Width = new GridLength(width);
+        shell.ColumnDefinitions[0].MinWidth = 140;
+        shell.ColumnDefinitions[0].MaxWidth = 360;
+        var divider = new GridSplitter { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch,
+            ResizeDirection = GridResizeDirection.Columns, ResizeBehavior = GridResizeBehavior.PreviousAndNext };
+        divider.DragCompleted += (_, _) => _store.SaveSetting("mac.navigationWidth", shell.ColumnDefinitions[0].ActualWidth.ToString(CultureInfo.InvariantCulture));
+        Grid.SetColumn(divider, 1); shell.Children.Add(divider);
+        shell.Children.Add(side); Grid.SetColumn(main, 2); shell.Children.Add(main); Content = shell;
         ApplyAppearance();
         ApplyFont();
         InitializeTimer();
@@ -75,6 +84,7 @@ internal sealed partial class MainWindow : Window
 
     private void Refresh()
     {
+        Title = T("一刻专注 · FocusBloom", "FocusBloom");
         string[] titles = [T("专注计时", "Focus Timer"), T("项目库", "Projects"), T("待办事项", "Tasks"), T("计划本", "Planner"),
             T("日历与课表", "Calendar & Classes"), T("目标与习惯", "Goals & Habits"), T("心情与复盘", "Mood & Reflection"),
             T("专注记录", "Focus History"), T("偏好设置", "Settings"), T("学习浏览器", "Study Browser")];
