@@ -42,6 +42,7 @@ internal sealed partial class MainWindow
                 UpdateTimer();
                 EnforceRestrictions();
                 RefreshWidgets();
+                await CheckReminders();
                 if (DateTimeOffset.Now - _lastBackupCheck >= TimeSpan.FromMinutes(1))
                 { _lastBackupCheck = DateTimeOffset.Now; await RunAutomaticBackup(); }
             }
@@ -150,12 +151,18 @@ internal sealed partial class MainWindow
             _page.Children.Add(Card(Label(T("正计时达到 24 小时，已自动结束。", "The count-up timer reached 24 hours and ended automatically.")),
                 Button(T("知道了", "Dismiss"), () => { _store.SaveSetting("focus.limitNotice", ""); Refresh(); })));
         var project = _timer.IsActive || _timer.State == FocusState.Resting ? _focusTitle : T("留一刻，给自己", "Take a moment for yourself");
-        _timeLabel = Label("00:00:00", 62, true); _timeLabel.FontFamily = new FontFamily("Menlo, monospace");
+        _timeLabel = Label("00:00:00", 62, true); _timeLabel.FontFamily = new FontFamily(_store.GetSetting("mac.timerFont") is { Length: > 0 } timerFont ? timerFont : "Menlo, monospace");
+        _timeLabel.FontSize = 62 * TimerScale;
         _phaseLabel = Label("");
         var quote = Label(SelectedQuote(), 16);
         var content = new StackPanel { Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(20), Children = { Label(project, 25, true), _timeLabel, _phaseLabel, quote } };
-        foreach (var text in content.Children.OfType<TextBlock>()) text.TextAlignment = TextAlignment.Center;
+        foreach (var text in content.Children.OfType<TextBlock>())
+        {
+            text.TextAlignment = TextAlignment.Center;
+            if (text != _timeLabel)
+                text.FontFamily = _store.GetSetting("mac.focusFont") is { Length: > 0 } font ? new FontFamily(font) : _english ? FontFamily.Default : new FontFamily("Kaiti SC");
+        }
         _focusScene = new Border { CornerRadius = new CornerRadius(22), MinHeight = _fullscreen ? 440 : 280, ClipToBounds = true };
         var backdrop = SelectedBackground();
         if (backdrop is not null)

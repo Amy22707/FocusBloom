@@ -105,9 +105,11 @@ internal sealed partial class MainWindow
         var colors = Choice([T("苔绿", "Moss"), T("水色", "Water"), T("淡紫", "Lavender"), T("陶土", "Clay"), T("麦芽", "Wheat")], Math.Max(0, Array.IndexOf(_colors, _store.GetSetting("mac.accent"))));
         colors.SelectionChanged += (_, _) => { _store.SaveSetting("mac.accent", _colors[colors.SelectedIndex]); ApplyAppearance(); };
         _page.Children.Add(Card(Label(T("外观", "Appearance"), 17, true), Row(Field("语言/Language", language), Field(T("明暗", "Theme"), theme), Field(T("配色", "Color"), colors))));
+        _page.Children.Add(TypographySettings());
         _page.Children.Add(MediaSettings());
         _page.Children.Add(RestrictionSettings());
         _page.Children.Add(WidgetSettings());
+        _page.Children.Add(NotificationSettings());
         var prefs = BackupPreferences;
         var automatic = new CheckBox { Content = T("每天自动备份", "Back up every day"), IsChecked = prefs.Automatic };
         automatic.IsCheckedChanged += async (_, _) => { SaveBackupPreferences(BackupPreferences with { Automatic = automatic.IsChecked == true }); await RunAutomaticBackup(); };

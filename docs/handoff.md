@@ -6,6 +6,14 @@
 
 浏览器扩展 0.3.8 独立离线运行。公开安装包和附件见 [GitHub Releases](https://github.com/Amy22707/FocusBloom/releases)。本机覆盖前的备份位于被忽略的 artifacts/backups 目录。
 
+## macOS 开发状态
+
+Mac 与 Windows 统一为 1.0.1，安装包合并到现有 v1.0.1 Release。macOS 构建在远端 codex/macos 分支触发，两个架构均通过后才能发布。工作流为 `.github/workflows/macos-package.yml`，脚本为 `scripts/macos/package.sh` 和 `verify.sh`。原生接口集中在 `Cocoa.cs`、`StudyBrowser.cs` 和 `MacNotifications.cs`，当前还需完成新增模块的 macOS 原生验证和功能对齐。
+
+应用使用共用计时规则、SQLite 与 `.fbbak`。Windows 素材路径恢复已经改为使用压缩包目录。macOS 资料位于 `~/Library/Application Support/FocusBloom`。界面测试只使用独立目录，保护日常资料。测试辅助脚本及私有数据均在被忽略的 `.tools` 和 `artifacts`，不能推送。
+
+待完成原生限制、WebKit、七种桌面组件、通知和字体回归，进一步核对 Windows 功能与 Mac 差异。最后上传 DMG 到现有 Release，并更新 README、Release 与 Amy Studio 中英文内容。下载页面向普通用户，不能把尚未验证功能写成已完成。源码中的 `docs/macos.md` 尚需随功能核对更新。
+
 ## 完成内容
 
 桌面左下角显示账号姓名和头像，收起导航仍保留入口，点击进入资料编辑。账号设置区分已登录与访客状态，登录后隐藏邮箱验证码表单，单独显示退出登录。姓名与头像保存在CloudBase身份认证中，本机缓存用于离线显示。

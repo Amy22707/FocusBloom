@@ -16,6 +16,7 @@ mkdir -p "$contents/MacOS" "$contents/Resources"
 dotnet publish "$repo/src/FocusBloom.Mac/FocusBloom.Mac.csproj" -c Release -r "osx-$arch" \
   --self-contained true -o "$contents/MacOS"
 mv "$contents/MacOS/FocusBloom.Mac" "$contents/MacOS/FocusBloom"
+swiftc -emit-library "$repo/scripts/macos/notify.swift" -o "$contents/MacOS/libFocusBloomNotifications.dylib"
 cat > "$contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">

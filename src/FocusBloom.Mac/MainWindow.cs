@@ -46,6 +46,7 @@ internal sealed partial class MainWindow : Window
         var shell = new Grid { ColumnDefinitions = new ColumnDefinitions("176,*") };
         shell.Children.Add(side); Grid.SetColumn(main, 1); shell.Children.Add(main); Content = shell;
         ApplyAppearance();
+        ApplyFont();
         InitializeTimer();
         Navigate(0);
     }
@@ -104,9 +105,9 @@ internal sealed partial class MainWindow : Window
         }
     }
 
-    private static TextBlock Label(string text, double size = 14, bool strong = false) => new()
+    private TextBlock Label(string text, double size = 14, bool strong = false) => new SelectableTextBlock()
     {
-        Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, FontWeight = strong ? FontWeight.SemiBold : FontWeight.Normal
+        Text = text, FontSize = size * InterfaceScale, TextWrapping = TextWrapping.Wrap, FontWeight = strong ? FontWeight.SemiBold : FontWeight.Normal
     };
     private Button Button(string label, Action action, bool primary = false) => AsyncButton(label, () => { action(); return Task.CompletedTask; }, primary);
     private Button AsyncButton(string label, Func<Task> action, bool primary = false)
@@ -140,7 +141,7 @@ internal sealed partial class MainWindow : Window
         Text = value, MinWidth = 150, AcceptsReturn = multiline, TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
         MinHeight = multiline ? 75 : 34
     };
-    private static StackPanel Field(string label, Control input) => new() { Spacing = 4, Children = { Label(label), input } };
+    private StackPanel Field(string label, Control input) => new() { Spacing = 4, Children = { Label(label), input } };
     private static ComboBox Choice(IEnumerable<string> items, int selected = 0) => new() { ItemsSource = items.ToArray(), SelectedIndex = selected, MinWidth = 140 };
     private static DatePicker DateInput(DateOnly? date) => new()
     {
