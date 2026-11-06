@@ -19,16 +19,23 @@ public sealed partial class LocalBackupService
                 if (!Equals(check.ExecuteScalar(), "ok")) throw new InvalidDataException("备份数据库不完整，无法恢复。");
                 _ = Counts(connection);
                 Directory.CreateDirectory(media); var paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); var folderPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var archiveFolders = new Dictionary<string, string>(StringComparer.Ordinal);
                 for (var index = 0; index < manifest.Folders.Count; index++)
                 {
                     var folder = manifest.Folders[index]; var name = index.ToString("D4"); Directory.CreateDirectory(Path.Combine(media, name)); folderPaths[folder.OriginalPath] = Path.Combine(destination, name);
+                    archiveFolders.Add(folder.Entry, name);
                 }
                 for (var index = 0; index < manifest.Assets.Count; index++)
                 {
                     token.ThrowIfCancellationRequested(); var asset = manifest.Assets[index]; progress?.Report(new("正在准备素材：" + Path.GetFileName(asset.OriginalPath), index, manifest.Assets.Count));
                     var entry = zip.GetEntry(asset.Entry) ?? throw new InvalidDataException("备份缺少素材：" + Path.GetFileName(asset.OriginalPath));
-                    var originalFolder = Path.GetDirectoryName(asset.OriginalPath)!; var folder = manifest.Folders.Select((item, number) => (item, number)).Single(item => item.item.OriginalPath.Equals(originalFolder, StringComparison.OrdinalIgnoreCase)).number.ToString("D4");
-                    var localName = Path.Combine(folder, Path.GetFileName(asset.OriginalPath)); var extracted = Path.Combine(media, localName);
+                    var separator = asset.Entry.LastIndexOf('/');
+                    if (separator < 0 || !archiveFolders.TryGetValue(asset.Entry[..separator], out var folder))
+                        throw new InvalidDataException("备份素材目录无效。");
+                    var name = asset.Entry[(separator + 1)..];
+                    if (name is "" or "." or ".." || name != Path.GetFileName(name))
+                        throw new InvalidDataException("备份素材文件名无效。");
+                    var localName = Path.Combine(folder, name); var extracted = Path.Combine(media, localName);
                     using (var input = entry.Open()) using (var output = File.Create(extracted)) input.CopyToAsync(output, token).GetAwaiter().GetResult();
                     if (new FileInfo(extracted).Length != asset.Bytes) throw new InvalidDataException("素材未完整读取：" + Path.GetFileName(asset.OriginalPath));
                     paths[asset.OriginalPath] = Path.Combine(destination, localName);

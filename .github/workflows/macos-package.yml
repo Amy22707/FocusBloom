@@ -1,0 +1,34 @@
+name: macOS packages
+on:
+  push:
+    branches: [codex/macos]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Build and test ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build disk image
+        run: bash scripts/macos/package.sh '${{ matrix.arch }}' '${{ runner.temp }}/focusbloom-macos'
+      - name: Mount, install, and run the app
+        run: bash scripts/macos/verify.sh '${{ runner.temp }}/focusbloom-macos/FocusBloom-macOS-${{ matrix.arch }}.dmg'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FocusBloom-macOS-${{ matrix.arch }}
+          path: ${{ runner.temp }}/focusbloom-macos/FocusBloom-macOS-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+          compression-level: 0

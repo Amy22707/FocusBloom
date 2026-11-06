@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>FocusBloom.Mac</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FocusBloom.Infrastructure/FocusBloom.Infrastructure.csproj" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <EmbeddedResource Include="../FocusBloom.Desktop/Resources/English.json" LogicalName="FocusBloom.English.json" />
+    <Content Include="../FocusBloom.Desktop/Resources/Focus/**/*" Link="Resources/Focus/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

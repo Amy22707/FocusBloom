@@ -2,11 +2,13 @@
 
 一刻专注是一款 Windows 专注与学习管理软件。把一个项目拆成待办，排进日历，从任务直接开始计时。开启严格模式后，可以按自己设置的名单限制其他软件的使用。结束后可以回看投入了多久、完成了什么，以及下次从哪里继续。
 
-Windows x64 · 离线版 · 无需注册
+Windows x64 与 macOS · 离线版 · 无需注册
 
 ![「阅读」全屏专注计时，背景为「湖畔暮色」](docs/screenshots/focus.jpg)
 
 ## 下载与运行
+
+Mac 用户可下载 Apple 芯片或 Intel 的 DMG，参见 [macOS 安装与迁移](docs/macos.md)。
 
 1. 打开 [GitHub Releases](https://github.com/Amy22707/FocusBloom/releases)，在 **Assets（资源）** 中下载 `FocusBloom-Windows-x64.msi`。
 2. 双击 MSI，按向导选择安装位置和是否创建桌面快捷方式。安装后可从开始菜单打开 FocusBloom，也可在完成页选择启动。
