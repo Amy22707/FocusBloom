@@ -8,8 +8,11 @@ namespace FocusBloom.Mac;
 internal static class Program
 {
     [STAThread]
-    public static int Main(string[] args) => AppBuilder.Configure<App>()
-        .UsePlatformDetect().LogToTrace().StartWithClassicDesktopLifetime(args);
+    public static int Main(string[] args)
+    {
+        if (args.Contains("--smoke-test")) Console.WriteLine("SMOKE: entrypoint");
+        return AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace().StartWithClassicDesktopLifetime(args);
+    }
 }
 
 internal sealed class App : Application
@@ -32,7 +35,9 @@ internal sealed class App : Application
             try
             {
                 Directory.CreateDirectory(data);
+                if (smoke) Console.WriteLine("SMOKE: creating main window");
                 var window = new MainWindow(data);
+                if (smoke) Console.WriteLine("SMOKE: main window created");
                 desktop.MainWindow = window;
                 if (OperatingSystem.IsMacOS() && !smoke)
                 {
