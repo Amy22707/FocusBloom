@@ -18,15 +18,18 @@
 
 资料目录为 `~/Library/Application Support/FocusBloom`。在 Windows 版创建 `.fbbak`，复制到 Mac 后可从「偏好设置 → 数据备份与恢复」导入。恢复前会保存当前资料。备份包含自定义背景、声音、句子和复盘照片。
 
-Mac 版的专注计时可搭配 Chrome、Edge 或 Firefox 的独立扩展限制网站。Windows 的应用限制、内置学习浏览器和桌面组件目前属于 Windows 版功能。Mac 版支持图片背景，视频背景和系统提醒目前只保留备份数据。
+## 专注限制、浏览器与桌面组件
 
-## 构建与验证
+在「偏好设置 → 严格模式规则」选择应用黑名单或白名单。开始严格专注后，切到受限应用会返回 FocusBloom，暂停期间保持限制，休息或结束后解除。Finder、系统设置等必要应用会放行。应用列表可从正在运行的应用中选择，也可选择 `.app`。
 
-在 macOS 上安装 .NET 10 SDK，按芯片传入 `arm64` 或 `x64`：
+「学习浏览器」使用 macOS 自带的 WebKit。可输入网址浏览，并在严格专注时按本次网站名单限制访问。普通 HTTPS 网站可直接使用，HTTP 站点遵循 macOS 网络安全策略。
 
-```sh
-bash scripts/macos/package.sh arm64 artifacts/macos
-bash scripts/macos/verify.sh artifacts/macos/FocusBloom-macOS-arm64.dmg
-```
+在「偏好设置 → 桌面组件」开启计时、专注时长、待办、日期事项、习惯、心情或日历。组件可调整视图、大小、透明度、背景和置顶，布局会保存。习惯组件支持翻到过去日期补打卡。
 
-`macOS packages` 工作流在两种芯片的 macOS 运行器上各自打包。验证会挂载 DMG，把 `.app` 复制到带空格的目录后启动，并测试计时门槛、事项身份和 Windows 备份恢复。两种架构均通过后才把生成的 DMG 发布到 GitHub Release。
+系统提醒需要在偏好设置中开启，并允许 macOS 通知权限。关闭主窗口后，计时和组件继续运行；可从菜单栏图标重新打开，彻底关闭请在菜单中选择「退出」。
+
+## 更新与反馈
+
+更新前先退出 FocusBloom。下载新 DMG，再把其中的应用复制到「应用程序」并选择替换，之后重新打开。资料保存在应用外的用户资料目录，更新时继续读取。
+
+遇到问题，可在 [GitHub Issues](https://github.com/Amy22707/FocusBloom/issues) 提供 macOS 版本、芯片类型、软件版本及操作步骤。

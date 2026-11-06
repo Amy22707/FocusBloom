@@ -6,13 +6,13 @@
 
 浏览器扩展 0.3.8 独立离线运行。公开安装包和附件见 [GitHub Releases](https://github.com/Amy22707/FocusBloom/releases)。本机覆盖前的备份位于被忽略的 artifacts/backups 目录。
 
-## macOS 开发状态
+## macOS 发布
 
-Mac 与 Windows 统一为 1.0.1，安装包合并到现有 v1.0.1 Release。macOS 构建在远端 codex/macos 分支触发，两个架构均通过后才能发布。工作流为 `.github/workflows/macos-package.yml`，脚本为 `scripts/macos/package.sh` 和 `verify.sh`。原生接口集中在 `Cocoa.cs`、`StudyBrowser.cs` 和 `MacNotifications.cs`，当前还需完成新增模块的 macOS 原生验证和功能对齐。
+Mac 与 Windows 使用 1.0.1，同一 v1.0.1 Release 分发 Apple 芯片和 Intel DMG。macOS 运行 42286901190 已在两种架构通过 DMG 挂载、复制安装、CLI 和 Finder 启动，以及十个页面、计时规则、计划编辑、Windows 备份、WKWebView、桌面组件和原生提醒接口验证。对应远端 Mac 提交为 ec21d8ab3271fddee11bb686747f6fe0ad69e990。
 
-应用使用共用计时规则、SQLite 与 `.fbbak`。Windows 素材路径恢复已经改为使用压缩包目录。macOS 资料位于 `~/Library/Application Support/FocusBloom`。界面测试只使用独立目录，保护日常资料。测试辅助脚本及私有数据均在被忽略的 `.tools` 和 `artifacts`，不能推送。
+Mac 资料位于 `~/Library/Application Support/FocusBloom`。系统默认字体用于首次启动，用户可在设置选择字体。原生接口位于 Cocoa、StudyBrowser、MacNotifications 和 notify.swift。构建及验证脚本位于 scripts/macos，支持 arm64 和 x64。
 
-待完成原生限制、WebKit、七种桌面组件、通知和字体回归，进一步核对 Windows 功能与 Mac 差异。最后上传 DMG 到现有 Release，并更新 README、Release 与 Amy Studio 中英文内容。下载页面向普通用户，不能把尚未验证功能写成已完成。源码中的 `docs/macos.md` 尚需随功能核对更新。
+测试及私有资料只放在被忽略的 .tools 与 artifacts 目录，不能提交。下载页应以实际功能为准，发布操作后核对 Release 和 Amy Studio 公网资源。
 
 ## 完成内容
 

@@ -151,3 +151,9 @@ docs/                        架构与开发交接
 开发环境遇到 WPF 中间资源缺失时，可执行 `dotnet build FocusBloom.sln -c Release -t:Rebuild` 重新生成。
 
 源码已公开，正式许可尚未确定；品牌、美术和第三方素材分别处理授权。
+
+## macOS 构建
+
+macOS 界面使用 Avalonia 12，与 Windows 共用 FocusBloom.Core、SQLite 和备份服务。原生桥接使用 AppKit、WKWebView、UserNotifications、ImageIO 与 AVFoundation。
+
+在 macOS 上运行 `bash scripts/macos/package.sh arm64 artifacts/macos` 生成 Apple 芯片 DMG，Intel 参数为 `x64`。使用 `bash scripts/macos/verify.sh artifacts/macos/FocusBloom-macOS-arm64.dmg` 检查复制安装和启动。`macOS packages` 工作流在两个架构独立运行这些步骤，附加参数只用于空资料目录的自动化验证。
