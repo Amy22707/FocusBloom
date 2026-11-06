@@ -54,7 +54,12 @@ internal sealed partial class MainWindow
             for (var section = 0; section <= 8; section++) Navigate(section);
         }
         await VerifyWindowsBackup();
-        Console.WriteLine("FOCUSBLOOM_SMOKE_OK: window, nine pages, timer limits, planner identity, Windows backup restored");
+        Navigate(0);
+        await Task.Delay(200);
+        await CaptureFocus();
+        if (!Directory.EnumerateFiles(Path.Combine(_data, "screenshots"), "*.png").Any())
+            throw new InvalidOperationException("Focus screenshot was not saved.");
+        Console.WriteLine("FOCUSBLOOM_SMOKE_OK: window, nine pages, timer limits, planner identity, Windows backup restored, screenshot saved");
     }
 
     private async Task VerifyWindowsBackup()

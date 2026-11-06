@@ -40,7 +40,13 @@ internal sealed partial class MainWindow
     private IEnumerable<Asset> Assets(JsonObject media, string key, IEnumerable<Asset> defaults) => defaults
         .Select(item => item with { File = Path.Combine(ResourceFolder, item.File), Name = BuiltInName(item.Name) })
         .Concat(media[key]?.Deserialize<Asset[]>(Json) ?? []);
-    private static IEnumerable<Quote> Quotes(JsonObject media) => BuiltInQuotes.Value.Concat(media["customQuotes"]?.Deserialize<Quote[]>(Json) ?? []).DistinctBy(q => q.Id);
+    private static IEnumerable<Quote> Quotes(JsonObject media)
+    {
+        var edited = (media["editedDefaultQuotes"]?.Deserialize<Quote[]>(Json) ?? []).ToDictionary(item => item.Id);
+        var removed = (media["removedQuoteIds"]?.Deserialize<string[]>(Json) ?? []).ToHashSet();
+        return BuiltInQuotes.Value.Select(item => edited.GetValueOrDefault(item.Id, item))
+            .Concat(media["customQuotes"]?.Deserialize<Quote[]>(Json) ?? []).DistinctBy(q => q.Id).Where(q => !removed.Contains(q.Id));
+    }
     private string SelectedQuote()
     {
         var media = Media();
@@ -126,8 +132,10 @@ internal sealed partial class MainWindow
     private Control MediaSettings()
     {
         var media = Media();
-        var images = new[] { new Asset("theme", T("主题纯色", "Theme color"), "") }.Concat(Assets(media, "customImages", BuiltInMedia.Value.Images)).ToArray();
-        var sounds = new[] { new Asset("", T("不播放", "No sound"), "") }.Concat(Assets(media, "customSounds", BuiltInMedia.Value.Sounds)).ToArray();
+        var removedImages = (media["removedImageIds"]?.Deserialize<string[]>(Json) ?? []).ToHashSet();
+        var removedSounds = (media["removedSoundIds"]?.Deserialize<string[]>(Json) ?? []).ToHashSet();
+        var images = new[] { new Asset("theme", T("主题纯色", "Theme color"), "") }.Concat(Assets(media, "customImages", BuiltInMedia.Value.Images).Where(a => !removedImages.Contains(a.Id))).ToArray();
+        var sounds = new[] { new Asset("", T("不播放", "No sound"), "") }.Concat(Assets(media, "customSounds", BuiltInMedia.Value.Sounds).Where(a => !removedSounds.Contains(a.Id))).ToArray();
         var quotes = new[] { new Quote("", T("默认句子", "Default quote")) }.Concat(Quotes(media)).ToArray();
         var background = Choice(images.Select(a => a.Name), Math.Max(0, Array.FindIndex(images, a => a.Id == (Value(media, "backgroundId") ?? "lake-blue-hour"))));
         var sound = Choice(sounds.Select(a => a.Name), Math.Max(0, Array.FindIndex(sounds, a => a.Id == Value(media, "soundId"))));
