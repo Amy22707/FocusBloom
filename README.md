@@ -47,10 +47,11 @@ Mac 用户可下载 Apple 芯片或 Intel 的 DMG，参见 [macOS 安装与迁�
 
 独立扩展支持 Chrome、Microsoft Edge 和 Firefox，提供正计时、倒计时和网站黑白名单。规则、记录和偏好都保存在当前浏览器，无需账号或桌面软件。
 
-- **Chrome / Edge**：从 [Releases](https://github.com/Amy22707/FocusBloom/releases/latest) 下载 `FocusBloom-chromium.zip` 并解压。打开 `chrome://extensions/` 或 `edge://extensions/`，开启开发者模式，再加载包含 `manifest.json` 的文件夹。
+- **Chrome**：打开 [Chrome 网上应用店](https://chromewebstore.google.com/detail/bainekabolmfljpcbebdgmpepmjmednn)，点击「添加至 Chrome」。
+- **Microsoft Edge**：从 [Releases](https://github.com/Amy22707/FocusBloom/releases/latest) 下载 `FocusBloom-chromium.zip` 并解压。打开 `edge://extensions/`，开启开发者模式，再加载包含 `manifest.json` 的文件夹。
 - **Firefox 140+**：下载 `FocusBloom-firefox.zip`。打开 `about:debugging#/runtime/this-firefox`，选择「临时载入附加组件」，选中 ZIP。重启 Firefox 后需重新加载。
 
-升级 Chrome 或 Edge 扩展时，将新文件解压到原目录，再在扩展管理页点击「重新加载」，即可继续使用原有记录。[功能展示与安装指南](https://amy22707.github.io/amy-studio/focusbloom/#browser-extension)
+升级手动安装的 Edge 扩展时，将新文件解压到原目录，再在扩展管理页点击「重新加载」，即可继续使用原有记录。[功能展示与安装指南](https://amy22707.github.io/amy-studio/focusbloom/#browser-extension)
 
 ## 数据、备份与更新
 
